@@ -36,6 +36,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetFooter,
+  SheetTrigger,
 } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import { getCustomers, addCustomer, deleteCustomer } from '@/lib/firestore';
