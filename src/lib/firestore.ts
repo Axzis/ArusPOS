@@ -348,13 +348,14 @@ export async function addUserToBusiness(userData: NewUser) {
 
     // First, check if a user with this email already exists in the Firestore `users` collection for this business
     const usersCollectionRef = collection(db, USERS_COLLECTION);
-    const existingUserQuery = query(usersCollectionRef, where("email", "==", userData.email), where("businessId", "==", businessId), limit(1));
+    const existingUserQuery = query(usersCollectionRef, where("email", "==", userData.email), limit(1));
     const existingUserSnapshot = await getDocs(existingUserQuery);
 
     if (!existingUserSnapshot.empty) {
-        // A user with this email already exists in Firestore for this business.
-        // We can throw a custom error or the same as Firebase Auth for consistency.
-        const error = new Error("Email address is already in use by another account.") as any;
+        // This email is already associated with a user in the users collection, regardless of business.
+        // It might not be in Firebase Auth yet, or it might be for another business.
+        // To be safe and respect unique emails, we prevent this.
+        const error = new Error("Email address is already in use by another account in the system.") as any;
         error.code = "auth/email-already-in-use";
         throw error;
     }
@@ -379,6 +380,23 @@ export async function addUserToBusiness(userData: NewUser) {
 
     return { userId: userRef.id };
 }
+
+export async function deleteUserFromBusiness(userId: string): Promise<void> {
+    const businessId = await getBusinessId();
+    if (!businessId) throw new Error("Current user is not associated with a business.");
+
+    const userDocRef = doc(db, USERS_COLLECTION, userId);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists() || userDoc.data().businessId !== businessId) {
+        throw new Error("User does not belong to this business or does not exist.");
+    }
+    
+    // Note: This only deletes the Firestore document, revoking access to the app's business logic.
+    // It does NOT delete the user from Firebase Authentication.
+    await deleteDoc(userDocRef);
+}
+
 
 
 // === Promotion Functions (Branch Specific) ===

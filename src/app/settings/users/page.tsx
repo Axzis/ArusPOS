@@ -34,17 +34,37 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle } from 'lucide-react';
-import { getUsers, addUserToBusiness } from '@/lib/firestore';
+import { MoreHorizontal, PlusCircle, Trash2 } from 'lucide-react';
+import { getUsers, addUserToBusiness, deleteUserFromBusiness } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { FirebaseError } from 'firebase/app';
+import { useAuth } from '@/contexts/auth-context';
+
 
 type User = {
     id: string;
+    uid: string;
     name: string;
     email: string;
     role: string;
@@ -58,10 +78,12 @@ const initialFormState = {
 };
 
 export default function UsersPage() {
+    const { user: currentUser } = useAuth();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [newUser, setNewUser] = useState(initialFormState);
+    const [userToDelete, setUserToDelete] = useState<User | null>(null);
     const { toast } = useToast();
 
     const fetchUsers = useCallback(async () => {
@@ -113,6 +135,20 @@ export default function UsersPage() {
                 }
             }
             toast({ title: "Error", description: description, variant: "destructive"});
+        }
+    };
+    
+    const executeDelete = async () => {
+        if (!userToDelete) return;
+        try {
+            await deleteUserFromBusiness(userToDelete.id);
+            toast({ title: "Success", description: `User ${userToDelete.name} has been removed.` });
+            fetchUsers();
+        } catch (error) {
+            console.error("Failed to delete user:", error);
+            toast({ title: "Error", description: "Could not remove the user.", variant: "destructive" });
+        } finally {
+            setUserToDelete(null);
         }
     };
 
@@ -199,9 +235,25 @@ export default function UsersPage() {
                                 <TableCell>{user.email}</TableCell>
                                 <TableCell><Badge variant="secondary">{user.role}</Badge></TableCell>
                                 <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" disabled>
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
+                                     <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" disabled={user.uid === currentUser?.uid}>
+                                                <MoreHorizontal className="h-4 w-4" />
+                                                <span className="sr-only">Toggle menu</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            <DropdownMenuItem disabled>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                onSelect={() => setUserToDelete(user)}
+                                                className="text-destructive focus:text-destructive"
+                                            >
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                Delete
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </TableCell>
                             </TableRow>
                         ))}
@@ -213,6 +265,20 @@ export default function UsersPage() {
                     </div>
                 )}
             </CardContent>
+             <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+                <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will permanently remove user "{userToDelete?.name}" from this business. This action does not delete their authentication account but will revoke their access.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={executeDelete}>Delete User</AlertDialogAction>
+                </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </Card>
     )
 }
