@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -66,6 +67,9 @@ const bottomNavItems = [
   { href: '/superadmin', icon: Shield, label: 'Super Admin' },
 ];
 
+// Define public routes that don't require authentication outside the component
+const publicRoutes = ['/login', '/quick-assessment'];
+
 type ActiveBranch = {
     id: string;
     name: string;
@@ -130,8 +134,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [activeBranch, setActiveBranch] = React.useState<ActiveBranch | null>(null);
   const [loadingBranch, setLoadingBranch] = React.useState(true);
 
-  // Define public routes that don't require authentication
-  const publicRoutes = ['/login', '/quick-assessment'];
 
   React.useEffect(() => {
      // Check authentication status
@@ -161,7 +163,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
      } finally {
         setLoadingBranch(false);
      }
-  }, [pathname, router, isLoggedIn, publicRoutes]);
+  }, [pathname, router, isLoggedIn]);
 
 
   // Set sidebar open state based on cookie
