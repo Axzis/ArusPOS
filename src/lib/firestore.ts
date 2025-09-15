@@ -16,7 +16,6 @@ import {
   deleteDoc,
   DocumentData,
   orderBy,
-  runTransaction,
   increment,
   Timestamp,
 } from 'firebase/firestore';
@@ -29,7 +28,6 @@ const BRANCHES_COLLECTION = 'branches';
 const PRODUCTS_COLLECTION = 'products';
 const CUSTOMERS_COLLECTION = 'customers';
 const TRANSACTIONS_COLLECTION = 'transactions';
-const INVENTORY_COLLECTION = 'inventory';
 const PROMOS_COLLECTION = 'promos';
 
 
@@ -55,8 +53,14 @@ async function getBusinessId(): Promise<string | null> {
     const businessQuery = query(collection(db, BUSINESSES_COLLECTION), where("isActive", "!=", false), limit(1));
     const businessSnapshot = await getDocs(businessQuery);
     if (businessSnapshot.empty) {
-        console.warn("No active business found in the database.");
-        return null;
+        // Fallback for superadmin or initial setup where no business might be "active"
+        const anyBusinessQuery = query(collection(db, BUSINESSES_COLLECTION), limit(1));
+        const anyBusinessSnapshot = await getDocs(anyBusinessQuery);
+        if (anyBusinessSnapshot.empty) {
+            console.warn("No business found in the database.");
+            return null;
+        }
+        return anyBusinessSnapshot.docs[0].id;
     }
     return businessSnapshot.docs[0].id;
 }
@@ -89,7 +93,7 @@ export async function addUserAndBusiness(data: BusinessData) {
     });
 
     // 3. Create the User document
-    const userRef = doc(collection(db, USERS_COLLECTION));
+    const userRef = doc(collection(db, USERS_COLlection));
     batch.set(userRef, {
         name: data.adminName,
         email: data.email,
@@ -247,7 +251,6 @@ export async function getTransactionsForBranch(branchId: string) {
 
     return querySnapshot.docs.map(doc => {
         const data = doc.data();
-        // Handle cases where date might be null or not a timestamp yet
         const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
         return {
             id: doc.id,
@@ -271,7 +274,7 @@ export async function addTransactionAndUpdateStock(
   const transactionRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION));
   batch.set(transactionRef, {
     ...transactionData,
-    date: serverTimestamp(), // Use server timestamp for consistency
+    date: serverTimestamp(),
   });
 
   // 2. Update stock for each item in the transaction
@@ -292,7 +295,7 @@ export async function getInventoryForBranch(branchId: string) {
         id: p.id,
         name: p.name,
         sku: p.sku,
-        stock: p.stock,
+        stock: (p as any).stock,
     }));
 }
 
@@ -351,12 +354,11 @@ export async function deletePromoFromBranch(branchId: string, promoId: string) {
 }
 
 // === Seeding Function ===
-export async function seedInitialDataForBranch(branchId: string) {
+export async function seedInitialDataForBranch(branchId: string): Promise<boolean> {
     const businessId = await getBusinessId();
     if (!businessId || !branchId) {
         throw new Error("Missing Business ID or Branch ID for seeding.");
     }
-    const batch = writeBatch(db);
 
     const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
     const customersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION);
@@ -365,8 +367,10 @@ export async function seedInitialDataForBranch(branchId: string) {
     const existingProducts = await getDocs(query(productsCollectionRef, limit(1)));
     if (!existingProducts.empty) {
         console.log("Branch already has products. Seeding aborted.");
-        throw new Error("This branch has already been seeded.");
+        return false; // Indicate that seeding was not performed
     }
+
+    const batch = writeBatch(db);
 
     const initialProducts = [
         { name: 'Espresso', sku: 'CF-ESP-01', price: 2.99, purchasePrice: 1.50, stock: 100, category: 'Coffee', unit: 'pcs' },
@@ -394,4 +398,5 @@ export async function seedInitialDataForBranch(branchId: string) {
     });
 
     await batch.commit();
+    return true; // Indicate that seeding was successful
 }

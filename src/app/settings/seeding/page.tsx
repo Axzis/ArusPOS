@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { seedInitialDataForBranch } from '@/lib/firestore';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal } from 'lucide-react';
+import { Terminal, TriangleAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function SeedingPage() {
@@ -35,18 +35,27 @@ export default function SeedingPage() {
 
         setLoading(true);
         try {
-            await seedInitialDataForBranch(activeBranchId);
-            toast({
-                title: "Database Seeded!",
-                description: "Sample products and customers have been added to your branch.",
-            });
-            // Redirect to products page to see the new data
-            router.push('/products');
+            const success = await seedInitialDataForBranch(activeBranchId);
+            if (success) {
+                toast({
+                    title: "Database Seeded!",
+                    description: "Sample products and customers have been added to your branch.",
+                });
+                // Redirect to products page to see the new data
+                router.push('/products');
+            } else {
+                 toast({
+                    title: "Seeding Skipped",
+                    description: "This branch already contains product data. No action was taken.",
+                    variant: 'default',
+                    icon: <TriangleAlert className="h-6 w-6 text-yellow-500" />,
+                });
+            }
         } catch (error: any) {
             console.error("Failed to seed database:", error);
             toast({
                 title: "Seeding Failed",
-                description: error.message || "Could not add sample data. The branch may already contain data.",
+                description: error.message || "An unexpected error occurred during seeding.",
                 variant: "destructive",
             });
         } finally {
@@ -67,7 +76,7 @@ export default function SeedingPage() {
                     <Terminal className="h-4 w-4" />
                     <AlertTitle>Heads up!</AlertTitle>
                     <AlertDescription>
-                       This action will add a predefined list of sample products and customers to your currently active branch. It will fail if the branch already contains product data to prevent duplicates.
+                       This action will add a predefined list of sample products and customers to your currently active branch. It will not run if the branch already contains product data.
                     </AlertDescription>
                 </Alert>
 
