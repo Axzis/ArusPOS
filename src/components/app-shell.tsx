@@ -16,6 +16,7 @@ import {
   ChevronsLeft,
   Maximize,
   Minimize,
+  Shield,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -59,6 +60,7 @@ const navItems = [
 
 const bottomNavItems = [
   { href: '/settings', icon: Settings, label: 'Settings' },
+  { href: '/superadmin', icon: Shield, label: 'Super Admin' },
 ];
 
 type ActiveBranch = {
@@ -132,12 +134,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         const storedBranch = localStorage.getItem('activeBranch');
         if (storedBranch) {
             setActiveBranch(JSON.parse(storedBranch));
-        } else if (!['/login', '/quick-assessment', '/select-branch'].includes(pathname)) {
+        } else if (!['/login', '/quick-assessment', '/select-branch', '/superadmin'].includes(pathname)) {
             router.replace('/select-branch');
         }
      } catch (error) {
         console.error("Could not parse active branch", error);
-         if (!['/login', '/quick-assessment', '/select-branch'].includes(pathname)) {
+         if (!['/login', '/quick-assessment', '/select-branch', '/superadmin'].includes(pathname)) {
             router.replace('/select-branch');
         }
      } finally {
@@ -167,8 +169,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (['/login', '/quick-assessment', '/select-branch'].includes(pathname)) {
       return <>{children}</>;
   }
+   
+   // Use a simpler layout for the Super Admin page
+  if (pathname === '/superadmin') {
+     return (
+        <div className="flex min-h-screen w-full flex-col bg-muted/40">
+             <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background px-4 lg:h-[60px] lg:px-6">
+                <Link
+                    href="/dashboard"
+                    className="flex items-center gap-2 font-semibold"
+                    >
+                    <Logo className="h-6 w-6" />
+                    <span>Arus POS</span>
+                </Link>
+                <div className='ml-auto'>
+                    <Button variant="outline" onClick={() => router.push('/dashboard')}>Back to App</Button>
+                </div>
+             </header>
+             <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
+                {children}
+            </main>
+        </div>
+     )
+  }
   
-  if (loadingBranch && !['/login', '/quick-assessment', '/select-branch'].includes(pathname)) {
+  if (loadingBranch && !['/login', '/quick-assessment', '/select-branch', '/superadmin'].includes(pathname)) {
       return (
           <div className="flex h-screen items-center justify-center">
               <Logo className="size-10 text-primary animate-pulse" />

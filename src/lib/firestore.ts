@@ -126,6 +126,8 @@ export async function addUserAndBusiness(data: BusinessData) {
 
 // === Get Business and its Branches ===
 export async function getBusinessWithBranches() {
+    // This is called by the main app, so we assume we want the first business
+    // for now. A multi-business login flow would change this.
     const businessQuery = query(collection(db, BUSINESSES_COLLECTION), limit(1));
     const businessSnapshot = await getDocs(businessQuery);
     
@@ -148,6 +150,14 @@ export async function getBusinessWithBranches() {
 
     return businesses;
 }
+
+// === Super Admin functions ===
+export async function getAllBusinesses() {
+    const businessQuery = query(collection(db, BUSINESSES_COLLECTION), orderBy("createdAt", "desc"));
+    const businessSnapshot = await getDocs(businessQuery);
+    return businessSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
 
 export async function updateBusiness(businessId: string, businessData: Partial<BusinessData>) {
     const businessDocRef = doc(db, BUSINESSES_COLLECTION, businessId);
