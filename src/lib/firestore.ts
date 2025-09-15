@@ -16,7 +16,7 @@ import {
   DocumentData,
   orderBy,
 } from 'firebase/firestore';
-import { products as initialProducts, customers as initialCustomers, transactions as initialTransactions, inventory } from './data';
+import { products as initialProducts, customers as initialCustomers, transactions as initialTransactions, inventory as initialInventory } from './data';
 
 const db = getFirestore(app);
 
@@ -93,10 +93,15 @@ export async function addUserAndBusiness(data: BusinessData) {
         });
     });
 
-     // 3. Create global customers
+     // 3. Create global customers and inventory
     initialCustomers.forEach(c => {
         const customerRef = doc(collection(db, `businesses/${businessRef.id}/customers`));
         batch.set(customerRef, c);
+    });
+
+    initialInventory.forEach(i => {
+        const inventoryRef = doc(collection(db, `businesses/${businessRef.id}/inventory`));
+        batch.set(inventoryRef, i);
     });
 
     // 4. Create the User document
@@ -201,18 +206,10 @@ export async function getTransactionsForBranch(branchId: string) {
 
 // === Inventory Functions (Readonly for now) ===
 export async function getInventory() {
-    const querySnapshot = await getDocs(collection(db, INVENTORY_COLLECTION));
-    const inventoryItems = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-     if (inventoryItems.length === 0) { // Seed if empty
-        const batch = writeBatch(db);
-        inventory.forEach(i => {
-            const docRef = doc(collection(db, INVENTORY_COLLECTION));
-            batch.set(docRef, i);
-        });
-        await batch.commit();
-        return await getInventory();
-    }
-    return inventoryItems;
+    const businessId = await getBusinessId();
+    const inventoryCollectionRef = collection(db, `businesses/${businessId}/inventory`);
+    const querySnapshot = await getDocs(inventoryCollectionRef);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
 
