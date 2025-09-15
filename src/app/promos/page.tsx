@@ -1,4 +1,5 @@
 
+
 "use client";
 import * as React from 'react';
 import {
@@ -60,9 +61,9 @@ import {
 import { getProductsForBranch, getPromosForBranch, addPromoToBranch, deletePromoFromBranch } from '@/lib/firestore';
 import { useBusiness } from '@/contexts/business-context';
 import { formatCurrency, cn } from '@/lib/utils';
-import { Combobox } from '@/components/ui/combobox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type Product = {
   id: string;
@@ -189,7 +190,6 @@ export default function PromosPage() {
     };
     
     const isLoading = loading || loadingBusiness;
-    const productOptions = products.map(p => ({ value: p.id, label: p.name }));
 
     return (
         <div className="flex flex-col gap-6">
@@ -213,14 +213,18 @@ export default function PromosPage() {
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="product" className="text-right">Product</Label>
                                 <div className="col-span-3">
-                                    <Combobox
-                                        options={productOptions}
-                                        value={selectedProductId}
-                                        onValueChange={setSelectedProductId}
-                                        placeholder="Select a product"
-                                        searchPlaceholder="Search products..."
-                                        emptyPlaceholder="No products found."
-                                    />
+                                   <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a product" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {products.map(product => (
+                                                <SelectItem key={product.id} value={product.id}>
+                                                    {product.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
                             </div>
                              <div className="grid grid-cols-4 items-center gap-4">
@@ -366,4 +370,5 @@ export default function PromosPage() {
             </AlertDialog>
         </div>
     );
-}
+
+    

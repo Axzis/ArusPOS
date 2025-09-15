@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -48,8 +49,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Combobox } from '@/components/ui/combobox';
 import { isWithinInterval } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 type OrderItem = {
@@ -291,8 +292,6 @@ export default function TransactionsPage() {
   const filteredProducts = productsWithPromo.filter((product) =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const customerOptions = customers.map(c => ({ value: c.id, label: c.name }));
   
   const isLoading = loading || loadingBusiness;
 
@@ -312,14 +311,19 @@ export default function TransactionsPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4">
-               <Combobox
-                options={customerOptions}
-                value={selectedCustomerId}
-                onValueChange={setSelectedCustomerId}
-                placeholder="Select a customer (optional)"
-                searchPlaceholder="Search customers..."
-                emptyPlaceholder="No customers found."
-              />
+              <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                  <SelectTrigger>
+                      <SelectValue placeholder="Select a customer (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="">Anonymous</SelectItem>
+                      {customers.map(customer => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                              {customer.name}
+                          </SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
@@ -603,4 +607,5 @@ export default function TransactionsPage() {
 
     </div>
   );
-}
+
+    
