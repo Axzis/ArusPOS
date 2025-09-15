@@ -24,9 +24,14 @@ import { Bar, BarChart, CartesianGrid, XAxis, Line, LineChart, YAxis, Tooltip } 
 import { getTransactionsForBranch, getProductsForBranch } from '@/lib/firestore';
 import { useBusiness } from '@/contexts/business-context';
 import { useToast } from '@/hooks/use-toast';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, subDays, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, getMonth, getYear, parseISO, startOfYear, endOfYear, eachMonthOfInterval } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Calendar as CalendarIcon, Download } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { DateRange } from 'react-day-picker';
 
 type Transaction = {
     id: string;
@@ -35,7 +40,7 @@ type Transaction = {
     date: string;
     status: 'Paid' | 'Refunded';
     type: 'Sale' | 'Refund';
-    items: { id: string; quantity: number; name: string }[];
+    items: { id: string; quantity: number; name: string, price: number }[];
 };
 
 type Product = {
@@ -62,6 +67,7 @@ export default function ReportsPage() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
     const { currency, loading: loadingBusiness } = useBusiness();
     const { toast } = useToast();
@@ -185,20 +191,115 @@ export default function ReportsPage() {
 
     }, [salesTransactions, products]);
 
+    const handleDownloadCsv = () => {
+        if (!dateRange || !dateRange.from || !dateRange.to) {
+            toast({
+                title: "Date Range Required",
+                description: "Please select a date range to download the report.",
+                variant: "destructive"
+            });
+            return;
+        }
+
+        const filtered = transactions.filter(t => isWithinInterval(parseISO(t.date), { start: dateRange.from!, end: dateRange.to! }));
+        
+        if (filtered.length === 0) {
+            toast({
+                title: "No Data",
+                description: "No transactions found in the selected date range.",
+            });
+            return;
+        }
+
+        const headers = ["Transaction ID", "Customer Name", "Date", "Type", "Status", "Amount", "Items"];
+        const csvContent = [
+            headers.join(','),
+            ...filtered.map(t => [
+                t.id,
+                `"${t.customerName}"`,
+                format(parseISO(t.date), "yyyy-MM-dd HH:mm:ss"),
+                t.type,
+                t.status,
+                t.amount,
+                `"${t.items.map(item => `${item.quantity}x ${item.name} @ ${formatCurrency(item.price, currency)}`).join('; ')}"`
+            ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            const from = format(dateRange.from, 'yyyy-MM-dd');
+            const to = format(dateRange.to, 'yyyy-MM-dd');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `report-${from}_to_${to}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    };
+
+
     const isLoading = loading || loadingBusiness;
 
     return (
         <div className='flex flex-col gap-6'>
-            <Tabs defaultValue="weekly" className="w-full">
-                <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex items-center justify-between md:-mx-6 md:p-6">
+            <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex-col flex gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
+                <div>
                     <h1 className="text-lg font-semibold md:text-2xl">Reports</h1>
-                    <div className="ml-auto">
-                        <TabsList>
-                            <TabsTrigger value="daily">Daily</TabsTrigger>
-                            <TabsTrigger value="weekly">Weekly</TabsTrigger>
-                            <TabsTrigger value="monthly">Monthly</TabsTrigger>
-                        </TabsList>
-                    </div>
+                    <p className="text-sm text-muted-foreground">Analyze your business performance.</p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                        <Button
+                            id="date"
+                            variant={"outline"}
+                            className={cn(
+                            "w-full sm:w-[300px] justify-start text-left font-normal",
+                            !dateRange && "text-muted-foreground"
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRange?.from ? (
+                            dateRange.to ? (
+                                <>
+                                {format(dateRange.from, "LLL dd, y")} -{" "}
+                                {format(dateRange.to, "LLL dd, y")}
+                                </>
+                            ) : (
+                                format(dateRange.from, "LLL dd, y")
+                            )
+                            ) : (
+                            <span>Pick a date range for download</span>
+                            )}
+                        </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                        <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={dateRange?.from}
+                            selected={dateRange}
+                            onSelect={setDateRange}
+                            numberOfMonths={2}
+                        />
+                        </PopoverContent>
+                    </Popover>
+                    <Button onClick={handleDownloadCsv} disabled={!dateRange || !dateRange.from}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Download Report (CSV)
+                    </Button>
+                </div>
+            </div>
+            <Tabs defaultValue="weekly" className="w-full">
+                <div className="flex justify-end">
+                    <TabsList>
+                        <TabsTrigger value="daily">Daily</TabsTrigger>
+                        <TabsTrigger value="weekly">Weekly</TabsTrigger>
+                        <TabsTrigger value="monthly">Monthly</TabsTrigger>
+                    </TabsList>
                 </div>
                 <TabsContent value="daily" className="mt-6">
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -303,3 +404,5 @@ export default function ReportsPage() {
         </div>
     );
 }
+
+      

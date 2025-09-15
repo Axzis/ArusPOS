@@ -1,4 +1,5 @@
 
+
 import { auth, db } from './firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import {
@@ -121,8 +122,6 @@ export async function addUserAndBusiness(data: BusinessData) {
 export async function getBusinessWithBranches() {
     const businessId = await getBusinessId();
     if (!businessId) {
-        // This can happen if the user is authenticated but their user doc/business is not found
-        // Or if they are not authenticated at all. The UI should handle this.
         return [];
     }
 
@@ -340,11 +339,14 @@ export async function getPromosForBranch(branchId: string) {
 
     return querySnapshot.docs.map(doc => {
         const data = doc.data();
+        const startDate = data.startDate;
+        const endDate = data.endDate;
+
         return {
             id: doc.id,
             ...data,
-            startDate: data.startDate?.toDate ? data.startDate.toDate().toISOString() : new Date().toISOString(),
-            endDate: data.endDate?.toDate ? data.endDate.toDate().toISOString() : new Date().toISOString(),
+            startDate: startDate instanceof Timestamp ? startDate.toDate().toISOString() : startDate,
+            endDate: endDate instanceof Timestamp ? endDate.toDate().toISOString() : endDate,
         }
     });
 }
@@ -460,3 +462,5 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
+
+      
