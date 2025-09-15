@@ -14,8 +14,9 @@ import {
   updateDoc,
   deleteDoc,
   DocumentData,
+  orderBy,
 } from 'firebase/firestore';
-import { products as initialProducts, customers, transactions, inventory } from './data';
+import { products as initialProducts, customers as initialCustomers, transactions as initialTransactions, inventory } from './data';
 
 const db = getFirestore(app);
 
@@ -39,6 +40,23 @@ type BusinessData = {
         phone: string;
     }[];
 }
+
+// Helper to get the first (and only) business ID.
+// This is a simplification for the current single-business model.
+let businessIdCache: string | null = null;
+async function getBusinessId(): Promise<string> {
+    if (businessIdCache) {
+        return businessIdCache;
+    }
+    const businessQuery = query(collection(db, BUSINESSES_COLLECTION), limit(1));
+    const businessSnapshot = await getDocs(businessQuery);
+    if (businessSnapshot.empty) {
+        throw new Error("No business found in the database.");
+    }
+    businessIdCache = businessSnapshot.docs[0].id;
+    return businessIdCache;
+}
+
 
 // === New Business and User Registration ===
 export async function addUserAndBusiness(data: BusinessData) {
@@ -67,21 +85,32 @@ export async function addUserAndBusiness(data: BusinessData) {
             const productRef = doc(collection(db, `businesses/${businessRef.id}/branches/${branchRef.id}/products`));
             batch.set(productRef, product);
         });
+
+        // Seed initial transactions for this new branch
+        initialTransactions.forEach(t => {
+            const transactionRef = doc(collection(db, `businesses/${businessRef.id}/branches/${branchRef.id}/transactions`));
+            batch.set(transactionRef, {...t, date: new Date(t.date)});
+        });
     });
 
-    // 3. Create the User document
+     // 3. Create global customers
+    initialCustomers.forEach(c => {
+        const customerRef = doc(collection(db, `businesses/${businessRef.id}/customers`));
+        batch.set(customerRef, c);
+    });
+
+    // 4. Create the User document
     const userRef = doc(collection(db, USERS_COLLECTION));
     batch.set(userRef, {
         name: data.adminName,
         email: data.email,
         role: 'Admin',
         businessId: businessRef.id,
-        // In a real app, assign user to all branches initially or a specific one
-        assignedBranches: data.branches.map((_, index) => ({ branchId: `GENERATED_ID_${index}`, role: 'Admin' })),
         createdAt: serverTimestamp(),
     });
 
     await batch.commit();
+    businessIdCache = businessRef.id; // Cache the new business ID
     return { userId: userRef.id, businessId: businessRef.id };
 }
 
@@ -97,11 +126,15 @@ export async function getBusinessWithBranches() {
     const businesses = await Promise.all(businessSnapshot.docs.map(async (businessDoc) => {
         const business = { id: businessDoc.id, ...businessDoc.data() };
         const branchesCollectionRef = collection(db, `businesses/${business.id}/branches`);
-        const branchesQuery = query(branchesCollectionRef, where("isActive", "==", true));
+        const branchesQuery = query(branchesCollectionRef);
         const branchesSnapshot = await getDocs(branchesQuery);
         const branches = branchesSnapshot.docs.map(branchDoc => ({ id: branchDoc.id, ...branchDoc.data() }));
         return { ...business, branches };
     }));
+
+    if (businesses.length > 0) {
+        businessIdCache = businesses[0].id;
+    }
 
     return businesses;
 }
@@ -109,15 +142,14 @@ export async function getBusinessWithBranches() {
 
 // === Product Functions (Branch Specific) ===
 export async function getProductsForBranch(branchId: string) {
-    const businessId = (await getBusinessWithBranches())[0].id; // Assuming single business for now
+    const businessId = await getBusinessId();
     const productsCollectionRef = collection(db, `businesses/${businessId}/branches/${branchId}/products`);
     const querySnapshot = await getDocs(productsCollectionRef);
-    const products = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    return products;
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
 export async function addProductToBranch(branchId: string, productData: Omit<DocumentData, 'id'>) {
-    const businessId = (await getBusinessWithBranches())[0].id;
+    const businessId = await getBusinessId();
     const productsCollectionRef = collection(db, `businesses/${businessId}/branches/${branchId}/products`);
     return await addDoc(productsCollectionRef, {
         ...productData,
@@ -126,7 +158,7 @@ export async function addProductToBranch(branchId: string, productData: Omit<Doc
 }
 
 export async function updateProductInBranch(branchId: string, productId: string, productData: Partial<DocumentData>) {
-    const businessId = (await getBusinessWithBranches())[0].id;
+    const businessId = await getBusinessId();
     const productDocRef = doc(db, `businesses/${businessId}/branches/${branchId}/products`, productId);
     return await updateDoc(productDocRef, {
         ...productData,
@@ -135,49 +167,36 @@ export async function updateProductInBranch(branchId: string, productId: string,
 }
 
 export async function deleteProductFromBranch(branchId: string, productId: string) {
-    const businessId = (await getBusinessWithBranches())[0].id;
+    const businessId = await getBusinessId();
     const productDocRef = doc(db, `businesses/${businessId}/branches/${branchId}/products`, productId);
     return await deleteDoc(productDocRef);
 }
 
 
-// === Customer Functions (Global for now, can be branch specific) ===
+// === Customer Functions (Global for the business) ===
 export async function getCustomers() {
-    const querySnapshot = await getDocs(collection(db, CUSTOMERS_COLLECTION));
-    const customers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    if (customers.length === 0) { // Seed if empty
-        const batch = writeBatch(db);
-        customers.forEach(c => {
-            const docRef = doc(collection(db, CUSTOMERS_COLLECTION));
-            batch.set(docRef, c);
-        });
-        await batch.commit();
-        return await getCustomers();
-    }
-    return customers;
+    const businessId = await getBusinessId();
+    const customersCollectionRef = collection(db, `businesses/${businessId}/customers`);
+    const querySnapshot = await getDocs(customersCollectionRef);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
 // === Transaction Functions (Branch Specific) ===
-export async function getTransactions() {
-    const querySnapshot = await getDocs(collection(db, TRANSACTIONS_COLLECTION));
-    const transactions = querySnapshot.docs.map(doc => {
+export async function getTransactionsForBranch(branchId: string) {
+    const businessId = await getBusinessId();
+    const transactionsCollectionRef = collection(db, `businesses/${businessId}/branches/${branchId}/transactions`);
+    const q = query(transactionsCollectionRef, orderBy("date", "desc"));
+    const querySnapshot = await getDocs(q);
+
+    return querySnapshot.docs.map(doc => {
         const data = doc.data();
         return {
             id: doc.id,
             ...data,
-            date: data.date.toDate().toISOString(),
+            // Ensure date is a string for client-side rendering
+            date: data.date.toDate().toISOString(), 
         }
     });
-     if (transactions.length === 0) { // Seed if empty
-        const batch = writeBatch(db);
-        transactions.forEach(t => {
-            const docRef = doc(collection(db, TRANSACTIONS_COLLECTION));
-            batch.set(docRef, {...t, date: new Date(t.date)});
-        });
-        await batch.commit();
-        return await getTransactions();
-    }
-    return transactions;
 }
 
 // === Inventory Functions (Readonly for now) ===
@@ -204,7 +223,7 @@ export async function getUsers() {
 }
 
 
-// === Generic Getters (Used for legacy data) ===
+// === Generic Getters (Used for legacy data if needed) ===
 export async function getProducts() {
   const querySnapshot = await getDocs(collection(db, PRODUCTS_COLLECTION));
   const products = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -218,4 +237,26 @@ export async function getProducts() {
         return await getProducts();
     }
   return products;
+}
+
+export async function getTransactions() {
+    const querySnapshot = await getDocs(collection(db, TRANSACTIONS_COLLECTION));
+    const transactions = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            date: data.date.toDate().toISOString(),
+        }
+    });
+     if (transactions.length === 0) { // Seed if empty
+        const batch = writeBatch(db);
+        initialTransactions.forEach(t => {
+            const docRef = doc(collection(db, TRANSACTIONS_COLLECTION));
+            batch.set(docRef, {...t, date: new Date(t.date)});
+        });
+        await batch.commit();
+        return await getTransactions();
+    }
+    return transactions;
 }

@@ -29,8 +29,9 @@ import {
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
 import { salesData } from '@/lib/data';
-import { getTransactions } from '@/lib/firestore';
+import { getTransactionsForBranch, getCustomers } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 const chartConfig = {
   sales: {
@@ -48,22 +49,61 @@ type Transaction = {
     type: 'Sale' | 'Refund';
 }
 
+type Customer = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  totalSpent: number;
+  avatar: string;
+};
+
+
 export default function DashboardPage() {
     const [transactions, setTransactions] = React.useState<Transaction[]>([]);
+    const [customers, setCustomers] = React.useState<Customer[]>([]);
     const [loading, setLoading] = React.useState(true);
+    const [activeBranchId, setActiveBranchId] = React.useState<string | null>(null);
+    const { toast } = useToast();
+
+     React.useEffect(() => {
+        const storedBranch = localStorage.getItem('activeBranch');
+        if (storedBranch) {
+            const branch = JSON.parse(storedBranch);
+            setActiveBranchId(branch.id);
+        }
+    }, []);
 
     React.useEffect(() => {
+        if (!activeBranchId) return;
+
         async function loadData() {
-            const transactionsData = await getTransactions();
-            setTransactions(transactionsData as Transaction[]);
-            setLoading(false);
+            setLoading(true);
+            try {
+                const [transactionsData, customersData] = await Promise.all([
+                    getTransactionsForBranch(activeBranchId),
+                    getCustomers()
+                ]);
+                setTransactions(transactionsData as Transaction[]);
+                setCustomers(customersData as Customer[]);
+            } catch (error) {
+                console.error("Failed to load dashboard data:", error);
+                toast({
+                    title: "Error",
+                    description: "Could not fetch dashboard data.",
+                    variant: "destructive"
+                });
+            } finally {
+                setLoading(false);
+            }
         }
         loadData();
-    }, []);
+    }, [activeBranchId, toast]);
 
   const totalRevenue = transactions
     .filter((t) => t.type === 'Sale')
     .reduce((sum, t) => sum + t.amount, 0);
+  
   const salesToday = transactions
     .filter(
       (t) =>
@@ -71,6 +111,10 @@ export default function DashboardPage() {
         t.type === 'Sale'
     )
     .reduce((sum, t) => sum + t.amount, 0);
+
+  const newCustomersThisMonth = customers.length; // Simplified for now
+  const totalCustomers = customers.length;
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -83,7 +127,7 @@ export default function DashboardPage() {
           <CardContent>
             {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">${totalRevenue.toLocaleString()}</div>}
             <p className="text-xs text-muted-foreground">
-              +20.1% from last month
+              Total revenue for this branch
             </p>
           </CardContent>
         </Card>
@@ -95,7 +139,7 @@ export default function DashboardPage() {
           <CardContent>
             {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">+${salesToday.toLocaleString()}</div>}
             <p className="text-xs text-muted-foreground">
-              +180.1% from last day
+              Sales today for this branch
             </p>
           </CardContent>
         </Card>
@@ -105,7 +149,7 @@ export default function DashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+12</div>
+            {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">+{newCustomersThisMonth}</div>}
             <p className="text-xs text-muted-foreground">
               +15% from last month
             </p>
@@ -113,13 +157,13 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Now</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+573</div>
+            {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">{totalCustomers}</div>}
             <p className="text-xs text-muted-foreground">
-              +201 since last hour
+              Total customers overall
             </p>
           </CardContent>
         </Card>
@@ -155,7 +199,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Recent Transactions</CardTitle>
             <CardDescription>
-              A list of the most recent transactions.
+              A list of the most recent transactions for this branch.
             </CardDescription>
           </CardHeader>
           <CardContent>
