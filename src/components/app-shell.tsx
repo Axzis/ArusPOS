@@ -1,4 +1,3 @@
-
 "use client";
 
 import * as React from 'react';
@@ -49,6 +48,7 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from './ui/skeleton';
 import { BusinessProvider } from '@/contexts/business-context';
+import { useAuth } from '@/contexts/auth-context';
 
 
 const navItems = [
@@ -125,30 +125,44 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isMobile = useIsMobile();
+  const { isLoggedIn, logout } = useAuth();
+  
   const [activeBranch, setActiveBranch] = React.useState<ActiveBranch | null>(null);
   const [loadingBranch, setLoadingBranch] = React.useState(true);
 
+  // Define public routes that don't require authentication
+  const publicRoutes = ['/login', '/quick-assessment'];
+
   React.useEffect(() => {
+     // Check authentication status
+    if (!isLoggedIn && !publicRoutes.includes(pathname)) {
+      router.replace('/login');
+      return; // Stop further execution in this effect
+    }
+    
      // localStorage is only available in the browser.
      if (typeof window === 'undefined') {
       return;
     }
+
      try {
         const storedBranch = localStorage.getItem('activeBranch');
         if (storedBranch) {
             setActiveBranch(JSON.parse(storedBranch));
-        } else if (!['/login', '/quick-assessment', '/select-branch', '/superadmin'].includes(pathname)) {
+        } else if (isLoggedIn && !['/select-branch', '/superadmin', ...publicRoutes].includes(pathname)) {
+            // If logged in but no branch selected, redirect to select one
             router.replace('/select-branch');
         }
      } catch (error) {
         console.error("Could not parse active branch", error);
-         if (!['/login', '/quick-assessment', '/select-branch', '/superadmin'].includes(pathname)) {
+         if (isLoggedIn && !['/select-branch', '/superadmin', ...publicRoutes].includes(pathname)) {
             router.replace('/select-branch');
         }
      } finally {
         setLoadingBranch(false);
      }
-  }, [pathname, router]);
+  }, [pathname, router, isLoggedIn, publicRoutes]);
+
 
   // Set sidebar open state based on cookie
   const [open, setOpen] = React.useState(() => {
@@ -160,7 +174,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   });
 
   const handleLogout = () => {
-    localStorage.removeItem('activeBranch');
+    logout(); // Clear auth state
+    localStorage.removeItem('activeBranch'); // Clear branch state
     router.push('/login');
   };
 
@@ -168,13 +183,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     router.push('/select-branch');
   }
 
-  // Don't render the shell for auth/setup pages
-  if (['/login', '/quick-assessment', '/select-branch'].includes(pathname)) {
+  // Don't render the shell for public pages
+  if (publicRoutes.includes(pathname)) {
       return <>{children}</>;
   }
+
+  if (!isLoggedIn) {
+     return (
+          <div className="flex h-screen items-center justify-center">
+              <Logo className="size-10 text-primary animate-pulse" />
+          </div>
+      )
+  }
    
-   // Use a simpler layout for the Super Admin page
-  if (pathname.startsWith('/superadmin')) {
+   // Use a simpler layout for the Super Admin and branch selection page
+  if (pathname.startsWith('/superadmin') || pathname === '/select-branch') {
      return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
              <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background px-4 lg:h-[60px] lg:px-6 z-30">
@@ -185,18 +208,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <Logo className="h-6 w-6" />
                     <span>Arus POS</span>
                 </Link>
-                <div className='ml-auto'>
-                    <Button variant="outline" onClick={() => router.push('/dashboard')}>Back to App</Button>
+                 <div className="ml-auto flex items-center gap-4">
+                  {pathname !== '/select-branch' && <Button variant="outline" onClick={() => router.push('/dashboard')}>Back to App</Button>}
+                  <Button variant="secondary" onClick={handleLogout}><LogOut className='mr-2' /> Logout</Button>
                 </div>
              </header>
-             <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
+             <main className="flex flex-1 flex-col items-center justify-center gap-4 p-4 lg:gap-6 lg:p-6">
                 {children}
             </main>
         </div>
      )
   }
   
-  if (loadingBranch && !['/login', '/quick-assessment', '/select-branch', '/superadmin'].includes(pathname)) {
+  if (loadingBranch) {
       return (
           <div className="flex h-screen items-center justify-center">
               <Logo className="size-10 text-primary animate-pulse" />

@@ -14,15 +14,16 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/icons';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     // Simulate successful login
-    // In a real app, you would validate credentials here
-    console.log('Simulating successful login...');
+    login();
     router.push('/select-branch');
   };
 

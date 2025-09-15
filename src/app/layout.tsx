@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import AppShell from '@/components/app-shell';
+import { AuthProvider } from '@/contexts/auth-context';
 
 export const metadata: Metadata = {
   title: 'Arus POS',
@@ -24,8 +25,9 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        {/* Wrap children in AppShell to provide context and layout */}
-        <AppShell>{children}</AppShell>
+        <AuthProvider>
+          <AppShell>{children}</AppShell>
+        </AuthProvider>
         <Toaster />
       </body>
     </html>
