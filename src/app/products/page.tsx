@@ -149,6 +149,11 @@ export default function ProductsPage() {
         setEditingProduct(null);
         setIsSheetOpen(true);
     };
+    
+    const closeSheet = () => {
+        setIsSheetOpen(false);
+        setEditingProduct(null);
+    }
 
     const filteredProducts = products.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -166,7 +171,10 @@ export default function ProductsPage() {
               Add Product
             </Button>
           </SheetTrigger>
-          <SheetContent onInteractOutside={(e) => e.preventDefault()}>
+          <SheetContent onInteractOutside={(e) => {
+              e.preventDefault();
+              closeSheet();
+          }}>
             <form onSubmit={handleFormSubmit}>
               <SheetHeader>
                 <SheetTitle>{editingProduct ? 'Edit Product' : 'Add Product'}</SheetTitle>
@@ -205,9 +213,7 @@ export default function ProductsPage() {
                 </div>
               </div>
               <SheetFooter>
-                <SheetClose asChild>
-                    <Button type="button" variant="outline" onClick={() => setEditingProduct(null)}>Cancel</Button>
-                </SheetClose>
+                <Button type="button" variant="outline" onClick={closeSheet}>Cancel</Button>
                 <Button type="submit">Save changes</Button>
               </SheetFooter>
             </form>
@@ -283,7 +289,7 @@ export default function ProductsPage() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={() => openSheetForEdit(product)}>Edit</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDeleteProduct(product.id)} className="text-destructive focus:text-destructive">
-                            <Trash2 className='mr-2' /> Delete
+                            <Trash2 className='mr-2 h-4 w-4' /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
