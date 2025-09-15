@@ -93,7 +93,7 @@ export async function addUserAndBusiness(data: BusinessData) {
     });
 
     // 3. Create the User document
-    const userRef = doc(collection(db, USERS_COLlection));
+    const userRef = doc(collection(db, USERS_COLLECTION));
     batch.set(userRef, {
         name: data.adminName,
         email: data.email,
@@ -328,8 +328,8 @@ export async function getPromosForBranch(branchId: string) {
         return {
             id: doc.id,
             ...data,
-            startDate: data.startDate.toDate().toISOString(),
-            endDate: data.endDate.toDate().toISOString(),
+            startDate: data.startDate?.toDate().toISOString() ?? new Date().toISOString(),
+            endDate: data.endDate?.toDate().toISOString() ?? new Date().toISOString(),
         }
     });
 }
@@ -353,7 +353,48 @@ export async function deletePromoFromBranch(branchId: string, promoId: string) {
     return await deleteDoc(promoDocRef);
 }
 
-// === Seeding Function ===
+// === Seeding & Reset Functions ===
+
+async function deleteCollection(collectionPath: string) {
+    const collectionRef = collection(db, collectionPath);
+    const q = query(collectionRef);
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+        return; // Nothing to delete
+    }
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+}
+
+
+export async function resetBranchData(branchId: string): Promise<void> {
+    const businessId = await getBusinessId();
+    if (!businessId || !branchId) {
+        throw new Error("Missing Business ID or Branch ID for reset.");
+    }
+    
+    // Define paths for collections to be deleted
+    const productsPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PRODUCTS_COLLECTION}`;
+    const transactionsPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${TRANSACTIONS_COLLECTION}`;
+    const promosPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PROMOS_COLLECTION}`;
+
+    // Note: Customers are global to the business, so we do not delete them when resetting a branch.
+
+    // Execute deletions in parallel
+    await Promise.all([
+        deleteCollection(productsPath),
+        deleteCollection(transactionsPath),
+        deleteCollection(promosPath),
+    ]);
+}
+
+
 export async function seedInitialDataForBranch(branchId: string): Promise<boolean> {
     const businessId = await getBusinessId();
     if (!businessId || !branchId) {
@@ -386,16 +427,20 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
         batch.set(docRef, { ...product, createdAt: serverTimestamp() });
     });
     
-    const initialCustomers = [
-        { name: 'Liam Johnson', email: 'liam@example.com', phone: '555-0101', totalSpent: 0, avatar: 'https://picsum.photos/seed/1/40/40' },
-        { name: 'Olivia Smith', email: 'olivia@example.com', phone: '555-0102', totalSpent: 0, avatar: 'https://picsum.photos/seed/2/40/40' },
-        { name: 'Noah Williams', email: 'noah@example.com', phone: '555-0103', totalSpent: 0, avatar: 'https://picsum.photos/seed/3/40/40' },
-    ];
-    
-    initialCustomers.forEach(customer => {
-        const docRef = doc(customersCollectionRef);
-        batch.set(docRef, { ...customer, createdAt: serverTimestamp() });
-    });
+    // Check if customers collection is empty before seeding
+    const existingCustomers = await getDocs(query(customersCollectionRef, limit(1)));
+    if (existingCustomers.empty) {
+        const initialCustomers = [
+            { name: 'Liam Johnson', email: 'liam@example.com', phone: '555-0101', totalSpent: 0, avatar: 'https://picsum.photos/seed/1/40/40' },
+            { name: 'Olivia Smith', email: 'olivia@example.com', phone: '555-0102', totalSpent: 0, avatar: 'https://picsum.photos/seed/2/40/40' },
+            { name: 'Noah Williams', email: 'noah@example.com', phone: '555-0103', totalSpent: 0, avatar: 'https://picsum.photos/seed/3/40/40' },
+        ];
+        
+        initialCustomers.forEach(customer => {
+            const docRef = doc(customersCollectionRef);
+            batch.set(docRef, { ...customer, createdAt: serverTimestamp() });
+        });
+    }
 
     await batch.commit();
     return true; // Indicate that seeding was successful
