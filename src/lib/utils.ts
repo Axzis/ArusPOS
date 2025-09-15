@@ -5,13 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number, currency = 'USD') {
+export function formatCurrency(amount: number, currency = 'USD', notation: "standard" | "compact" = "standard") {
   const isWholeNumber = amount % 1 === 0;
 
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency,
-    minimumFractionDigits: isWholeNumber ? 0 : 2,
-    maximumFractionDigits: isWholeNumber ? 0 : 2,
+    minimumFractionDigits: isWholeNumber && notation !== 'compact' ? 0 : 2,
+    maximumFractionDigits: isWholeNumber && notation !== 'compact' ? 0 : 2,
+    notation: notation,
   }).format(amount);
 }
