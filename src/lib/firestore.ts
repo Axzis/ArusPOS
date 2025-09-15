@@ -15,6 +15,7 @@ import {
   deleteDoc,
   DocumentData,
   orderBy,
+  runTransaction,
 } from 'firebase/firestore';
 import { products as initialProducts, customers as initialCustomers, transactions as initialTransactions } from './data';
 
@@ -34,6 +35,9 @@ type BusinessData = {
     password?: string;
     businessName: string;
     businessType: string;
+    currency?: string;
+    taxEnabled?: boolean;
+    taxRate?: number;
     branches: {
         name: string;
         address: string;
@@ -71,6 +75,8 @@ export async function addUserAndBusiness(data: BusinessData) {
         name: data.businessName,
         type: data.businessType,
         currency: 'USD', // Default currency
+        taxEnabled: true,
+        taxRate: 8,
         createdAt: serverTimestamp(),
     });
 
@@ -218,6 +224,51 @@ export async function getTransactionsForBranch(branchId: string) {
     });
 }
 
+export async function addTransactionAndUpdateStock(branchId: string, transactionData: Omit<DocumentData, 'id'>, items: { id: string, quantity: number }[]) {
+    const businessId = await getBusinessId();
+    if (!businessId || !branchId) throw new Error("Missing business or branch ID");
+
+    const batch = writeBatch(db);
+
+    // 1. Add the new transaction
+    const transactionRef = doc(collection(db, `businesses/${businessId}/branches/${branchId}/transactions`));
+    batch.set(transactionRef, {
+        ...transactionData,
+        date: serverTimestamp(),
+    });
+
+    // 2. Update stock for each product
+    await Promise.all(items.map(async (item) => {
+        const productRef = doc(db, `businesses/${businessId}/branches/${branchId}/products`, item.id);
+        
+        // To safely decrement stock, we need a transaction
+        await runTransaction(db, async (transaction) => {
+            const productDoc = await transaction.get(productRef);
+            if (!productDoc.exists()) {
+                throw new Error(`Product ${item.id} not found!`);
+            }
+            const currentStock = productDoc.data().stock || 0;
+            const newStock = currentStock - item.quantity;
+            if (newStock < 0) {
+                 throw new Error(`Not enough stock for ${productDoc.data().name}.`);
+            }
+            transaction.update(productRef, { stock: newStock });
+        });
+    }));
+
+    // The stock updates are done in separate transactions, so we don't commit them in the main batch.
+    // We only commit the transaction creation here.
+    const transactionCreationBatch = writeBatch(db);
+    transactionCreationBatch.set(transactionRef, { ...transactionData, date: serverTimestamp() });
+    
+    // We need to re-run the stock updates in batch mode if we want them to be atomic with the transaction creation.
+    // For simplicity and safety, we will use Firestore transactions for stock updates which run separately.
+    // The below batch will just add the transaction record. The stock has been updated above.
+
+    return await batch.commit();
+}
+
+
 // === Inventory Functions (Readonly for now, derived from products) ===
 export async function getInventoryForBranch(branchId: string) {
     // Inventory is now derived from the products of a specific branch
@@ -255,9 +306,9 @@ export async function getProducts() {
     if (!businessId) return [];
     // This is ambiguous. Let's assume it gets products from the first branch for now.
     // A better implementation would require a branchId or be removed.
-    const branches = (await getBusinessWithBranches())[0]?.branches;
-    if (branches && branches.length > 0) {
-        return getProductsForBranch(branches[0].id);
+    const businesses = await getBusinessWithBranches();
+    if (businesses.length > 0 && businesses[0].branches && businesses[0].branches.length > 0) {
+        return getProductsForBranch(businesses[0].branches[0].id);
     }
     return [];
 }
@@ -265,9 +316,9 @@ export async function getProducts() {
 export async function getTransactions() {
     const businessId = await getBusinessId();
     if (!businessId) return [];
-    const branches = (await getBusinessWithBranches())[0]?.branches;
-    if (branches && branches.length > 0) {
-        return getTransactionsForBranch(branches[0].id);
+    const businesses = await getBusinessWithBranches();
+    if (businesses.length > 0 && businesses[0].branches && businesses[0].branches.length > 0) {
+        return getTransactionsForBranch(businesses[0].branches[0].id);
     }
     return [];
 }

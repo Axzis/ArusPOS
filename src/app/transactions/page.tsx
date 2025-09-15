@@ -33,24 +33,38 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { getTransactions, getProducts, getCustomers } from '@/lib/firestore';
+import { getProductsForBranch, getCustomers, getTransactionsForBranch, addTransactionAndUpdateStock } from '@/lib/firestore';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBusiness } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
+
 
 type OrderItem = {
   id: string;
   name: string;
   price: number;
   quantity: number;
+  stock: number;
 };
 
 type Product = {
   id: string;
   name: string;
   price: number;
+  stock: number;
 };
 
 type Customer = {
@@ -75,40 +89,67 @@ export default function TransactionsPage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const { currency, taxEnabled, taxRate, loading: loadingBusiness } = useBusiness();
+  const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
+  const { toast } = useToast();
 
 
   useEffect(() => {
-    async function loadData() {
-        setLoading(true);
+    const storedBranch = localStorage.getItem('activeBranch');
+    if (storedBranch) {
+        const branch = JSON.parse(storedBranch);
+        setActiveBranchId(branch.id);
+    }
+  }, []);
+
+  const fetchData = React.useCallback(async () => {
+    if (!activeBranchId) return;
+    setLoading(true);
+    try {
         const [transactionsData, productsData, customersData] = await Promise.all([
-            getTransactions(),
-            getProducts(),
+            getTransactionsForBranch(activeBranchId),
+            getProductsForBranch(activeBranchId),
             getCustomers(),
         ]);
         setTransactions(transactionsData as Transaction[]);
         setAllProducts(productsData as Product[]);
         setCustomers(customersData as Customer[]);
+    } catch (error) {
+        console.error("Failed to load transaction page data:", error);
+        toast({ title: "Error", description: "Could not load data for transactions.", variant: "destructive" });
+    } finally {
         setLoading(false);
     }
-    loadData();
-  }, []);
+}, [activeBranchId, toast]);
+
+  useEffect(() => {
+    if (activeBranchId) {
+        fetchData();
+    }
+  }, [activeBranchId, fetchData]);
 
 
-  const addToOrder = (product: {
-    id: string;
-    name: string;
-    price: number;
-  }) => {
+  const addToOrder = (product: Product) => {
     setOrderItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
       if (existingItem) {
+          if (existingItem.quantity >= existingItem.stock) {
+              toast({ title: "Stock limit reached", description: `Cannot add more ${product.name}.`, variant: "destructive" });
+              return prevItems;
+          }
         return prevItems.map((item) =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
+       if (product.stock < 1) {
+            toast({ title: "Out of Stock", description: `${product.name} is out of stock.`, variant: "destructive" });
+            return prevItems;
+        }
       return [...prevItems, { ...product, quantity: 1 }];
     });
   };
@@ -121,7 +162,36 @@ export default function TransactionsPage() {
 
   const clearOrder = () => {
     setOrderItems([]);
+    setSelectedCustomer(null);
   };
+
+  const handleChargePayment = async () => {
+      if (!activeBranchId || orderItems.length === 0) return;
+      
+      setIsProcessing(true);
+      try {
+          const transactionData = {
+              customerName: selectedCustomer?.name || 'Anonymous',
+              amount: total,
+              status: 'Paid' as 'Paid' | 'Refunded',
+              type: 'Sale' as 'Sale' | 'Refund',
+              items: orderItems.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price })),
+          };
+
+          await addTransactionAndUpdateStock(activeBranchId, transactionData, orderItems);
+          
+          toast({ title: "Transaction Successful", description: `Payment of ${formatCurrency(total, currency)} charged.` });
+          clearOrder();
+          fetchData(); // Refresh recent transactions
+      } catch (error) {
+          console.error("Failed to charge payment:", error);
+          toast({ title: "Error", description: "Could not process the payment.", variant: "destructive" });
+      } finally {
+          setIsProcessing(false);
+          setIsConfirming(false);
+      }
+  };
+
 
   const subtotal = orderItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -149,7 +219,10 @@ export default function TransactionsPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4">
-              <Select>
+              <Select onValueChange={(value) => {
+                  const cust = customers.find(c => c.id === value);
+                  setSelectedCustomer(cust || null);
+              }} value={selectedCustomer?.id || ""}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a customer (optional)" />
                 </SelectTrigger>
@@ -228,10 +301,12 @@ export default function TransactionsPage() {
             </div>
           </CardContent>
           <CardFooter className="justify-between gap-2">
-            <Button variant="outline" onClick={clearOrder}>
+            <Button variant="outline" onClick={clearOrder} disabled={isProcessing}>
               <X className="mr-2 h-4 w-4" /> Clear Order
             </Button>
-            <Button disabled={orderItems.length === 0}>Charge Payment</Button>
+            <Button disabled={orderItems.length === 0 || isProcessing} onClick={() => setIsConfirming(true)}>
+                {isProcessing ? 'Processing...' : 'Charge Payment'}
+            </Button>
           </CardFooter>
         </Card>
         <Card>
@@ -276,6 +351,7 @@ export default function TransactionsPage() {
                       size="icon"
                       variant="ghost"
                       onClick={() => addToOrder(product)}
+                      disabled={product.stock < 1}
                     >
                       <PlusCircle className="h-5 w-5" />
                     </Button>
@@ -352,6 +428,24 @@ export default function TransactionsPage() {
           </Table>
         </CardContent>
       </Card>
+      
+       <AlertDialog open={isConfirming} onOpenChange={setIsConfirming}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Confirm Payment</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Are you sure you want to charge {formatCurrency(total, currency)}? This will complete the transaction and update stock levels.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleChargePayment} disabled={isProcessing}>
+                        {isProcessing ? 'Processing...' : 'Confirm'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
     </div>
   );
 }
