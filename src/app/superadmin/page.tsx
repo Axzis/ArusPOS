@@ -5,6 +5,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -25,6 +26,16 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -32,15 +43,26 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
-import { getAllBusinesses, addUserAndBusiness } from '@/lib/firestore';
+import { getAllBusinesses, updateBusiness } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import CreateBusinessForm from './_components/create-business-form';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+
+type Branch = {
+    id: string;
+    name: string;
+    address: string;
+    phone: string;
+}
 
 type Business = {
     id: string;
     name: string;
     type: string;
+    isActive: boolean;
+    branches: Branch[];
     createdAt: {
         toDate: () => Date;
     }
@@ -50,6 +72,9 @@ export default function SuperAdminPage() {
     const [businesses, setBusinesses] = useState<Business[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
+    const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
+    const [isDeactivateAlertOpen, setIsDeactivateAlertOpen] = useState(false);
+    const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
     const { toast } = useToast();
 
     const fetchBusinesses = async () => {
@@ -73,6 +98,34 @@ export default function SuperAdminPage() {
         setIsSheetOpen(false);
         fetchBusinesses();
     }
+    
+    const handleViewDetails = (business: Business) => {
+        setSelectedBusiness(business);
+        setIsDetailSheetOpen(true);
+    }
+    
+    const handleDeactivateClick = (business: Business) => {
+        setSelectedBusiness(business);
+        setIsDeactivateAlertOpen(true);
+    }
+    
+    const executeDeactivation = async () => {
+        if (!selectedBusiness) return;
+        
+        try {
+            const newStatus = !(selectedBusiness.isActive !== false);
+            await updateBusiness(selectedBusiness.id, { isActive: newStatus });
+            toast({ title: "Success", description: `Business ${selectedBusiness.name} has been ${newStatus ? 'activated' : 'deactivated'}.` });
+            fetchBusinesses(); // Refresh list
+        } catch (error) {
+            console.error("Failed to update business status:", error);
+            toast({ title: "Error", description: "Could not update business status.", variant: "destructive" });
+        } finally {
+            setIsDeactivateAlertOpen(false);
+            setSelectedBusiness(null);
+        }
+    }
+
 
     return (
         <div className="flex flex-col gap-6">
@@ -110,6 +163,7 @@ export default function SuperAdminPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Business Name</TableHead>
+                                <TableHead>Status</TableHead>
                                 <TableHead>Business Type</TableHead>
                                 <TableHead>Created At</TableHead>
                                 <TableHead><span className="sr-only">Actions</span></TableHead>
@@ -120,6 +174,7 @@ export default function SuperAdminPage() {
                                 Array.from({length: 3}).map((_, i) => (
                                     <TableRow key={i}>
                                         <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                                         <TableCell><Skeleton className="h-5 w-40" /></TableCell>
                                         <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
@@ -128,6 +183,11 @@ export default function SuperAdminPage() {
                             ) : businesses.map(business => (
                                 <TableRow key={business.id}>
                                     <TableCell className="font-medium">{business.name}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={business.isActive !== false ? 'default' : 'outline'}>
+                                            {business.isActive !== false ? 'Active' : 'Inactive'}
+                                        </Badge>
+                                    </TableCell>
                                     <TableCell>{business.type}</TableCell>
                                     <TableCell>{business.createdAt?.toDate().toLocaleDateString()}</TableCell>
                                     <TableCell className="text-right">
@@ -140,8 +200,13 @@ export default function SuperAdminPage() {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                <DropdownMenuItem>View Details</DropdownMenuItem>
-                                                <DropdownMenuItem className="text-destructive focus:text-destructive">Deactivate</DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => handleViewDetails(business)}>View Details</DropdownMenuItem>
+                                                <DropdownMenuItem 
+                                                    onSelect={() => handleDeactivateClick(business)}
+                                                    className="text-destructive focus:text-destructive"
+                                                >
+                                                    {business.isActive !== false ? 'Deactivate' : 'Activate'}
+                                                </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -151,6 +216,51 @@ export default function SuperAdminPage() {
                     </Table>
                 </CardContent>
             </Card>
+
+            {/* View Details Sheet */}
+            <Sheet open={isDetailSheetOpen} onOpenChange={setIsDetailSheetOpen}>
+                <SheetContent>
+                    <SheetHeader>
+                        <SheetTitle>{selectedBusiness?.name}</SheetTitle>
+                        <SheetDescription>
+                            Type: {selectedBusiness?.type}
+                        </SheetDescription>
+                    </SheetHeader>
+                    <div className="py-4">
+                        <h4 className="mb-4 text-lg font-semibold">Branches</h4>
+                        <div className="space-y-4">
+                            {selectedBusiness?.branches?.map(branch => (
+                                <Card key={branch.id}>
+                                    <CardHeader>
+                                        <CardTitle className="text-base">{branch.name}</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="text-sm text-muted-foreground">
+                                        <p>{branch.address}</p>
+                                        <p>{branch.phone}</p>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                             { !selectedBusiness?.branches?.length && <p className="text-sm text-muted-foreground">No branches found for this business.</p>}
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
+            
+            {/* Deactivation Alert */}
+            <AlertDialog open={isDeactivateAlertOpen} onOpenChange={setIsDeactivateAlertOpen}>
+                <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will {selectedBusiness?.isActive !== false ? 'deactivate' : 'activate'} the business "{selectedBusiness?.name}". They may lose access temporarily.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={executeDeactivation}>Confirm</AlertDialogAction>
+                </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }

@@ -39,6 +39,7 @@ type BusinessData = {
     currency?: string;
     taxEnabled?: boolean;
     taxRate?: number;
+    isActive?: boolean;
     branches: {
         name: string;
         address: string;
@@ -78,6 +79,7 @@ export async function addUserAndBusiness(data: BusinessData) {
         currency: 'USD', // Default currency
         taxEnabled: true,
         taxRate: 8,
+        isActive: true,
         createdAt: serverTimestamp(),
     });
 
@@ -155,7 +157,17 @@ export async function getBusinessWithBranches() {
 export async function getAllBusinesses() {
     const businessQuery = query(collection(db, BUSINESSES_COLLECTION), orderBy("createdAt", "desc"));
     const businessSnapshot = await getDocs(businessQuery);
-    return businessSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    const businesses = await Promise.all(businessSnapshot.docs.map(async (businessDoc) => {
+        const business = { id: businessDoc.id, ...businessDoc.data() };
+        const branchesCollectionRef = collection(db, `businesses/${business.id}/branches`);
+        const branchesQuery = query(branchesCollectionRef);
+        const branchesSnapshot = await getDocs(branchesQuery);
+        const branches = branchesSnapshot.docs.map(branchDoc => ({ id: branchDoc.id, ...branchDoc.data() }));
+        return { ...business, branches };
+    }));
+
+    return businesses;
 }
 
 
