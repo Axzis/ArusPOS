@@ -17,6 +17,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { getBusinessWithBranches } from '@/lib/firestore';
@@ -39,7 +46,11 @@ export default function BranchesPage() {
             try {
                 const businessData = await getBusinessWithBranches();
                 if (businessData.length > 0) {
-                    setBranches(businessData[0].branches as Branch[]);
+                    const mappedBranches = businessData[0].branches.map((b: any) => ({
+                        ...b,
+                        isActive: b.isActive !== false, // Default to true if undefined
+                    })) as Branch[];
+                    setBranches(mappedBranches);
                 }
             } catch (error) {
                 console.error("Failed to fetch branches", error);
@@ -92,14 +103,26 @@ export default function BranchesPage() {
                                 <TableCell>{branch.address}</TableCell>
                                 <TableCell>{branch.phone}</TableCell>
                                 <TableCell>
-                                    <Badge variant={branch.isActive ? 'default' : 'destructive'}>
+                                    <Badge variant={branch.isActive ? 'default' : 'outline'}>
                                         {branch.isActive ? 'Active' : 'Inactive'}
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                             <Button variant="ghost" size="icon">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                                <span className="sr-only">Toggle menu</span>
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            <DropdownMenuItem>Edit</DropdownMenuItem>
+                                            <DropdownMenuItem>
+                                                {branch.isActive ? 'Deactivate' : 'Activate'}
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </TableCell>
                             </TableRow>
                         ))}
