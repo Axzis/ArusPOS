@@ -37,12 +37,12 @@ import {
   SheetTitle,
   SheetTrigger,
   SheetFooter,
-  SheetClose
 } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
-import { getCustomers } from '@/lib/firestore';
+import { getCustomers, addCustomer } from '@/lib/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 type Customer = {
   id: string;
@@ -53,21 +53,60 @@ type Customer = {
   avatar: string;
 };
 
+const initialCustomerState = {
+    name: '',
+    email: '',
+    phone: ''
+};
 
 export default function CustomersPage() {
   const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [isSheetOpen, setIsSheetOpen] = React.useState(false);
+  const [newCustomer, setNewCustomer] = React.useState(initialCustomerState);
+  const { toast } = useToast();
+
+  const fetchCustomers = React.useCallback(async () => {
+    setLoading(true);
+    try {
+        const customersData = await getCustomers();
+        setCustomers(customersData as Customer[]);
+    } catch (error) {
+        console.error("Failed to fetch customers:", error);
+        toast({ title: "Error", description: "Could not fetch customers.", variant: "destructive" });
+    } finally {
+        setLoading(false);
+    }
+  }, [toast]);
 
   React.useEffect(() => {
-    async function fetchCustomers() {
-      const customersData = await getCustomers();
-      setCustomers(customersData as Customer[]);
-      setLoading(false);
-    }
     fetchCustomers();
-  }, []);
+  }, [fetchCustomers]);
   
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const { id, value } = e.target;
+      setNewCustomer(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleSaveCustomer = async () => {
+    if (!newCustomer.name || !newCustomer.email) {
+        toast({ title: "Validation Error", description: "Name and email are required.", variant: "destructive"});
+        return;
+    }
+
+    try {
+        await addCustomer(newCustomer);
+        toast({ title: "Success", description: "New customer has been added." });
+        setIsSheetOpen(false);
+        setNewCustomer(initialCustomerState);
+        fetchCustomers(); // Refresh the list
+    } catch (error) {
+        console.error("Failed to save customer:", error);
+        toast({ title: "Error", description: "Could not save the new customer.", variant: "destructive"});
+    }
+  };
+
   const filteredCustomers = customers.filter(customer => 
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -77,9 +116,9 @@ export default function CustomersPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">Customers</h1>
-        <Sheet>
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetTrigger asChild>
-            <Button size="sm" className="ml-auto gap-1">
+            <Button size="sm" className="ml-auto gap-1" onClick={() => setIsSheetOpen(true)}>
               <PlusCircle className="h-4 w-4" />
               Add Customer
             </Button>
@@ -96,25 +135,24 @@ export default function CustomersPage() {
                 <Label htmlFor="name" className="text-right">
                   Name
                 </Label>
-                <Input id="name" placeholder="John Doe" className="col-span-3" />
+                <Input id="name" placeholder="John Doe" value={newCustomer.name} onChange={handleInputChange} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="email" className="text-right">
                   Email
                 </Label>
-                <Input id="email" type="email" placeholder="john@example.com" className="col-span-3" />
+                <Input id="email" type="email" placeholder="john@example.com" value={newCustomer.email} onChange={handleInputChange} className="col-span-3" />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="phone" className="text-right">
                   Phone
                 </Label>
-                <Input id="phone" placeholder="555-0199" className="col-span-3" />
+                <Input id="phone" placeholder="555-0199" value={newCustomer.phone} onChange={handleInputChange} className="col-span-3" />
               </div>
             </div>
             <SheetFooter>
-                <SheetClose asChild>
-                    <Button type="submit">Save customer</Button>
-                </SheetClose>
+                <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>Cancel</Button>
+                <Button type="submit" onClick={handleSaveCustomer}>Save customer</Button>
             </SheetFooter>
           </SheetContent>
         </Sheet>
@@ -174,7 +212,7 @@ export default function CustomersPage() {
                   </TableCell>
                   <TableCell>{customer.email}</TableCell>
                   <TableCell>{customer.phone}</TableCell>
-                  <TableCell>${customer.totalSpent.toFixed(2)}</TableCell>
+                  <TableCell>{formatCurrency(customer.totalSpent)}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

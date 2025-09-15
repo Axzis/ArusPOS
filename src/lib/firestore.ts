@@ -18,6 +18,7 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import { products as initialProducts, customers as initialCustomers, transactions as initialTransactions } from './data';
+import { formatCurrency } from './utils';
 
 const db = getFirestore(app);
 
@@ -204,6 +205,21 @@ export async function getCustomers() {
         return []; // Return empty array if no business/customers found
     }
 }
+
+export async function addCustomer(customerData: { name: string, email: string, phone: string }) {
+    const businessId = await getBusinessId();
+    if (!businessId) throw new Error("No business ID found to add customer to.");
+    
+    const customersCollectionRef = collection(db, `businesses/${businessId}/customers`);
+    const newCustomer = {
+        ...customerData,
+        totalSpent: 0,
+        avatar: `https://picsum.photos/seed/${Math.random()}/40/40`,
+        createdAt: serverTimestamp(),
+    };
+    return await addDoc(customersCollectionRef, newCustomer);
+}
+
 
 // === Transaction Functions (Branch Specific) ===
 export async function getTransactionsForBranch(branchId: string) {
