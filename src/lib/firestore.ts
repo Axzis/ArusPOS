@@ -247,10 +247,12 @@ export async function getTransactionsForBranch(branchId: string) {
 
     return querySnapshot.docs.map(doc => {
         const data = doc.data();
+        // Handle cases where date might be null or not a timestamp yet
+        const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
         return {
             id: doc.id,
             ...data,
-            date: data.date.toDate().toISOString(), 
+            date: date,
         }
     });
 }
@@ -265,17 +267,20 @@ export async function addTransactionAndUpdateStock(
 
   const batch = writeBatch(db);
 
+  // 1. Add the transaction document
   const transactionRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION));
   batch.set(transactionRef, {
     ...transactionData,
-    date: serverTimestamp(),
+    date: serverTimestamp(), // Use server timestamp for consistency
   });
 
+  // 2. Update stock for each item in the transaction
   for (const item of items) {
     const productRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, item.id);
     batch.update(productRef, { stock: increment(-item.quantity) });
   }
   
+  // 3. Commit all writes at once
   await batch.commit();
 }
 
@@ -343,4 +348,50 @@ export async function deletePromoFromBranch(branchId: string, promoId: string) {
     if (!businessId) throw new Error("No business ID found");
     const promoDocRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PROMOS_COLLECTION, promoId);
     return await deleteDoc(promoDocRef);
+}
+
+// === Seeding Function ===
+export async function seedInitialDataForBranch(branchId: string) {
+    const businessId = await getBusinessId();
+    if (!businessId || !branchId) {
+        throw new Error("Missing Business ID or Branch ID for seeding.");
+    }
+    const batch = writeBatch(db);
+
+    const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
+    const customersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION);
+
+    // Check if products already exist to prevent re-seeding
+    const existingProducts = await getDocs(query(productsCollectionRef, limit(1)));
+    if (!existingProducts.empty) {
+        console.log("Branch already has products. Seeding aborted.");
+        throw new Error("This branch has already been seeded.");
+    }
+
+    const initialProducts = [
+        { name: 'Espresso', sku: 'CF-ESP-01', price: 2.99, purchasePrice: 1.50, stock: 100, category: 'Coffee', unit: 'pcs' },
+        { name: 'Latte', sku: 'CF-LAT-01', price: 4.50, purchasePrice: 2.50, stock: 75, category: 'Coffee', unit: 'pcs' },
+        { name: 'Croissant', sku: 'PS-CRO-01', price: 3.25, purchasePrice: 1.75, stock: 50, category: 'Pastry', unit: 'pcs' },
+        { name: 'Iced Tea', sku: 'BV-TEA-01', price: 3.00, purchasePrice: 1.20, stock: 80, category: 'Beverage', unit: 'pcs' },
+        { name: 'Blueberry Muffin', sku: 'PS-MUF-01', price: 3.50, purchasePrice: 2.00, stock: 40, category: 'Pastry', unit: 'pcs' },
+        { name: 'Sandwich', sku: 'FD-SAN-01', price: 8.99, purchasePrice: 5.50, stock: 20, category: 'Food', unit: 'pcs' },
+    ];
+
+    initialProducts.forEach(product => {
+        const docRef = doc(productsCollectionRef);
+        batch.set(docRef, { ...product, createdAt: serverTimestamp() });
+    });
+    
+    const initialCustomers = [
+        { name: 'Liam Johnson', email: 'liam@example.com', phone: '555-0101', totalSpent: 0, avatar: 'https://picsum.photos/seed/1/40/40' },
+        { name: 'Olivia Smith', email: 'olivia@example.com', phone: '555-0102', totalSpent: 0, avatar: 'https://picsum.photos/seed/2/40/40' },
+        { name: 'Noah Williams', email: 'noah@example.com', phone: '555-0103', totalSpent: 0, avatar: 'https://picsum.photos/seed/3/40/40' },
+    ];
+    
+    initialCustomers.forEach(customer => {
+        const docRef = doc(customersCollectionRef);
+        batch.set(docRef, { ...customer, createdAt: serverTimestamp() });
+    });
+
+    await batch.commit();
 }
