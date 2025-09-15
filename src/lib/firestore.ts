@@ -144,6 +144,14 @@ export async function getBusinessWithBranches() {
     return businesses;
 }
 
+export async function updateBusiness(businessId: string, businessData: Partial<BusinessData>) {
+    const businessDocRef = doc(db, BUSINESSES_COLLECTION, businessId);
+    return await updateDoc(businessDocRef, {
+        ...businessData,
+        updatedAt: serverTimestamp()
+    });
+}
+
 
 // === Product Functions (Branch Specific) ===
 export async function getProductsForBranch(branchId: string) {
@@ -180,10 +188,15 @@ export async function deleteProductFromBranch(branchId: string, productId: strin
 
 // === Customer Functions (Global for the business) ===
 export async function getCustomers() {
-    const businessId = await getBusinessId();
-    const customersCollectionRef = collection(db, `businesses/${businessId}/customers`);
-    const querySnapshot = await getDocs(customersCollectionRef);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    try {
+        const businessId = await getBusinessId();
+        const customersCollectionRef = collection(db, `businesses/${businessId}/customers`);
+        const querySnapshot = await getDocs(customersCollectionRef);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+        console.warn("Could not fetch customers, maybe none are created yet.", error);
+        return []; // Return empty array if no business/customers found
+    }
 }
 
 // === Transaction Functions (Branch Specific) ===
@@ -206,10 +219,15 @@ export async function getTransactionsForBranch(branchId: string) {
 
 // === Inventory Functions (Readonly for now) ===
 export async function getInventory() {
-    const businessId = await getBusinessId();
-    const inventoryCollectionRef = collection(db, `businesses/${businessId}/inventory`);
-    const querySnapshot = await getDocs(inventoryCollectionRef);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    try {
+        const businessId = await getBusinessId();
+        const inventoryCollectionRef = collection(db, `businesses/${businessId}/inventory`);
+        const querySnapshot = await getDocs(inventoryCollectionRef);
+        return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch(error) {
+        console.warn("Could not fetch inventory, maybe none is created yet.", error);
+        return []; // Return empty array if no business/inventory found
+    }
 }
 
 
