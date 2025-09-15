@@ -94,6 +94,8 @@ export default function PromosPage() {
     const [selectedProductId, setSelectedProductId] = React.useState('');
     const [promoPrice, setPromoPrice] = React.useState('');
     const [dateRange, setDateRange] = React.useState<DateRange | undefined>();
+    const [isCalendarOpen, setIsCalendarOpen] = React.useState(false);
+
 
     React.useEffect(() => {
         const storedBranch = localStorage.getItem('activeBranch');
@@ -191,6 +193,10 @@ export default function PromosPage() {
     
     const isLoading = loading || loadingBusiness;
 
+    const selectedProduct = React.useMemo(() => {
+        return products.find(p => p.id === selectedProductId);
+    }, [selectedProductId, products]);
+
     return (
         <div className="flex flex-col gap-6">
             <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex items-center justify-between md:-mx-6 md:p-6">
@@ -228,13 +234,20 @@ export default function PromosPage() {
                                 </div>
                             </div>
                              <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="promo-price" className="text-right">Promo Price</Label>
+                                <div className="text-right">
+                                    <Label htmlFor="promo-price">Promo Price</Label>
+                                    {selectedProduct && (
+                                        <p className="text-xs text-muted-foreground">
+                                            (Original: {formatCurrency(selectedProduct.price, currency)})
+                                        </p>
+                                    )}
+                                </div>
                                 <Input id="promo-price" type="number" value={promoPrice} onChange={(e) => setPromoPrice(e.target.value)} className="col-span-3" />
                             </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label className="text-right">Date Range</Label>
                                 <div className="col-span-3">
-                                    <Popover>
+                                    <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                                         <PopoverTrigger asChild>
                                         <Button
                                             id="date"
@@ -265,7 +278,12 @@ export default function PromosPage() {
                                             mode="range"
                                             defaultMonth={dateRange?.from}
                                             selected={dateRange}
-                                            onSelect={setDateRange}
+                                            onSelect={(range) => {
+                                                setDateRange(range);
+                                                if (range?.from && range?.to) {
+                                                    setIsCalendarOpen(false);
+                                                }
+                                            }}
                                             numberOfMonths={2}
                                         />
                                         </PopoverContent>
@@ -371,4 +389,6 @@ export default function PromosPage() {
         </div>
     );
 
+    
+}
     
