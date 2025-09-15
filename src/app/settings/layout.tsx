@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 
 const settingsNav = [
-  { href: '/settings', label: 'Profile' },
+  { href: '/settings', label: 'Business' },
   { href: '/settings/branches', label: 'Branches' },
   { href: '/settings/users', label: 'Users & Roles' },
+  { href: '/settings/profile', label: 'My Profile' },
   { href: '/settings/scanner', label: 'Barcode Scanner' },
   { href: '/settings/seeding', label: 'Seeding' },
 ];

@@ -36,7 +36,7 @@ type Business = {
     branches: any[];
 }
 
-export default function SettingsProfilePage() {
+export default function SettingsBusinessPage() {
     const [business, setBusiness] = useState<Business | null>(null);
     const [formData, setFormData] = useState({ 
         name: '', 

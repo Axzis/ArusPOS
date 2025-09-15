@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { auth, db } from '@/lib/firebase';
-import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, AuthError } from 'firebase/auth';
+import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, AuthError } from 'firebase/auth';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 
@@ -17,6 +17,8 @@ type AuthContextType = {
     loading: boolean;
     login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
+    sendPasswordReset: (email: string) => Promise<void>;
+    updateUserPassword: (newPassword: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -69,7 +71,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await signOut(auth);
     };
 
-    const value = { user, loading, login, logout };
+    const sendPasswordReset = async (email: string) => {
+        await sendPasswordResetEmail(auth, email);
+    }
+    
+    const updateUserPassword = async (newPassword: string) => {
+        if (!auth.currentUser) {
+            throw new Error("No user is currently signed in.");
+        }
+        try {
+            await updatePassword(auth.currentUser, newPassword);
+            // After a successful password update, it's good practice
+            // to sign the user out for security reasons.
+            await logout();
+        } catch (error) {
+            // Re-throw the error to be handled by the calling component
+            throw error;
+        }
+    };
+
+
+    const value = { user, loading, login, logout, sendPasswordReset, updateUserPassword };
 
     // While checking user state, show a loader
     if (loading) {
