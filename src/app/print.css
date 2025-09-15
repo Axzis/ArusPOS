@@ -1,14 +1,11 @@
 
 @media print {
-  body * {
+  body.printing > *:not(.print-invoice) {
     visibility: hidden;
   }
 
-  .print-invoice, .print-invoice * {
+  body.printing .print-invoice {
     visibility: visible;
-  }
-
-  .print-invoice {
     position: absolute;
     left: 0;
     top: 0;
@@ -24,5 +21,3 @@
     margin: 0.5in;
   }
 }
-
-    

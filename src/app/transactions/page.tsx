@@ -100,12 +100,11 @@ const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
 
 
 const PrintableInvoice = React.forwardRef<HTMLDivElement, { transaction: Transaction | null, currency: string }>(({ transaction, currency }, ref) => {
-    if (!transaction) return null;
-
-    const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const subtotal = transaction?.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) ?? 0;
     
     return (
-        <div ref={ref} className="print-invoice">
+        <div ref={ref} className="print-invoice hidden">
+            {transaction && (
             <Card>
                 <CardHeader className='text-center'>
                     <CardTitle>Invoice</CardTitle>
@@ -165,6 +164,7 @@ const PrintableInvoice = React.forwardRef<HTMLDivElement, { transaction: Transac
                     <p>Arus POS</p>
                 </CardFooter>
             </Card>
+            )}
         </div>
     );
 });
@@ -362,18 +362,13 @@ export default function TransactionsPage() {
 
   const handlePrintInvoice = (transaction: Transaction) => {
     setTransactionToPrint(transaction);
+    setTimeout(() => {
+        document.body.classList.add('printing');
+        window.print();
+        document.body.classList.remove('printing');
+        setTransactionToPrint(null);
+    }, 100);
   };
-
-  useEffect(() => {
-    if (transactionToPrint) {
-        // Wait for state to update the DOM, then print
-        const timer = setTimeout(() => {
-            window.print();
-            setTransactionToPrint(null); // Reset after printing
-        }, 100); // A small delay is often necessary
-        return () => clearTimeout(timer);
-    }
-  }, [transactionToPrint]);
 
 
   const generateWhatsAppMessage = (transaction: Transaction, customerPhone: string) => {
