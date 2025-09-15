@@ -39,11 +39,22 @@ import {
   SheetFooter,
 } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
-import { getCustomers, addCustomer } from '@/lib/firestore';
+import { getCustomers, addCustomer, deleteCustomer } from '@/lib/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 
 type Customer = {
   id: string;
@@ -66,6 +77,7 @@ export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
   const [newCustomer, setNewCustomer] = React.useState(initialCustomerState);
+  const [customerToDelete, setCustomerToDelete] = React.useState<Customer | null>(null);
   const { toast } = useToast();
 
   const fetchCustomers = React.useCallback(async () => {
@@ -107,6 +119,26 @@ export default function CustomersPage() {
         toast({ title: "Error", description: "Could not save the new customer.", variant: "destructive"});
     }
   };
+  
+  const handleDeleteClick = (customer: Customer) => {
+    setCustomerToDelete(customer);
+  };
+  
+  const executeDelete = async () => {
+    if (!customerToDelete) return;
+    
+    try {
+      await deleteCustomer(customerToDelete.id);
+      toast({ title: "Success", description: `Customer ${customerToDelete.name} has been deleted.` });
+      fetchCustomers(); // Refresh the list
+    } catch (error) {
+       console.error("Failed to delete customer:", error);
+       toast({ title: "Error", description: "Could not delete the customer.", variant: "destructive"});
+    } finally {
+      setCustomerToDelete(null); // Close the dialog
+    }
+  };
+
 
   const filteredCustomers = customers.filter(customer => 
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -230,7 +262,12 @@ export default function CustomersPage() {
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem>Edit</DropdownMenuItem>
                         <DropdownMenuItem>View History</DropdownMenuItem>
-                        <DropdownMenuItem className='text-destructive focus:text-destructive'>Delete</DropdownMenuItem>
+                        <DropdownMenuItem
+                            onSelect={() => handleDeleteClick(customer)}
+                            className='text-destructive focus:text-destructive'
+                          >
+                            Delete
+                          </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -240,6 +277,22 @@ export default function CustomersPage() {
           </Table>
         </CardContent>
       </Card>
+      
+      <AlertDialog open={!!customerToDelete} onOpenChange={(open) => !open && setCustomerToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the customer "{customerToDelete?.name}". This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={executeDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

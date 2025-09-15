@@ -220,6 +220,13 @@ export async function addCustomer(customerData: { name: string, email: string, p
     return await addDoc(customersCollectionRef, newCustomer);
 }
 
+export async function deleteCustomer(customerId: string) {
+    const businessId = await getBusinessId();
+    if (!businessId) throw new Error("No business ID found to delete customer from.");
+    const customerDocRef = doc(db, `businesses/${businessId}/customers`, customerId);
+    return await deleteDoc(customerDocRef);
+}
+
 
 // === Transaction Functions (Branch Specific) ===
 export async function getTransactionsForBranch(branchId: string) {
