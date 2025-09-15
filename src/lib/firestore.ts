@@ -80,7 +80,7 @@ export async function addUserAndBusiness(data: BusinessData) {
         createdAt: serverTimestamp(),
     });
 
-    // 2. Create Branch documents and initial data for each branch
+    // 2. Create Branch documents 
     data.branches.forEach(branchData => {
         const branchRef = doc(collection(db, `businesses/${businessRef.id}/branches`));
         batch.set(branchRef, {
@@ -88,27 +88,9 @@ export async function addUserAndBusiness(data: BusinessData) {
             isActive: true,
             createdAt: serverTimestamp(),
         });
-        
-        // Seed initial products for this new branch
-        initialProducts.forEach(product => {
-            const productRef = doc(collection(db, `businesses/${businessRef.id}/branches/${branchRef.id}/products`));
-            batch.set(productRef, product);
-        });
-
-        // Seed initial transactions for this new branch
-        initialTransactions.forEach(t => {
-            const transactionRef = doc(collection(db, `businesses/${businessRef.id}/branches/${branchRef.id}/transactions`));
-            batch.set(transactionRef, {...t, date: new Date(t.date)});
-        });
     });
 
-     // 3. Create global customers
-    initialCustomers.forEach(c => {
-        const customerRef = doc(collection(db, `businesses/${businessRef.id}/customers`));
-        batch.set(customerRef, c);
-    });
-
-    // 4. Create the User document
+    // 3. Create the User document
     const userRef = doc(collection(db, USERS_COLLECTION));
     batch.set(userRef, {
         name: data.adminName,
@@ -287,22 +269,24 @@ export async function addTransactionAndUpdateStock(
   const businessId = await getBusinessId();
   if (!businessId || !branchId) throw new Error("Missing business or branch ID");
 
+  const batch = writeBatch(db);
+
+  // 1. Add the new transaction document
   const transactionRef = doc(collection(db, `businesses/${businessId}/branches/${branchId}/transactions`));
-
-  await runTransaction(db, async (transaction) => {
-    // 1. Add the new transaction document
-    transaction.set(transactionRef, {
-      ...transactionData,
-      date: serverTimestamp(), // Use server timestamp for consistency
-    });
-
-    // 2. Update stock for each product
-    for (const item of items) {
-      const productRef = doc(db, `businesses/${businessId}/branches/${branchId}/products`, item.id);
-      // Decrement stock by the quantity sold.
-      transaction.update(productRef, { stock: increment(-item.quantity) });
-    }
+  batch.set(transactionRef, {
+    ...transactionData,
+    date: serverTimestamp(), // Use server timestamp for consistency
   });
+
+  // 2. Update stock for each product in the same batch
+  for (const item of items) {
+    const productRef = doc(db, `businesses/${businessId}/branches/${branchId}/products`, item.id);
+    // Decrement stock by the quantity sold.
+    batch.update(productRef, { stock: increment(-item.quantity) });
+  }
+  
+  // 3. Commit the batch
+  await batch.commit();
 }
 
 
