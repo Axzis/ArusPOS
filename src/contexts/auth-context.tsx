@@ -2,12 +2,18 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, AuthError } from 'firebase/auth';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 
+// Extend the User type to include our custom role
+export type AppUser = User & {
+    role?: string;
+};
+
 type AuthContextType = {
-    user: User | null;
+    user: AppUser | null;
     loading: boolean;
     login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
@@ -16,12 +22,33 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
+    const [user, setUser] = useState<AppUser | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setUser(user);
+        const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
+            if (userAuth) {
+                // User is signed in, let's get their custom role from Firestore.
+                const usersRef = collection(db, "users");
+                const q = query(usersRef, where("uid", "==", userAuth.uid));
+                const querySnapshot = await getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    const userDoc = querySnapshot.docs[0].data();
+                    setUser({
+                        ...userAuth,
+                        role: userDoc.role, // Add role to the user object
+                    });
+                } else {
+                    // No user document found, but they are authenticated.
+                    // This could be a superadmin or an edge case.
+                    // For now, treat them as a user without a specific role.
+                    setUser(userAuth);
+                }
+            } else {
+                // User is signed out
+                setUser(null);
+            }
             setLoading(false);
         });
 

@@ -52,7 +52,7 @@ import { BusinessProvider } from '@/contexts/business-context';
 import { useAuth } from '@/contexts/auth-context';
 
 
-const navItems = [
+const allNavItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/transactions', icon: Receipt, label: 'Transactions' },
   { href: '/products', icon: Package, label: 'Products' },
@@ -61,6 +61,12 @@ const navItems = [
   { href: '/customers', icon: Users, label: 'Customers' },
   { href: '/reports', icon: BarChart, label: 'Reports' },
 ];
+
+const staffNavItems = [
+  { href: '/transactions', icon: Receipt, label: 'Transactions' },
+  { href: '/customers', icon: Users, label: 'Customers' },
+];
+
 
 const bottomNavItems = [
   { href: '/settings', icon: Settings, label: 'Settings' },
@@ -131,6 +137,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   
   const [activeBranch, setActiveBranch] = React.useState<ActiveBranch | null>(null);
   const [loadingBranch, setLoadingBranch] = React.useState(true);
+  
+  const isSuperAdmin = user && !user.role; // SuperAdmins might not have a role field
+  const isAdmin = user?.role === 'Admin';
+  const navItems = isAdmin || isSuperAdmin ? allNavItems : staffNavItems;
+  const showBottomNav = isAdmin || isSuperAdmin;
 
 
   React.useEffect(() => {
@@ -278,7 +289,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </SidebarContent>
           <SidebarFooter>
             <SidebarMenu>
-              {bottomNavItems.map((item) => (
+              {showBottomNav && bottomNavItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <Link href={item.href}>
                     <SidebarMenuButton
@@ -322,7 +333,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSwitchBranch}>Switch Branch</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push('/settings')}>Settings</DropdownMenuItem>
+                  {showBottomNav && <DropdownMenuItem onClick={() => router.push('/settings')}>Settings</DropdownMenuItem>}
                   <DropdownMenuItem>Support</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
