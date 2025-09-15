@@ -266,7 +266,7 @@ export async function getTransactionsForBranch(branchId: string) {
     return querySnapshot.docs.map(doc => {
         const data = doc.data();
         // Convert Firestore Timestamp to ISO string date, handle serverTimestamp pending write
-        const date = data.date instanceof Timestamp ? data.date.toISOString() : new Date().toISOString();
+        const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
         return {
             id: doc.id,
             ...data,
