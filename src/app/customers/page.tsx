@@ -121,12 +121,7 @@ export default function CustomersPage() {
     }
   };
   
-  const handleDeleteClick = (customer: Customer) => {
-    setCustomerToDelete(customer);
-  };
-  
-  const executeDelete = async (event: React.MouseEvent) => {
-    event.preventDefault();
+  const executeDelete = async () => {
     if (!customerToDelete) return;
     
     try {
@@ -265,7 +260,7 @@ export default function CustomersPage() {
                         <DropdownMenuItem>Edit</DropdownMenuItem>
                         <DropdownMenuItem>View History</DropdownMenuItem>
                         <DropdownMenuItem
-                            onSelect={() => handleDeleteClick(customer)}
+                            onSelect={() => setCustomerToDelete(customer)}
                             className='text-destructive focus:text-destructive'
                           >
                             Delete
