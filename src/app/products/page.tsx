@@ -40,12 +40,20 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-  SheetFooter,
-  SheetClose
 } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type Product = {
   id: string;
@@ -66,6 +74,9 @@ export default function ProductsPage() {
     const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
     const { toast } = useToast();
     const [activeBranchId, setActiveBranchId] = React.useState<string | null>(null);
+    const [isSaveConfirmOpen, setIsSaveConfirmOpen] = React.useState(false);
+    const formRef = React.useRef<HTMLFormElement>(null);
+
 
     React.useEffect(() => {
         const storedBranch = localStorage.getItem('activeBranch');
@@ -95,11 +106,15 @@ export default function ProductsPage() {
         }
     }, [activeBranchId, fetchProducts]);
 
-    const handleFormSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        if (!activeBranchId) return;
+        setIsSaveConfirmOpen(true);
+    };
 
-        const formData = new FormData(event.currentTarget);
+    const executeSave = async () => {
+        if (!activeBranchId || !formRef.current) return;
+
+        const formData = new FormData(formRef.current);
         const productData = {
             name: formData.get('name') as string,
             sku: formData.get('sku') as string,
@@ -119,13 +134,14 @@ export default function ProductsPage() {
                 toast({ title: "Success", description: "Product added successfully." });
             }
             fetchProducts();
-            setIsSheetOpen(false);
-            setEditingProduct(null);
+            closeSheet();
         } catch (error) {
             console.error("Failed to save product:", error);
             toast({ title: "Error", description: "Could not save product.", variant: "destructive" });
+        } finally {
+            setIsSaveConfirmOpen(false);
         }
-    };
+    }
     
     const handleDeleteProduct = async (productId: string) => {
         if (!activeBranchId || !window.confirm("Are you sure you want to delete this product?")) return;
@@ -172,10 +188,13 @@ export default function ProductsPage() {
             </Button>
           </SheetTrigger>
           <SheetContent onInteractOutside={(e) => {
-              e.preventDefault();
+              if (e.target.closest('[data-radix-alert-dialog-content]')) {
+                e.preventDefault();
+                return;
+              }
               closeSheet();
           }}>
-            <form onSubmit={handleFormSubmit}>
+            <form ref={formRef} onSubmit={handleFormSubmit} id="product-form">
               <SheetHeader>
                 <SheetTitle>{editingProduct ? 'Edit Product' : 'Add Product'}</SheetTitle>
                 <SheetDescription>
@@ -212,14 +231,29 @@ export default function ProductsPage() {
                   <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock ?? ''} className="col-span-3" required />
                 </div>
               </div>
-              <SheetFooter>
-                <Button type="button" variant="outline" onClick={closeSheet}>Cancel</Button>
-                <Button type="submit">Save changes</Button>
-              </SheetFooter>
             </form>
+             <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-4">
+                <Button type="button" variant="outline" onClick={closeSheet}>Cancel</Button>
+                <Button type="submit" form="product-form">Save changes</Button>
+              </div>
           </SheetContent>
         </Sheet>
       </div>
+      
+      <AlertDialog open={isSaveConfirmOpen} onOpenChange={setIsSaveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will save the product data to the database. Do you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={executeSave}>Save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card>
         <CardHeader>
