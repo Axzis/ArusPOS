@@ -195,7 +195,7 @@ export default function ProductsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm sticky top-[55px] z-20 flex items-center justify-between md:-mx-6 md:p-6 md:top-[71px]">
+      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex items-center justify-between md:-mx-6 md:p-6">
         <h1 className="text-lg font-semibold md:text-2xl">Products</h1>
         <Sheet open={isSheetOpen} onOpenChange={(open) => {
             if (!open) {
