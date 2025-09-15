@@ -64,7 +64,6 @@ const navItems = [
 
 const bottomNavItems = [
   { href: '/settings', icon: Settings, label: 'Settings' },
-  { href: '/superadmin', icon: Shield, label: 'Super Admin' },
 ];
 
 const publicRoutes = ['/login', '/quick-assessment'];
