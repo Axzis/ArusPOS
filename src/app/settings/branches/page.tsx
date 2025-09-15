@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,25 +42,27 @@ export default function BranchesPage() {
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function fetchBranches() {
-            try {
-                const businessData = await getBusinessWithBranches();
-                if (businessData.length > 0) {
-                    const mappedBranches = businessData[0].branches.map((b: any) => ({
-                        ...b,
-                        isActive: b.isActive !== false, // Default to true if undefined
-                    })) as Branch[];
-                    setBranches(mappedBranches);
-                }
-            } catch (error) {
-                console.error("Failed to fetch branches", error);
-            } finally {
-                setLoading(false);
+    const fetchBranches = useCallback(async () => {
+        setLoading(true);
+        try {
+            const businessData = await getBusinessWithBranches();
+            if (businessData.length > 0) {
+                const mappedBranches = businessData[0].branches.map((b: any) => ({
+                    ...b,
+                    isActive: b.isActive !== false, // Default to true if undefined
+                })) as Branch[];
+                setBranches(mappedBranches);
             }
+        } catch (error) {
+            console.error("Failed to fetch branches", error);
+        } finally {
+            setLoading(false);
         }
-        fetchBranches();
     }, []);
+
+    useEffect(() => {
+        fetchBranches();
+    }, [fetchBranches]);
 
     return (
         <Card>

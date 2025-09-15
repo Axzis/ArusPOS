@@ -1,3 +1,4 @@
+
 import app from './firebase';
 import {
   getFirestore,
@@ -16,6 +17,7 @@ import {
   DocumentData,
   orderBy,
   runTransaction,
+  increment,
 } from 'firebase/firestore';
 import { products as initialProducts, customers as initialCustomers, transactions as initialTransactions } from './data';
 import { formatCurrency } from './utils';
@@ -47,24 +49,15 @@ type BusinessData = {
     }[];
 }
 
-// Helper to get the first (and only) business ID.
-// This is a simplification for the current single-business model.
-let businessIdCache: string | null = null;
+// Helper to get the first (and only) active business ID.
 async function getBusinessId(): Promise<string> {
-    if (businessIdCache) {
-        return businessIdCache;
-    }
-    // Only get active businesses for the main app flow
     const businessQuery = query(collection(db, BUSINESSES_COLLECTION), where("isActive", "!=", false), limit(1));
     const businessSnapshot = await getDocs(businessQuery);
     if (businessSnapshot.empty) {
-        // If there's no business, let's not throw an error but return an empty string,
-        // so pages that rely on it don't break before registration.
         console.warn("No active business found in the database. Please register a business or activate one.");
         return "";
     }
-    businessIdCache = businessSnapshot.docs[0].id;
-    return businessIdCache;
+    return businessSnapshot.docs[0].id;
 }
 
 
@@ -123,7 +116,6 @@ export async function addUserAndBusiness(data: BusinessData) {
     });
 
     await batch.commit();
-    businessIdCache = businessRef.id; // Cache the new business ID
     return { userId: userRef.id, businessId: businessRef.id };
 }
 
@@ -157,10 +149,6 @@ export async function getBusinessWithBranches() {
         const branches = branchesSnapshot.docs.map(branchDoc => ({ id: branchDoc.id, ...branchDoc.data() }));
         return { ...business, branches };
     }));
-
-    if (businesses.length > 0) {
-        businessIdCache = businesses[0].id;
-    }
 
     return businesses;
 }
@@ -288,48 +276,32 @@ export async function getTransactionsForBranch(branchId: string) {
     });
 }
 
-export async function addTransactionAndUpdateStock(branchId: string, transactionData: Omit<DocumentData, 'id'>, items: { id: string, quantity: number }[]) {
-    const businessId = await getBusinessId();
-    if (!businessId || !branchId) throw new Error("Missing business or branch ID");
+export async function addTransactionAndUpdateStock(
+  branchId: string,
+  transactionData: Omit<DocumentData, 'id'>,
+  items: { id: string; quantity: number }[]
+) {
+  const businessId = await getBusinessId();
+  if (!businessId || !branchId) throw new Error("Missing business or branch ID");
 
-    const batch = writeBatch(db);
+  const batch = writeBatch(db);
 
-    // 1. Add the new transaction
-    const transactionRef = doc(collection(db, `businesses/${businessId}/branches/${branchId}/transactions`));
-    batch.set(transactionRef, {
-        ...transactionData,
-        date: serverTimestamp(),
-    });
+  // 1. Add the new transaction document
+  const transactionRef = doc(collection(db, `businesses/${businessId}/branches/${branchId}/transactions`));
+  batch.set(transactionRef, {
+    ...transactionData,
+    date: serverTimestamp(),
+  });
 
-    // 2. Update stock for each product
-    await Promise.all(items.map(async (item) => {
-        const productRef = doc(db, `businesses/${businessId}/branches/${branchId}/products`, item.id);
-        
-        // To safely decrement stock, we need a transaction
-        await runTransaction(db, async (transaction) => {
-            const productDoc = await transaction.get(productRef);
-            if (!productDoc.exists()) {
-                throw new Error(`Product ${item.id} not found!`);
-            }
-            const currentStock = productDoc.data().stock || 0;
-            const newStock = currentStock - item.quantity;
-            if (newStock < 0) {
-                 throw new Error(`Not enough stock for ${productDoc.data().name}.`);
-            }
-            transaction.update(productRef, { stock: newStock });
-        });
-    }));
+  // 2. Update stock for each product in the same batch
+  items.forEach(item => {
+    const productRef = doc(db, `businesses/${businessId}/branches/${branchId}/products`, item.id);
+    // Decrement stock by the quantity sold. increment() with a negative number handles this.
+    batch.update(productRef, { stock: increment(-item.quantity) });
+  });
 
-    // The stock updates are done in separate transactions, so we don't commit them in the main batch.
-    // We only commit the transaction creation here.
-    const transactionCreationBatch = writeBatch(db);
-    transactionCreationBatch.set(transactionRef, { ...transactionData, date: serverTimestamp() });
-    
-    // We need to re-run the stock updates in batch mode if we want them to be atomic with the transaction creation.
-    // For simplicity and safety, we will use Firestore transactions for stock updates which run separately.
-    // The below batch will just add the transaction record. The stock has been updated above.
-
-    return await batch.commit();
+  // 3. Commit all writes (transaction and stock updates) as a single atomic operation
+  return await batch.commit();
 }
 
 
@@ -386,5 +358,3 @@ export async function getTransactions() {
     }
     return [];
 }
-
-    

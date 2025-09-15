@@ -1,6 +1,7 @@
+
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -48,30 +49,32 @@ export default function SettingsProfilePage() {
     const [saving, setSaving] = useState(false);
     const { toast } = useToast();
 
-    useEffect(() => {
-        async function fetchBusiness() {
-            try {
-                const businesses = await getBusinessWithBranches();
-                if (businesses.length > 0) {
-                    const biz = businesses[0] as Business;
-                    setBusiness(biz);
-                    setFormData({
-                        name: biz.name || '',
-                        type: biz.type || '',
-                        currency: biz.currency || 'USD',
-                        taxEnabled: biz.taxEnabled !== false, // default to true
-                        taxRate: biz.taxRate || 8,
-                    });
-                }
-            } catch (error) {
-                console.error("Failed to fetch business details:", error);
-                 toast({ title: "Error", description: "Could not fetch business details.", variant: "destructive" });
-            } finally {
-                setLoading(false);
+    const fetchBusiness = useCallback(async () => {
+        setLoading(true);
+        try {
+            const businesses = await getBusinessWithBranches();
+            if (businesses.length > 0) {
+                const biz = businesses[0] as Business;
+                setBusiness(biz);
+                setFormData({
+                    name: biz.name || '',
+                    type: biz.type || '',
+                    currency: biz.currency || 'USD',
+                    taxEnabled: biz.taxEnabled !== false, // default to true
+                    taxRate: biz.taxRate || 8,
+                });
             }
+        } catch (error) {
+            console.error("Failed to fetch business details:", error);
+             toast({ title: "Error", description: "Could not fetch business details.", variant: "destructive" });
+        } finally {
+            setLoading(false);
         }
-        fetchBusiness();
     }, [toast]);
+
+    useEffect(() => {
+        fetchBusiness();
+    }, [fetchBusiness]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { id, value, type } = e.target;

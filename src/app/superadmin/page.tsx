@@ -1,5 +1,6 @@
+
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -79,7 +80,7 @@ export default function SuperAdminPage() {
     const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
     const { toast } = useToast();
 
-    const fetchBusinesses = async () => {
+    const fetchBusinesses = useCallback(async () => {
         setLoading(true);
         try {
             const bizData = await getAllBusinesses();
@@ -90,11 +91,11 @@ export default function SuperAdminPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [toast]);
 
     useEffect(() => {
         fetchBusinesses();
-    }, []);
+    }, [fetchBusinesses]);
 
     const handleBusinessCreated = () => {
         setIsSheetOpen(false);
@@ -313,5 +314,3 @@ export default function SuperAdminPage() {
         </div>
     )
 }
-
-    

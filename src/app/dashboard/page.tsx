@@ -1,3 +1,4 @@
+
 "use client";
 import React from 'react';
 import {
@@ -78,31 +79,31 @@ export default function DashboardPage() {
         }
     }, []);
 
-    React.useEffect(() => {
+    const loadData = React.useCallback(async () => {
         if (!activeBranchId) return;
-
-        async function loadData() {
-            setLoading(true);
-            try {
-                const [transactionsData, customersData] = await Promise.all([
-                    getTransactionsForBranch(activeBranchId),
-                    getCustomers()
-                ]);
-                setTransactions(transactionsData as Transaction[]);
-                setCustomers(customersData as Customer[]);
-            } catch (error) {
-                console.error("Failed to load dashboard data:", error);
-                toast({
-                    title: "Error",
-                    description: "Could not fetch dashboard data.",
-                    variant: "destructive"
-                });
-            } finally {
-                setLoading(false);
-            }
+        setLoading(true);
+        try {
+            const [transactionsData, customersData] = await Promise.all([
+                getTransactionsForBranch(activeBranchId),
+                getCustomers()
+            ]);
+            setTransactions(transactionsData as Transaction[]);
+            setCustomers(customersData as Customer[]);
+        } catch (error) {
+            console.error("Failed to load dashboard data:", error);
+            toast({
+                title: "Error",
+                description: "Could not fetch dashboard data.",
+                variant: "destructive"
+            });
+        } finally {
+            setLoading(false);
         }
-        loadData();
     }, [activeBranchId, toast]);
+
+    React.useEffect(() => {
+        loadData();
+    }, [loadData]);
 
   const totalRevenue = transactions
     .filter((t) => t.type === 'Sale')

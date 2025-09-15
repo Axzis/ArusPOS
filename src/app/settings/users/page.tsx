@@ -1,6 +1,7 @@
+
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -33,19 +34,21 @@ export default function UsersPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        async function fetchUsers() {
-            try {
-                const usersData = await getUsers();
-                setUsers(usersData as User[]);
-            } catch (error) {
-                console.error("Failed to fetch users", error);
-            } finally {
-                setLoading(false);
-            }
+    const fetchUsers = useCallback(async () => {
+        setLoading(true);
+        try {
+            const usersData = await getUsers();
+            setUsers(usersData as User[]);
+        } catch (error) {
+            console.error("Failed to fetch users", error);
+        } finally {
+            setLoading(false);
         }
-        fetchUsers();
     }, []);
+
+    useEffect(() => {
+        fetchUsers();
+    }, [fetchUsers]);
 
     return (
         <Card>

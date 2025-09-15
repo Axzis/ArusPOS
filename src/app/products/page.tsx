@@ -358,8 +358,8 @@ export default function ProductsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={() => openSheetForEdit(product)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDeleteProduct(product.id)} className="text-destructive focus:text-destructive">
+                        <DropdownMenuItem onSelect={() => openSheetForEdit(product)}>Edit</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleDeleteProduct(product.id)} className="text-destructive focus:text-destructive">
                             <Trash2 className='mr-2 h-4 w-4' /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -374,5 +374,3 @@ export default function ProductsPage() {
     </div>
   );
 }
-
-    
