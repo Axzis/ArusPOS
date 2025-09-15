@@ -54,6 +54,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -110,7 +111,13 @@ export default function ProductsPage() {
 
     const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        setIsSaveConfirmOpen(true);
+        // Check form validity before showing confirmation
+        if (formRef.current?.checkValidity()) {
+            setIsSaveConfirmOpen(true);
+        } else {
+            // Trigger browser's built-in validation UI
+            formRef.current?.reportValidity();
+        }
     };
 
     const executeSave = async () => {
@@ -182,62 +189,66 @@ export default function ProductsPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">Products</h1>
-        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <Sheet open={isSheetOpen} onOpenChange={(open) => {
+            if (!open) {
+                // Prevent closing if the alert dialog is open
+                if (isSaveConfirmOpen) return;
+                closeSheet();
+            } else {
+                setIsSheetOpen(true);
+            }
+        }}>
           <SheetTrigger asChild>
             <Button size="sm" className="ml-auto gap-1" onClick={openSheetForNew}>
               <PlusCircle className="h-4 w-4" />
               Add Product
             </Button>
           </SheetTrigger>
-          <SheetContent className="flex flex-col" onInteractOutside={(e) => {
-              if (e.target.closest('[data-radix-alert-dialog-content]')) {
-                e.preventDefault();
-                return;
-              }
-              closeSheet();
-          }}>
+          <SheetContent className="flex flex-col sm:max-w-lg">
             <SheetHeader>
                 <SheetTitle>{editingProduct ? 'Edit Product' : 'Add Product'}</SheetTitle>
                 <SheetDescription>
                   {editingProduct ? 'Update the details for this product.' : 'Enter the details for the new product.'}
                 </SheetDescription>
             </SheetHeader>
-            <ScrollArea className="flex-grow">
-              <form ref={formRef} onSubmit={handleFormSubmit} id="product-form" className="grid gap-4 py-4 pr-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">Name</Label>
-                    <Input id="name" name="name" defaultValue={editingProduct?.name ?? ''} className="col-span-3" required />
+             <form ref={formRef} onSubmit={handleFormSubmit} id="product-form" className="flex flex-col flex-grow overflow-hidden">
+                <ScrollArea className="flex-grow pr-6">
+                  <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="name" className="text-right">Name</Label>
+                        <Input id="name" name="name" defaultValue={editingProduct?.name ?? ''} className="col-span-3" required />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="sku" className="text-right">SKU</Label>
+                        <Input id="sku" name="sku" defaultValue={editingProduct?.sku ?? ''} className="col-span-3" required />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="category" className="text-right">Category</Label>
+                          <Input id="category" name="category" defaultValue={editingProduct?.category ?? ''} className="col-span-3" required />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="unit" className="text-right">Unit</Label>
+                          <Input id="unit" name="unit" defaultValue={editingProduct?.unit ?? 'pcs'} className="col-span-3" required />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="price" className="text-right">Sale Price</Label>
+                        <Input id="price" name="price" type="number" step="0.01" defaultValue={editingProduct?.price ?? ''} className="col-span-3" required />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="purchasePrice" className="text-right">Purchase Price</Label>
+                        <Input id="purchasePrice" name="purchasePrice" type="number" step="0.01" defaultValue={editingProduct?.purchasePrice ?? ''} className="col-span-3" required />
+                      </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="stock" className="text-right">Stock</Label>
+                        <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock ?? ''} className="col-span-3" required />
+                      </div>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="sku" className="text-right">SKU</Label>
-                    <Input id="sku" name="sku" defaultValue={editingProduct?.sku ?? ''} className="col-span-3" required />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="category" className="text-right">Category</Label>
-                      <Input id="category" name="category" defaultValue={editingProduct?.category ?? ''} className="col-span-3" required />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="unit" className="text-right">Unit</Label>
-                      <Input id="unit" name="unit" defaultValue={editingProduct?.unit ?? 'pcs'} className="col-span-3" required />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="price" className="text-right">Sale Price</Label>
-                    <Input id="price" name="price" type="number" step="0.01" defaultValue={editingProduct?.price ?? ''} className="col-span-3" required />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="purchasePrice" className="text-right">Purchase Price</Label>
-                    <Input id="purchasePrice" name="purchasePrice" type="number" step="0.01" defaultValue={editingProduct?.purchasePrice ?? ''} className="col-span-3" required />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="stock" className="text-right">Stock</Label>
-                    <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock ?? ''} className="col-span-3" required />
-                  </div>
-              </form>
-            </ScrollArea>
-            <SheetFooter>
-                <Button type="button" variant="outline" onClick={closeSheet}>Cancel</Button>
-                <Button type="submit" form="product-form">Save changes</Button>
-            </SheetFooter>
+                </ScrollArea>
+                <SheetFooter className="pt-4 mt-auto">
+                    <Button type="button" variant="outline" onClick={closeSheet}>Cancel</Button>
+                    <Button type="submit">Save changes</Button>
+                </SheetFooter>
+            </form>
           </SheetContent>
         </Sheet>
       </div>
