@@ -60,6 +60,8 @@ async function getBusinessId(): Promise<string | null> {
     const usersSnapshot = await getDocs(usersQuery);
 
     if (usersSnapshot.empty) {
+        // If no user doc, might be superadmin, allow them to proceed if they have no businessId context
+        if (user.email === 'superadmin@gmail.com') return null;
         console.warn(`No user document found for UID: ${user.uid}`);
         return null;
     }
@@ -157,11 +159,19 @@ export async function getAllBusinesses() {
     
     const businesses = await Promise.all(businessSnapshot.docs.map(async (businessDoc) => {
         const business = { id: businessDoc.id, ...businessDoc.data() };
+        
+        // Fetch branches
         const branchesCollectionRef = collection(db, `businesses/${business.id}/branches`);
-        const branchesQuery = query(branchesCollectionRef);
-        const branchesSnapshot = await getDocs(branchesQuery);
+        const branchesSnapshot = await getDocs(branchesCollectionRef);
         const branches = branchesSnapshot.docs.map(branchDoc => ({ id: branchDoc.id, ...branchDoc.data() }));
-        return { ...business, branches };
+
+        // Fetch users
+        const usersCollectionRef = collection(db, USERS_COLLECTION);
+        const usersQuery = query(usersCollectionRef, where("businessId", "==", business.id));
+        const usersSnapshot = await getDocs(usersQuery);
+        const users = usersSnapshot.docs.map(userDoc => ({ id: userDoc.id, ...userDoc.data() }));
+
+        return { ...business, branches, users };
     }));
 
     return businesses;
@@ -539,5 +549,3 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
-
-    

@@ -44,13 +44,15 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Trash2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Trash2, KeyRound } from 'lucide-react';
 import { getAllBusinesses, updateBusiness, deleteBusiness } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import CreateBusinessForm from './_components/create-business-form';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/contexts/auth-context';
 
 type Branch = {
     id: string;
@@ -59,12 +61,20 @@ type Branch = {
     phone: string;
 }
 
+type User = {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+}
+
 type Business = {
     id: string;
     name: string;
     type: string;
     isActive: boolean;
     branches: Branch[];
+    users: User[];
     createdAt: {
         toDate: () => Date;
     }
@@ -78,7 +88,10 @@ export default function SuperAdminPage() {
     const [businessToDeactivate, setBusinessToDeactivate] = useState<Business | null>(null);
     const [businessToDelete, setBusinessToDelete] = useState<Business | null>(null);
     const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
+    const [userToReset, setUserToReset] = useState<User | null>(null);
     const { toast } = useToast();
+    const { sendPasswordReset } = useAuth();
+
 
     const fetchBusinesses = useCallback(async () => {
         setLoading(true);
@@ -135,6 +148,20 @@ export default function SuperAdminPage() {
             toast({ title: "Error", description: "Could not delete the business document.", variant: "destructive" });
         } finally {
             setBusinessToDelete(null);
+        }
+    }
+    
+    const executePasswordReset = async () => {
+        if (!userToReset) return;
+        
+        try {
+            await sendPasswordReset(userToReset.email);
+            toast({ title: "Success", description: `Password reset email sent to ${userToReset.email}.` });
+        } catch (error) {
+            console.error("Failed to send password reset email:", error);
+            toast({ title: "Error", description: "Could not send password reset email.", variant: "destructive" });
+        } finally {
+            setUserToReset(null);
         }
     }
 
@@ -238,30 +265,70 @@ export default function SuperAdminPage() {
 
             {/* View Details Sheet */}
             <Sheet open={isDetailSheetOpen} onOpenChange={setIsDetailSheetOpen}>
-                <SheetContent>
+                <SheetContent className="sm:max-w-2xl">
                     <SheetHeader>
                         <SheetTitle>{selectedBusiness?.name}</SheetTitle>
                         <SheetDescription>
                             Type: {selectedBusiness?.type}
                         </SheetDescription>
                     </SheetHeader>
-                    <div className="py-4">
-                        <h4 className="mb-4 text-lg font-semibold">Branches</h4>
-                        <div className="space-y-4">
-                            {selectedBusiness?.branches?.map(branch => (
-                                <Card key={branch.id}>
-                                    <CardHeader>
-                                        <CardTitle className="text-base">{branch.name}</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="text-sm text-muted-foreground">
-                                        <p>{branch.address}</p>
-                                        <p>{branch.phone}</p>
+                    <ScrollArea className="h-[calc(100vh-8rem)]">
+                        <div className="py-4 pr-6 space-y-8">
+                            <div>
+                                <h4 className="mb-4 text-lg font-semibold">Branches</h4>
+                                <div className="space-y-4">
+                                    {selectedBusiness?.branches?.map(branch => (
+                                        <Card key={branch.id}>
+                                            <CardHeader>
+                                                <CardTitle className="text-base">{branch.name}</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="text-sm text-muted-foreground">
+                                                <p>{branch.address}</p>
+                                                <p>{branch.phone}</p>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                    { !selectedBusiness?.branches?.length && <p className="text-sm text-muted-foreground">No branches found for this business.</p>}
+                                </div>
+                            </div>
+                            
+                            <Separator />
+
+                            <div>
+                                <h4 className="mb-4 text-lg font-semibold">Users</h4>
+                                <Card>
+                                    <CardContent className="p-0">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Name</TableHead>
+                                                    <TableHead>Email</TableHead>
+                                                    <TableHead>Role</TableHead>
+                                                    <TableHead><span className="sr-only">Actions</span></TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {selectedBusiness?.users?.map(user => (
+                                                    <TableRow key={user.id}>
+                                                        <TableCell className="font-medium">{user.name}</TableCell>
+                                                        <TableCell>{user.email}</TableCell>
+                                                        <TableCell><Badge variant="secondary">{user.role}</Badge></TableCell>
+                                                        <TableCell className="text-right">
+                                                            <Button variant="ghost" size="icon" onClick={() => setUserToReset(user)}>
+                                                                <KeyRound className="h-4 w-4" />
+                                                                <span className="sr-only">Reset Password</span>
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                         { !selectedBusiness?.users?.length && <p className="p-4 text-sm text-center text-muted-foreground">No users found for this business.</p>}
                                     </CardContent>
                                 </Card>
-                            ))}
-                             { !selectedBusiness?.branches?.length && <p className="text-sm text-muted-foreground">No branches found for this business.</p>}
+                            </div>
                         </div>
-                    </div>
+                    </ScrollArea>
                 </SheetContent>
             </Sheet>
             
@@ -295,6 +362,22 @@ export default function SuperAdminPage() {
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction className='bg-destructive hover:bg-destructive/90' onClick={executeDelete}>Delete Anyway</AlertDialogAction>
+                </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            
+             {/* Password Reset Alert */}
+            <AlertDialog open={!!userToReset} onOpenChange={(open) => !open && setUserToReset(null)}>
+                <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Reset Password?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will send a password reset email to "{userToReset?.email}". The user will be able to set a new password by following the link in the email.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={executePasswordReset}>Send Email</AlertDialogAction>
                 </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
