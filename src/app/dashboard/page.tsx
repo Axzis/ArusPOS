@@ -1,6 +1,6 @@
 
 "use client";
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -28,13 +28,13 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
-import { salesData } from '@/lib/data';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 import { getTransactionsForBranch, getCustomers } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useBusiness } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
+import { format, parseISO, startOfMonth, getMonth, getYear } from 'date-fns';
 
 const chartConfig = {
   sales: {
@@ -59,6 +59,7 @@ type Customer = {
   phone: string;
   totalSpent: number;
   avatar: string;
+  createdAt: { toDate: () => Date };
 };
 
 
@@ -117,10 +118,44 @@ export default function DashboardPage() {
     )
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const newCustomersThisMonth = customers.length; // Simplified for now
+  const newCustomersThisMonth = customers.filter(c => {
+    if (!c.createdAt) return false;
+    const createdAt = c.createdAt.toDate();
+    const now = new Date();
+    return createdAt.getMonth() === now.getMonth() && createdAt.getFullYear() === now.getFullYear();
+  }).length;
+
   const totalCustomers = customers.length;
   
   const isLoading = loading || loadingBusiness;
+  
+  const monthlySalesData = useMemo(() => {
+    const salesByMonth: { [key: string]: number } = {};
+
+    transactions
+        .filter(t => t.type === 'Sale')
+        .forEach(t => {
+            const transactionDate = parseISO(t.date);
+            const monthKey = format(transactionDate, 'yyyy-MM');
+            if (!salesByMonth[monthKey]) {
+                salesByMonth[monthKey] = 0;
+            }
+            salesByMonth[monthKey] += t.amount;
+        });
+
+    const data = Array.from({ length: 12 }, (_, i) => {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const monthKey = format(d, 'yyyy-MM');
+        const monthName = format(d, 'MMM');
+        return {
+            name: monthName,
+            sales: salesByMonth[monthKey] || 0,
+        };
+    }).reverse();
+    
+    return data;
+  }, [transactions]);
 
 
   return (
@@ -162,7 +197,7 @@ export default function DashboardPage() {
           <CardContent>
             {isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">+{newCustomersThisMonth}</div>}
             <p className="text-xs text-muted-foreground">
-              +15% from last month
+              New customers this month
             </p>
           </CardContent>
         </Card>
@@ -184,11 +219,12 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Sales Overview</CardTitle>
-            <CardDescription>A summary of sales over the year.</CardDescription>
+            <CardDescription>A summary of sales over the past 12 months.</CardDescription>
           </CardHeader>
           <CardContent>
+            {isLoading ? <Skeleton className="h-64 w-full" /> : (
             <ChartContainer config={chartConfig} className="h-64 w-full">
-              <BarChart accessibilityLayer data={salesData}>
+              <BarChart accessibilityLayer data={monthlySalesData}>
                 <CartesianGrid vertical={false} />
                 <XAxis
                   dataKey="name"
@@ -196,13 +232,17 @@ export default function DashboardPage() {
                   tickMargin={10}
                   axisLine={false}
                 />
-                <ChartTooltip
+                 <YAxis 
+                    tickFormatter={(value) => formatCurrency(value as number, currency, 'compact')}
+                 />
+                <Tooltip
                   cursor={false}
-                  content={<ChartTooltipContent indicator="dot" />}
+                  content={<ChartTooltipContent indicator="dot" formatter={(value) => formatCurrency(value as number, currency)} />}
                 />
                 <Bar dataKey="sales" fill="var(--color-sales)" radius={4} />
               </BarChart>
             </ChartContainer>
+            )}
           </CardContent>
         </Card>
 

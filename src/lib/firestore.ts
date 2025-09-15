@@ -136,7 +136,7 @@ export async function getBusinessWithBranches() {
     
     const business = { id: businessDoc.id, ...businessDoc.data() };
     
-    // If business is inactive, return it but with empty branches.
+    // If business is inactive, return it but with empty branches to prevent access.
     if (business.isActive === false) {
         return [{ ...business, branches: [] }];
     }
@@ -265,6 +265,7 @@ export async function getTransactionsForBranch(branchId: string) {
 
     return querySnapshot.docs.map(doc => {
         const data = doc.data();
+        // Convert Firestore Timestamp to ISO string date, handle serverTimestamp pending write
         const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
         return {
             id: doc.id,
@@ -445,14 +446,14 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     const existingCustomers = await getDocs(query(customersCollectionRef, limit(1)));
     if (existingCustomers.empty) {
         const initialCustomers = [
-            { name: 'Liam Johnson', email: 'liam@example.com', phone: '555-0101', totalSpent: 0, avatar: 'https://picsum.photos/seed/1/40/40' },
-            { name: 'Olivia Smith', email: 'olivia@example.com', phone: '555-0102', totalSpent: 0, avatar: 'https://picsum.photos/seed/2/40/40' },
-            { name: 'Noah Williams', email: 'noah@example.com', phone: '555-0103', totalSpent: 0, avatar: 'https://picsum.photos/seed/3/40/40' },
+            { name: 'Liam Johnson', email: 'liam@example.com', phone: '555-0101', totalSpent: 0, avatar: 'https://picsum.photos/seed/1/40/40', createdAt: serverTimestamp() },
+            { name: 'Olivia Smith', email: 'olivia@example.com', phone: '555-0102', totalSpent: 0, avatar: 'https://picsum.photos/seed/2/40/40', createdAt: serverTimestamp() },
+            { name: 'Noah Williams', email: 'noah@example.com', phone: '555-0103', totalSpent: 0, avatar: 'https://picsum.photos/seed/3/40/40', createdAt: serverTimestamp() },
         ];
         
         initialCustomers.forEach(customer => {
             const docRef = doc(customersCollectionRef);
-            batch.set(docRef, { ...customer, createdAt: serverTimestamp() });
+            batch.set(docRef, { ...customer });
         });
     }
 
