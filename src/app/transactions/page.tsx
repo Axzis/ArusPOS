@@ -105,7 +105,7 @@ export default function TransactionsPage() {
   const [promos, setPromos] = useState<Promo[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState(ANONYMOUS_CUSTOMER_ID);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { currency, taxEnabled, taxRate, loading: loadingBusiness } = useBusiness();
@@ -251,7 +251,7 @@ export default function TransactionsPage() {
 
   const clearOrder = () => {
     setOrderItems([]);
-    setSelectedCustomerId('');
+    setSelectedCustomerId(ANONYMOUS_CUSTOMER_ID);
   };
 
   const handleChargePayment = async () => {
@@ -611,5 +611,8 @@ export default function TransactionsPage() {
 
     </div>
   );
+
+    
+
 
     
