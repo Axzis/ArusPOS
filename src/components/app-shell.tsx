@@ -135,37 +135,46 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
 
   React.useEffect(() => {
-    if (authLoading) return; // Wait until auth state is confirmed
+    // Wait until Firebase has confirmed the auth state
+    if (authLoading) return;
 
-    if (!user && !publicRoutes.includes(pathname)) {
+    // User is not logged in
+    if (!user) {
+      // If they are not on a public page, redirect to login
+      if (!publicRoutes.includes(pathname)) {
         router.replace('/login');
-        return;
+      }
+      return;
     }
-
-    if (user && publicRoutes.includes(pathname)) {
+    
+    // User is logged in
+    // If they are on a public page, it means they just logged in.
+    // Redirect them to the branch selection page.
+    if (publicRoutes.includes(pathname)) {
         router.replace('/select-branch');
         return;
     }
     
-     if (typeof window === 'undefined') {
-      return;
+    // For all other protected pages, check for an active branch
+    if (typeof window !== 'undefined') {
+       try {
+          const storedBranch = localStorage.getItem('activeBranch');
+          if (storedBranch) {
+              setActiveBranch(JSON.parse(storedBranch));
+          } else {
+              // If there's no active branch, and they're not trying to select one,
+              // force them to the selection page.
+              if (!['/select-branch', '/superadmin'].some(p => pathname.startsWith(p))) {
+                  router.replace('/select-branch');
+              }
+          }
+       } catch (error) {
+          console.error("Could not parse active branch", error);
+          router.replace('/select-branch'); // Default to safety
+       } finally {
+          setLoadingBranch(false);
+       }
     }
-
-     try {
-        const storedBranch = localStorage.getItem('activeBranch');
-        if (storedBranch) {
-            setActiveBranch(JSON.parse(storedBranch));
-        } else if (user && !['/select-branch', '/superadmin'].some(p => pathname.startsWith(p))) {
-            router.replace('/select-branch');
-        }
-     } catch (error) {
-        console.error("Could not parse active branch", error);
-         if (user && !['/select-branch', '/superadmin'].some(p => pathname.startsWith(p))) {
-            router.replace('/select-branch');
-        }
-     } finally {
-        setLoadingBranch(false);
-     }
   }, [pathname, router, user, authLoading]);
 
 
@@ -181,7 +190,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     await logout();
     localStorage.removeItem('activeBranch');
-    router.push('/login');
+    // The useEffect hook will automatically redirect to /login
   };
 
   const handleSwitchBranch = () => {
@@ -189,6 +198,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     router.push('/select-branch');
   }
 
+  // This is a temporary gate while auth state is being confirmed by Firebase.
   if (authLoading) {
       return (
           <div className="flex h-screen items-center justify-center">
@@ -197,11 +207,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       )
   }
   
-  // Don't render the shell for public pages if user is not logged in
+  // If user is not logged in and is on a public page, just render the page.
   if (!user && publicRoutes.includes(pathname)) {
       return <>{children}</>;
   }
 
+  // If we are on a protected route but auth is still loading, or the user is not logged in,
+  // we render nothing to prevent a flash of incorrect content while the redirect in useEffect happens.
+  if (!user && !publicRoutes.includes(pathname)) {
+    return null;
+  }
    
    // Use a simpler layout for the Super Admin and branch selection page
   if (pathname.startsWith('/superadmin') || pathname === '/select-branch') {
@@ -233,11 +248,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Logo className="size-10 text-primary animate-pulse" />
           </div>
       )
-  }
-
-  // If we are on a protected route and don't have a user, show nothing (or a loader) while redirecting
-  if (!user && !publicRoutes.includes(pathname)) {
-      return null;
   }
 
   return (

@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -32,8 +33,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      // onAuthStateChanged in AuthProvider will handle the redirect
-      router.push('/select-branch');
+      // The redirect is now handled by the AppShell's useEffect hook
+      // which waits for the auth state to be confirmed.
     } catch (error) {
       console.error("Login failed:", error);
       let description = "An unexpected error occurred. Please try again.";
