@@ -40,10 +40,39 @@ import {
   SheetClose
 } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
-import { customers } from '@/lib/data';
+import { getCustomers } from '@/lib/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
+
+type Customer = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  totalSpent: number;
+  avatar: string;
+};
+
 
 export default function CustomersPage() {
+  const [customers, setCustomers] = React.useState<Customer[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [searchTerm, setSearchTerm] = React.useState('');
+
+  React.useEffect(() => {
+    async function fetchCustomers() {
+      const customersData = await getCustomers();
+      setCustomers(customersData as Customer[]);
+      setLoading(false);
+    }
+    fetchCustomers();
+  }, []);
+  
+  const filteredCustomers = customers.filter(customer => 
+    customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    customer.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center">
@@ -103,6 +132,8 @@ export default function CustomersPage() {
               type="search"
               placeholder="Search customers..."
               className="w-full pl-8 sm:w-[300px]"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </CardHeader>
@@ -120,7 +151,17 @@ export default function CustomersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {customers.map((customer) => (
+             {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-9 w-full" /></TableCell>
+                    <TableCell><Skeleton className="h-9 w-full" /></TableCell>
+                    <TableCell><Skeleton className="h-9 w-full" /></TableCell>
+                    <TableCell><Skeleton className="h-9 w-full" /></TableCell>
+                    <TableCell><Skeleton className="h-9 w-9" /></TableCell>
+                  </TableRow>
+                ))
+              ) : filteredCustomers.map((customer) => (
                 <TableRow key={customer.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">

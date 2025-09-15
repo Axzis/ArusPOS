@@ -28,7 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { inventory as inventoryData } from '@/lib/data';
+import { getInventory } from '@/lib/firestore';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -43,8 +43,36 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
+
+type InventoryItem = {
+  id: string;
+  name: string;
+  sku: string;
+  stock: number;
+  status: 'In Stock' | 'Low Stock' | 'Out of Stock';
+};
+
 
 export default function InventoryPage() {
+  const [inventoryData, setInventoryData] = React.useState<InventoryItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [searchTerm, setSearchTerm] = React.useState('');
+
+  React.useEffect(() => {
+    async function fetchInventory() {
+      const data = await getInventory();
+      setInventoryData(data as InventoryItem[]);
+      setLoading(false);
+    }
+    fetchInventory();
+  }, []);
+
+  const filteredInventory = inventoryData.filter(item => 
+    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    item.sku.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center">
@@ -63,6 +91,8 @@ export default function InventoryPage() {
               type="search"
               placeholder="Search products..."
               className="w-full pl-8 sm:w-[300px]"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </CardHeader>
@@ -80,7 +110,17 @@ export default function InventoryPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {inventoryData.map((item) => (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-10" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                    </TableRow>
+                ))
+              ) : filteredInventory.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.name}</TableCell>
                   <TableCell>{item.sku}</TableCell>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -33,13 +33,10 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import {
-  transactions,
-  products as allProducts,
-  customers,
-} from '@/lib/data';
+import { getTransactions, getProducts, getCustomers } from '@/lib/firestore';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type OrderItem = {
   id: string;
@@ -48,9 +45,52 @@ type OrderItem = {
   quantity: number;
 };
 
+type Product = {
+  id: string;
+  name: string;
+  price: number;
+};
+
+type Customer = {
+    id: string;
+    name: string;
+};
+
+type Transaction = {
+    id: string;
+    customerName: string;
+    amount: number;
+    date: string;
+    status: 'Paid' | 'Refunded';
+    type: 'Sale' | 'Refund';
+}
+
 export default function TransactionsPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
+
+
+  useEffect(() => {
+    async function loadData() {
+        setLoading(true);
+        const [transactionsData, productsData, customersData] = await Promise.all([
+            getTransactions(),
+            getProducts(),
+            getCustomers(),
+        ]);
+        setTransactions(transactionsData as Transaction[]);
+        setAllProducts(productsData as Product[]);
+        setCustomers(customersData as Customer[]);
+        setLoading(false);
+    }
+    loadData();
+  }, []);
+
 
   const addToOrder = (product: {
     id: string;
@@ -203,7 +243,17 @@ export default function TransactionsPage() {
           <CardContent className="p-0">
             <ScrollArea className="h-[450px]">
               <div className="p-4 pt-0">
-                {filteredProducts.map((product) => (
+                {loading ? (
+                    Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="flex items-center justify-between py-2">
+                            <div>
+                                <Skeleton className="h-5 w-24 mb-1" />
+                                <Skeleton className="h-4 w-12" />
+                            </div>
+                            <Skeleton className="h-9 w-9" />
+                        </div>
+                    ))
+                ) : filteredProducts.map((product) => (
                   <div
                     key={product.id}
                     className="flex items-center justify-between py-2"
@@ -244,7 +294,17 @@ export default function TransactionsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {transactions.map((transaction) => (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                    </TableRow>
+                ))
+              ) : transactions.map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell>
                     <div className="font-medium">

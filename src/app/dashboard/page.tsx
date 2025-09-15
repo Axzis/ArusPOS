@@ -1,5 +1,5 @@
 "use client";
-
+import React from 'react';
 import {
   Card,
   CardContent,
@@ -28,7 +28,9 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
-import { transactions, salesData } from '@/lib/data';
+import { salesData } from '@/lib/data';
+import { getTransactions } from '@/lib/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const chartConfig = {
   sales: {
@@ -37,7 +39,28 @@ const chartConfig = {
   },
 };
 
+type Transaction = {
+    id: string;
+    customerName: string;
+    amount: number;
+    date: string;
+    status: 'Paid' | 'Refunded';
+    type: 'Sale' | 'Refund';
+}
+
 export default function DashboardPage() {
+    const [transactions, setTransactions] = React.useState<Transaction[]>([]);
+    const [loading, setLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        async function loadData() {
+            const transactionsData = await getTransactions();
+            setTransactions(transactionsData as Transaction[]);
+            setLoading(false);
+        }
+        loadData();
+    }, []);
+
   const totalRevenue = transactions
     .filter((t) => t.type === 'Sale')
     .reduce((sum, t) => sum + t.amount, 0);
@@ -58,9 +81,7 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              ${totalRevenue.toLocaleString()}
-            </div>
+            {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">${totalRevenue.toLocaleString()}</div>}
             <p className="text-xs text-muted-foreground">
               +20.1% from last month
             </p>
@@ -72,9 +93,7 @@ export default function DashboardPage() {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              +${salesToday.toLocaleString()}
-            </div>
+            {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">+${salesToday.toLocaleString()}</div>}
             <p className="text-xs text-muted-foreground">
               +180.1% from last day
             </p>
@@ -150,7 +169,16 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {transactions.slice(0, 5).map((transaction) => (
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : transactions.slice(0, 5).map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell>
                       <div className="font-medium">
