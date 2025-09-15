@@ -43,6 +43,7 @@ import { getCustomers, addCustomer } from '@/lib/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { formatCurrency } from '@/lib/utils';
 
 type Customer = {
   id: string;
@@ -90,8 +91,8 @@ export default function CustomersPage() {
   };
 
   const handleSaveCustomer = async () => {
-    if (!newCustomer.name || !newCustomer.email) {
-        toast({ title: "Validation Error", description: "Name and email are required.", variant: "destructive"});
+    if (!newCustomer.name) {
+        toast({ title: "Validation Error", description: "Name is required.", variant: "destructive"});
         return;
     }
 
@@ -135,7 +136,7 @@ export default function CustomersPage() {
                 <Label htmlFor="name" className="text-right">
                   Name
                 </Label>
-                <Input id="name" placeholder="John Doe" value={newCustomer.name} onChange={handleInputChange} className="col-span-3" />
+                <Input id="name" placeholder="John Doe" value={newCustomer.name} onChange={handleInputChange} className="col-span-3" required />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="email" className="text-right">
