@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import {
   Card,
   CardContent,
@@ -32,13 +33,15 @@ import {
   Search,
   Trash2,
   X,
+  List,
+  Grid
 } from 'lucide-react';
 import { getProductsForBranch, getCustomers, getTransactionsForBranch, addTransactionAndUpdateStock } from '@/lib/firestore';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBusiness } from '@/contexts/business-context';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,6 +68,7 @@ type Product = {
   name: string;
   price: number;
   stock: number;
+  imageUrl?: string;
 };
 
 type Customer = {
@@ -84,6 +88,7 @@ type Transaction = {
 export default function TransactionsPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -309,9 +314,19 @@ export default function TransactionsPage() {
             </Button>
           </CardFooter>
         </Card>
-        <Card>
+        <Card className="flex flex-col">
           <CardHeader>
-            <CardTitle>Products</CardTitle>
+            <div className="flex items-center justify-between">
+                 <CardTitle>Products</CardTitle>
+                 <div className="flex items-center gap-1">
+                    <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')}>
+                        <List className="h-4 w-4" />
+                    </Button>
+                    <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('grid')}>
+                        <Grid className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -323,41 +338,77 @@ export default function TransactionsPage() {
               />
             </div>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-0 flex-grow">
             <ScrollArea className="h-[450px]">
-              <div className="p-4 pt-0">
-                {isLoading ? (
-                    Array.from({ length: 8 }).map((_, i) => (
-                        <div key={i} className="flex items-center justify-between py-2">
+                {viewMode === 'list' && (
+                    <div className="p-4 pt-0">
+                        {isLoading ? (
+                            Array.from({ length: 8 }).map((_, i) => (
+                                <div key={i} className="flex items-center justify-between py-2">
+                                    <div>
+                                        <Skeleton className="h-5 w-24 mb-1" />
+                                        <Skeleton className="h-4 w-12" />
+                                    </div>
+                                    <Skeleton className="h-9 w-9" />
+                                </div>
+                            ))
+                        ) : filteredProducts.map((product) => (
+                        <div
+                            key={product.id}
+                            className="flex items-center justify-between py-2"
+                        >
                             <div>
-                                <Skeleton className="h-5 w-24 mb-1" />
-                                <Skeleton className="h-4 w-12" />
+                            <p className="font-medium">{product.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                                {formatCurrency(product.price, currency)}
+                            </p>
                             </div>
-                            <Skeleton className="h-9 w-9" />
+                            <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => addToOrder(product)}
+                            disabled={product.stock < 1}
+                            >
+                            <PlusCircle className="h-5 w-5" />
+                            </Button>
                         </div>
-                    ))
-                ) : filteredProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    className="flex items-center justify-between py-2"
-                  >
-                    <div>
-                      <p className="font-medium">{product.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatCurrency(product.price, currency)}
-                      </p>
+                        ))}
                     </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => addToOrder(product)}
-                      disabled={product.stock < 1}
-                    >
-                      <PlusCircle className="h-5 w-5" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+                )}
+                {viewMode === 'grid' && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 pt-0">
+                        {isLoading ? (
+                             Array.from({ length: 6 }).map((_, i) => (
+                                <Card key={i}>
+                                    <CardContent className="p-2">
+                                        <Skeleton className="aspect-square w-full rounded-md" />
+                                        <Skeleton className="h-4 w-2/3 mt-2" />
+                                        <Skeleton className="h-4 w-1/3 mt-1" />
+                                    </CardContent>
+                                </Card>
+                            ))
+                        ) : filteredProducts.map((product) => (
+                            <Card key={product.id} className={cn("overflow-hidden", product.stock < 1 && "opacity-50")}>
+                                <button className="w-full text-left" onClick={() => addToOrder(product)} disabled={product.stock < 1}>
+                                    <div className="relative aspect-square w-full">
+                                        <Image
+                                            src={product.imageUrl || `https://picsum.photos/seed/${product.id}/150/150`}
+                                            alt={product.name}
+                                            fill
+                                            className="object-cover"
+                                            data-ai-hint="product image"
+                                        />
+                                         {product.stock < 1 && <Badge variant="destructive" className="absolute top-1 left-1">Out of Stock</Badge>}
+                                    </div>
+                                    <div className="p-2">
+                                        <h3 className="font-medium text-sm truncate">{product.name}</h3>
+                                        <p className="text-xs text-muted-foreground">{formatCurrency(product.price, currency)}</p>
+                                    </div>
+                                </button>
+                            </Card>
+                        ))}
+                    </div>
+                )}
             </ScrollArea>
           </CardContent>
         </Card>

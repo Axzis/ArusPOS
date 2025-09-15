@@ -6,10 +6,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatCurrency(amount: number, currency = 'USD') {
+  const isWholeNumber = amount % 1 === 0;
+
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: isWholeNumber ? 0 : 2,
+    maximumFractionDigits: isWholeNumber ? 0 : 2,
   }).format(amount);
 }
