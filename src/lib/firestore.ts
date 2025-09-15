@@ -50,17 +50,13 @@ type BusinessData = {
 
 // Helper to get the first (and only) active business ID.
 async function getBusinessId(): Promise<string | null> {
+    // This simplified logic is more robust for production environments.
+    // It strictly looks for an active business.
     const businessQuery = query(collection(db, BUSINESSES_COLLECTION), where("isActive", "!=", false), limit(1));
     const businessSnapshot = await getDocs(businessQuery);
     if (businessSnapshot.empty) {
-        // Fallback for superadmin or initial setup where no business might be "active"
-        const anyBusinessQuery = query(collection(db, BUSINESSES_COLLECTION), limit(1));
-        const anyBusinessSnapshot = await getDocs(anyBusinessQuery);
-        if (anyBusinessSnapshot.empty) {
-            console.warn("No business found in the database.");
-            return null;
-        }
-        return anyBusinessSnapshot.docs[0].id;
+        console.warn("No active business found in the database.");
+        return null;
     }
     return businessSnapshot.docs[0].id;
 }
@@ -108,32 +104,38 @@ export async function addUserAndBusiness(data: BusinessData) {
 
 // === Get Business and its Branches ===
 export async function getBusinessWithBranches() {
+    // First, try to get the active business. This is the standard path.
     const businessQuery = query(collection(db, BUSINESSES_COLLECTION), where("isActive", "!=", false), limit(1));
     const businessSnapshot = await getDocs(businessQuery);
     
-    if (businessSnapshot.empty) {
-        const anyBusinessQuery = query(collection(db, BUSINESSES_COLLECTION), limit(1));
-        const anyBusinessSnapshot = await getDocs(anyBusinessQuery);
-        if (anyBusinessSnapshot.empty) {
-             console.log("No businesses found at all.");
-             return [];
-        }
-         console.log("Found an inactive business. User should see no active branches.");
-         const businessDoc = anyBusinessSnapshot.docs[0];
-         const business = { id: businessDoc.id, ...businessDoc.data(), branches: [] };
-         return [business];
-    }
-
-    const businesses = await Promise.all(businessSnapshot.docs.map(async (businessDoc) => {
+    if (!businessSnapshot.empty) {
+        const businessDoc = businessSnapshot.docs[0];
         const business = { id: businessDoc.id, ...businessDoc.data() };
+        
         const branchesCollectionRef = collection(db, `businesses/${business.id}/branches`);
         const branchesQuery = query(branchesCollectionRef, where("isActive", "==", true));
         const branchesSnapshot = await getDocs(branchesQuery);
         const branches = branchesSnapshot.docs.map(branchDoc => ({ id: branchDoc.id, ...branchDoc.data() }));
-        return { ...business, branches };
-    }));
 
-    return businesses;
+        return [{ ...business, branches }];
+    }
+
+    // If no active business is found, try to find ANY business. 
+    // This is important for the `select-branch` page to show a proper message.
+    const anyBusinessQuery = query(collection(db, BUSINESSES_COLLECTION), limit(1));
+    const anyBusinessSnapshot = await getDocs(anyBusinessQuery);
+
+    if (!anyBusinessSnapshot.empty) {
+        console.log("No active business found, but an inactive one exists.");
+        const businessDoc = anyBusinessSnapshot.docs[0];
+        // Return the business but with an empty branches array since it's inactive.
+        const business = { id: businessDoc.id, ...businessDoc.data(), branches: [] };
+        return [business];
+    }
+    
+    // If no business exists at all.
+    console.log("No businesses found in the database.");
+    return [];
 }
 
 // === Super Admin functions ===
@@ -271,7 +273,7 @@ export async function addTransactionAndUpdateStock(
   const batch = writeBatch(db);
 
   // 1. Add the transaction document
-  const transactionRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION));
+  const transactionRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLlection));
   batch.set(transactionRef, {
     ...transactionData,
     date: serverTimestamp(),
@@ -328,8 +330,8 @@ export async function getPromosForBranch(branchId: string) {
         return {
             id: doc.id,
             ...data,
-            startDate: data.startDate?.toDate().toISOString() ?? new Date().toISOString(),
-            endDate: data.endDate?.toDate().toISOString() ?? new Date().toISOString(),
+            startDate: data.startDate?.toDate ? data.startDate.toDate().toISOString() : new Date().toISOString(),
+            endDate: data.endDate?.toDate ? data.endDate.toDate().toISOString() : new Date().toISOString(),
         }
     });
 }
