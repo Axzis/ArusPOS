@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import {
   Card,
@@ -99,18 +99,13 @@ type Transaction = {
 const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
 
 
-const PrintableInvoice = ({ transaction, currency, onPrinted }: { transaction: Transaction, currency: string, onPrinted: () => void }) => {
-    useEffect(() => {
-        window.print();
-        onPrinted();
-    }, [onPrinted]);
+const PrintableInvoice = React.forwardRef<HTMLDivElement, { transaction: Transaction | null, currency: string }>(({ transaction, currency }, ref) => {
+    if (!transaction) return null;
 
     const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    // Note: The logic for tax calculation needs to be inferred or passed if it's not on the transaction object
-    // Assuming transaction.amount is the final total for simplicity here.
-
+    
     return (
-        <div className="print-invoice">
+        <div ref={ref} className="print-invoice">
             <Card>
                 <CardHeader className='text-center'>
                     <CardTitle>Invoice</CardTitle>
@@ -153,7 +148,6 @@ const PrintableInvoice = ({ transaction, currency, onPrinted }: { transaction: T
                                 <span>Subtotal</span>
                                 <span>{formatCurrency(subtotal, currency)}</span>
                             </div>
-                             {/* Assuming tax might be the difference if available */}
                             <div className="flex justify-between">
                                 <span>Tax</span>
                                 <span>{formatCurrency(transaction.amount - subtotal, currency)}</span>
@@ -173,7 +167,9 @@ const PrintableInvoice = ({ transaction, currency, onPrinted }: { transaction: T
             </Card>
         </div>
     );
-}
+});
+PrintableInvoice.displayName = 'PrintableInvoice';
+
 
 export default function TransactionsPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -196,6 +192,7 @@ export default function TransactionsPage() {
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const [transactionForRegistration, setTransactionForRegistration] = useState<Transaction | null>(null);
   const [transactionToPrint, setTransactionToPrint] = useState<Transaction | null>(null);
+  const invoiceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const storedBranch = localStorage.getItem('activeBranch');
@@ -353,7 +350,7 @@ export default function TransactionsPage() {
           
           toast({ title: "Transaction Successful", description: `Payment of ${formatCurrency(total, currency)} charged.` });
           clearOrder();
-          fetchData(); // This will re-fetch transactions and customers (with updated totalSpent)
+          fetchData();
       } catch (error) {
           console.error("Failed to charge payment:", error);
           toast({ title: "Error", description: "Could not process the payment.", variant: "destructive" });
@@ -366,6 +363,18 @@ export default function TransactionsPage() {
   const handlePrintInvoice = (transaction: Transaction) => {
     setTransactionToPrint(transaction);
   };
+
+  useEffect(() => {
+    if (transactionToPrint) {
+        // Wait for state to update the DOM, then print
+        const timer = setTimeout(() => {
+            window.print();
+            setTransactionToPrint(null); // Reset after printing
+        }, 100); // A small delay is often necessary
+        return () => clearTimeout(timer);
+    }
+  }, [transactionToPrint]);
+
 
   const generateWhatsAppMessage = (transaction: Transaction, customerPhone: string) => {
     const itemsText = transaction.items.map(item => `${item.quantity}x ${item.name}`).join(', ');
@@ -397,7 +406,7 @@ export default function TransactionsPage() {
     try {
       await addNewCustomer({ name: newCustomer.name, email: '', phone: newCustomer.phone });
       toast({ title: "Pelanggan Terdaftar", description: `${newCustomer.name} telah berhasil ditambahkan.` });
-      fetchData(); // Refresh customer list
+      fetchData(); 
       generateWhatsAppMessage(transactionForRegistration, newCustomer.phone);
       setIsRegistering(false);
       setNewCustomer({ name: '', phone: '' });
@@ -420,10 +429,6 @@ export default function TransactionsPage() {
   );
   
   const isLoading = loading || loadingBusiness;
-
-  if (transactionToPrint) {
-    return <PrintableInvoice transaction={transactionToPrint} currency={currency} onPrinted={() => setTransactionToPrint(null)} />;
-  }
 
 
   return (
@@ -789,11 +794,9 @@ export default function TransactionsPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        
+        <PrintableInvoice ref={invoiceRef} transaction={transactionToPrint} currency={currency} />
 
     </div>
   );
 }
-
-    
-
-    
