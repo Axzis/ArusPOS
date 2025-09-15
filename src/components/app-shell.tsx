@@ -13,6 +13,9 @@ import {
   Receipt,
   Settings,
   Users,
+  ChevronsLeft,
+  Maximize,
+  Minimize,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -27,6 +30,7 @@ import {
   SidebarFooter,
   SidebarTrigger,
   SidebarInset,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/icons';
 import { Button } from './ui/button';
@@ -60,6 +64,56 @@ const bottomNavItems = [
 type ActiveBranch = {
     id: string;
     name: string;
+}
+
+function SidebarToggleButton() {
+    const { toggleSidebar, state } = useSidebar();
+    return (
+        <SidebarMenuButton
+            onClick={toggleSidebar}
+            tooltip={state === 'expanded' ? 'Collapse sidebar' : 'Expand sidebar'}
+        >
+            <ChevronsLeft
+                className={cn(
+                    'duration-200',
+                    state === 'collapsed' && 'rotate-180'
+                )}
+            />
+            <span className="sr-only">Toggle Sidebar</span>
+        </SidebarMenuButton>
+    )
+}
+
+function FullscreenButton() {
+    const [isFullscreen, setIsFullscreen] = React.useState(false);
+
+    const toggleFullscreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+            setIsFullscreen(true);
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+                setIsFullscreen(false);
+            }
+        }
+    };
+    
+    React.useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    }, []);
+
+
+    return (
+        <Button variant="ghost" size="icon" onClick={toggleFullscreen}>
+            {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+            <span className="sr-only">Toggle fullscreen</span>
+        </Button>
+    );
 }
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -140,6 +194,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   <Link href={item.href}>
                     <SidebarMenuButton
                       isActive={pathname.startsWith(item.href)}
+                       tooltip={item.label}
                     >
                       <item.icon />
                       <span>{item.label}</span>
@@ -156,6 +211,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   <Link href={item.href}>
                     <SidebarMenuButton
                       isActive={pathname.startsWith(item.href)}
+                      tooltip={item.label}
                     >
                       <item.icon />
                       <span>{item.label}</span>
@@ -163,6 +219,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   </Link>
                 </SidebarMenuItem>
               ))}
+               <SidebarMenuItem>
+                  <SidebarToggleButton />
+               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarFooter>
         </Sidebar>
@@ -176,7 +235,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   {loadingBranch ? <Skeleton className="h-5 w-24" /> : <span>{activeBranch?.name ?? '...'}</span>}
               </div>
 
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+               <FullscreenButton />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
