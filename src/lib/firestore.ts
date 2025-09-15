@@ -329,6 +329,41 @@ export async function getUsers() {
     }
 }
 
+type NewUser = {
+    name: string;
+    email: string;
+    password?: string;
+    role: 'Admin' | 'Staff' | string;
+};
+
+export async function addUserToBusiness(userData: NewUser) {
+    const businessId = await getBusinessId();
+    if (!businessId) {
+        throw new Error("Current user is not associated with a business.");
+    }
+    if (!userData.email || !userData.password) {
+        throw new Error("Email and password are required to create a new user.");
+    }
+
+    // Note: Creating an auth user and then a DB user isn't transactional.
+    // In a real-world app, you might use a Cloud Function for this to ensure atomicity.
+    const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+    const user = userCredential.user;
+
+    const userRef = doc(collection(db, USERS_COLLECTION));
+    await setDoc(userRef, {
+        uid: user.uid,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        businessId: businessId,
+        createdAt: serverTimestamp(),
+    });
+
+    return { userId: userRef.id };
+}
+
+
 // === Promotion Functions (Branch Specific) ===
 export async function getPromosForBranch(branchId: string) {
     const businessId = await getBusinessId();
@@ -462,5 +497,3 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
-
-      
