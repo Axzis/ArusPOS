@@ -33,19 +33,24 @@ export default function QuickAssessmentPage() {
     e.preventDefault();
     setLoading(true);
     const formData = new FormData(e.currentTarget);
-    const data = Object.fromEntries(formData.entries());
+    
+    const branches = [];
+    for (let i = 0; i < branchCount; i++) {
+      const name = formData.get(`branch-name-${i}`) as string;
+      const address = formData.get(`branch-address-${i}`) as string;
+      const phone = formData.get(`branch-phone-${i}`) as string;
+      if (name && address && phone) {
+        branches.push({ name, address, phone });
+      }
+    }
 
     const businessData = {
-      adminName: data['admin-name'] as string,
-      email: data.email as string,
-      password: data.password as string, // In a real app, hash this!
-      businessName: data['business-name'] as string,
-      businessType: data['business-type'] as string,
-      branches: Array.from({ length: branchCount }, (_, i) => ({
-        name: formData.get(`branch-name-${i}`) as string,
-        address: formData.get(`branch-address-${i}`) as string,
-        phone: formData.get(`branch-phone-${i}`) as string,
-      })),
+      adminName: formData.get('admin-name') as string,
+      email: formData.get('email') as string,
+      password: formData.get('password') as string, // In a real app, hash this!
+      businessName: formData.get('business-name') as string,
+      businessType: formData.get('business-type') as string,
+      branches: branches,
     };
 
     try {
