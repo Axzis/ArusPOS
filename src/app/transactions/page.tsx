@@ -75,7 +75,7 @@ export default function TransactionsPage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const { currency, loading: loadingBusiness } = useBusiness();
+  const { currency, taxEnabled, taxRate, loading: loadingBusiness } = useBusiness();
 
 
   useEffect(() => {
@@ -127,7 +127,8 @@ export default function TransactionsPage() {
     (sum, item) => sum + item.price * item.quantity,
     0
   );
-  const tax = subtotal * 0.08;
+  
+  const tax = taxEnabled ? subtotal * (taxRate / 100) : 0;
   const total = subtotal + tax;
 
   const filteredProducts = allProducts.filter((product) =>
@@ -211,10 +212,12 @@ export default function TransactionsPage() {
                     <span className="text-muted-foreground">Subtotal</span>
                     <span>{formatCurrency(subtotal, currency)}</span>
                   </div>
-                  <div className="flex w-full max-w-xs justify-between">
-                    <span className="text-muted-foreground">Tax (8%)</span>
-                    <span>{formatCurrency(tax, currency)}</span>
-                  </div>
+                  {taxEnabled && (
+                    <div className="flex w-full max-w-xs justify-between">
+                        <span className="text-muted-foreground">Tax ({taxRate}%)</span>
+                        <span>{formatCurrency(tax, currency)}</span>
+                    </div>
+                  )}
                   <Separator className="my-1 w-full max-w-xs" />
                   <div className="flex w-full max-w-xs justify-between font-bold">
                     <span>Total</span>

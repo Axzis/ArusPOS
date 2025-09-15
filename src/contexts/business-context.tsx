@@ -9,6 +9,8 @@ type Business = {
     name: string;
     type: string;
     currency: string;
+    taxEnabled: boolean;
+    taxRate: number;
     branches: any[];
 }
 
@@ -16,6 +18,8 @@ type BusinessContextType = {
     business: Business | null;
     loading: boolean;
     currency: string;
+    taxEnabled: boolean;
+    taxRate: number;
 };
 
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
@@ -41,6 +45,10 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     const currency = business?.currency || 'USD';
+    const taxEnabled = business?.taxEnabled !== false; // default to true
+    const taxRate = business?.taxRate || 0;
+
+    const value = { business, loading, currency, taxEnabled, taxRate };
 
     if (loading) {
          return (
@@ -54,7 +62,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <BusinessContext.Provider value={{ business, loading, currency }}>
+        <BusinessContext.Provider value={value}>
             {children}
         </BusinessContext.Provider>
     );
