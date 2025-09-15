@@ -32,6 +32,8 @@ import { salesData } from '@/lib/data';
 import { getTransactionsForBranch, getCustomers } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { useBusiness } from '@/contexts/business-context';
+import { formatCurrency } from '@/lib/utils';
 
 const chartConfig = {
   sales: {
@@ -65,6 +67,8 @@ export default function DashboardPage() {
     const [loading, setLoading] = React.useState(true);
     const [activeBranchId, setActiveBranchId] = React.useState<string | null>(null);
     const { toast } = useToast();
+    const { currency, loading: loadingBusiness } = useBusiness();
+
 
      React.useEffect(() => {
         const storedBranch = localStorage.getItem('activeBranch');
@@ -114,6 +118,8 @@ export default function DashboardPage() {
 
   const newCustomersThisMonth = customers.length; // Simplified for now
   const totalCustomers = customers.length;
+  
+  const isLoading = loading || loadingBusiness;
 
 
   return (
@@ -125,7 +131,7 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">${totalRevenue.toLocaleString()}</div>}
+            {isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">{formatCurrency(totalRevenue, currency)}</div>}
             <p className="text-xs text-muted-foreground">
               Total revenue for this branch
             </p>
@@ -137,7 +143,7 @@ export default function DashboardPage() {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">+${salesToday.toLocaleString()}</div>}
+            {isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">+{formatCurrency(salesToday, currency)}</div>}
             <p className="text-xs text-muted-foreground">
               Sales today for this branch
             </p>
@@ -149,7 +155,7 @@ export default function DashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">+{newCustomersThisMonth}</div>}
+            {isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">+{newCustomersThisMonth}</div>}
             <p className="text-xs text-muted-foreground">
               +15% from last month
             </p>
@@ -161,7 +167,7 @@ export default function DashboardPage() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">{totalCustomers}</div>}
+            {isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">{totalCustomers}</div>}
             <p className="text-xs text-muted-foreground">
               Total customers overall
             </p>
@@ -213,7 +219,7 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {loading ? (
+                {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
@@ -248,7 +254,7 @@ export default function DashboardPage() {
                           : ''
                       }`}
                     >
-                      ${Math.abs(transaction.amount).toFixed(2)}
+                      {formatCurrency(Math.abs(transaction.amount), currency)}
                     </TableCell>
                   </TableRow>
                 ))}

@@ -54,9 +54,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useBusiness } from '@/contexts/business-context';
+import { formatCurrency } from '@/lib/utils';
 
 type Product = {
   id: string;
@@ -79,6 +80,7 @@ export default function ProductsPage() {
     const [activeBranchId, setActiveBranchId] = React.useState<string | null>(null);
     const [isSaveConfirmOpen, setIsSaveConfirmOpen] = React.useState(false);
     const formRef = React.useRef<HTMLFormElement>(null);
+    const { currency, loading: loadingBusiness } = useBusiness();
 
 
     React.useEffect(() => {
@@ -184,6 +186,8 @@ export default function ProductsPage() {
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.sku.toLowerCase().includes(searchTerm.toLowerCase())
     );
+    
+    const isLoading = loading || loadingBusiness;
 
   return (
     <div className="flex flex-col gap-6">
@@ -300,7 +304,7 @@ export default function ProductsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
+              {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
@@ -319,7 +323,7 @@ export default function ProductsPage() {
                     <Badge variant="outline">{product.category}</Badge>
                   </TableCell>
                   <TableCell>{product.stock}</TableCell>
-                  <TableCell>${product.price.toFixed(2)}</TableCell>
+                  <TableCell>{formatCurrency(product.price, currency)}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

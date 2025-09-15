@@ -37,6 +37,8 @@ import { getTransactions, getProducts, getCustomers } from '@/lib/firestore';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useBusiness } from '@/contexts/business-context';
+import { formatCurrency } from '@/lib/utils';
 
 type OrderItem = {
   id: string;
@@ -73,6 +75,7 @@ export default function TransactionsPage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const { currency, loading: loadingBusiness } = useBusiness();
 
 
   useEffect(() => {
@@ -130,6 +133,8 @@ export default function TransactionsPage() {
   const filteredProducts = allProducts.filter((product) =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  const isLoading = loading || loadingBusiness;
 
   return (
     <div className="flex flex-col gap-6">
@@ -174,7 +179,7 @@ export default function TransactionsPage() {
                           </TableCell>
                           <TableCell>{item.quantity}</TableCell>
                           <TableCell className="text-right">
-                            ${(item.price * item.quantity).toFixed(2)}
+                            {formatCurrency(item.price * item.quantity, currency)}
                           </TableCell>
                           <TableCell>
                             <Button
@@ -204,16 +209,16 @@ export default function TransactionsPage() {
                 <div className="flex flex-col items-end gap-2 text-sm">
                   <div className="flex w-full max-w-xs justify-between">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span>${subtotal.toFixed(2)}</span>
+                    <span>{formatCurrency(subtotal, currency)}</span>
                   </div>
                   <div className="flex w-full max-w-xs justify-between">
                     <span className="text-muted-foreground">Tax (8%)</span>
-                    <span>${tax.toFixed(2)}</span>
+                    <span>{formatCurrency(tax, currency)}</span>
                   </div>
                   <Separator className="my-1 w-full max-w-xs" />
                   <div className="flex w-full max-w-xs justify-between font-bold">
                     <span>Total</span>
-                    <span>${total.toFixed(2)}</span>
+                    <span>{formatCurrency(total, currency)}</span>
                   </div>
                 </div>
               )}
@@ -243,7 +248,7 @@ export default function TransactionsPage() {
           <CardContent className="p-0">
             <ScrollArea className="h-[450px]">
               <div className="p-4 pt-0">
-                {loading ? (
+                {isLoading ? (
                     Array.from({ length: 8 }).map((_, i) => (
                         <div key={i} className="flex items-center justify-between py-2">
                             <div>
@@ -261,7 +266,7 @@ export default function TransactionsPage() {
                     <div>
                       <p className="font-medium">{product.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        ${product.price.toFixed(2)}
+                        {formatCurrency(product.price, currency)}
                       </p>
                     </div>
                     <Button
@@ -294,7 +299,7 @@ export default function TransactionsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
+              {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
@@ -336,7 +341,7 @@ export default function TransactionsPage() {
                       transaction.type === 'Refund' ? 'text-destructive' : ''
                     }`}
                   >
-                    ${Math.abs(transaction.amount).toFixed(2)}
+                    {formatCurrency(Math.abs(transaction.amount), currency)}
                   </TableCell>
                 </TableRow>
               ))}
