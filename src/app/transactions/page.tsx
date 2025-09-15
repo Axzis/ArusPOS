@@ -19,13 +19,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,6 +48,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Combobox } from '@/components/ui/combobox';
 
 
 type OrderItem = {
@@ -97,7 +91,7 @@ export default function TransactionsPage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const { currency, taxEnabled, taxRate, loading: loadingBusiness } = useBusiness();
@@ -175,7 +169,7 @@ export default function TransactionsPage() {
     const handleKeyDown = (event: KeyboardEvent) => {
         // Ignore input if a text field is focused
         const activeElement = document.activeElement;
-        if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+        if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.getAttribute('role') === 'combobox')) {
             return;
         }
         
@@ -225,7 +219,7 @@ export default function TransactionsPage() {
 
   const clearOrder = () => {
     setOrderItems([]);
-    setSelectedCustomer(null);
+    setSelectedCustomerId('');
   };
 
   const handleChargePayment = async () => {
@@ -233,6 +227,7 @@ export default function TransactionsPage() {
       
       setIsProcessing(true);
       try {
+          const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
           const transactionData = {
               customerName: selectedCustomer?.name || 'Anonymous',
               amount: total,
@@ -267,6 +262,8 @@ export default function TransactionsPage() {
   const filteredProducts = allProducts.filter((product) =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const customerOptions = customers.map(c => ({ value: c.id, label: c.name }));
   
   const isLoading = loading || loadingBusiness;
 
@@ -286,21 +283,14 @@ export default function TransactionsPage() {
           </CardHeader>
           <CardContent>
             <div className="grid gap-4">
-              <Select onValueChange={(value) => {
-                  const cust = customers.find(c => c.id === value);
-                  setSelectedCustomer(cust || null);
-              }} value={selectedCustomer?.id || ""}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a customer (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((customer) => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+               <Combobox
+                options={customerOptions}
+                value={selectedCustomerId}
+                onValueChange={setSelectedCustomerId}
+                placeholder="Select a customer (optional)"
+                searchPlaceholder="Search customers..."
+                emptyPlaceholder="No customers found."
+              />
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
