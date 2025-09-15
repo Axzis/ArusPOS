@@ -28,7 +28,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { getInventory } from '@/lib/firestore';
+import { getProductsForBranch, updateProductInBranch } from '@/lib/firestore'; // Changed from getInventory
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -40,33 +40,85 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 type InventoryItem = {
   id: string;
   name: string;
   sku: string;
   stock: number;
-  status: 'In Stock' | 'Low Stock' | 'Out of Stock';
+  // The status will be calculated dynamically
 };
+
+function getStatus(stock: number): 'In Stock' | 'Low Stock' | 'Out of Stock' {
+    if (stock <= 0) return 'Out of Stock';
+    if (stock <= 20) return 'Low Stock';
+    return 'In Stock';
+}
 
 
 export default function InventoryPage() {
   const [inventoryData, setInventoryData] = React.useState<InventoryItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [activeBranchId, setActiveBranchId] = React.useState<string | null>(null);
+  const [isAlertOpen, setIsAlertOpen] = React.useState(false);
+  const [selectedItem, setSelectedItem] = React.useState<InventoryItem | null>(null);
+  const [newStock, setNewStock] = React.useState(0);
+  const { toast } = useToast();
+
+   React.useEffect(() => {
+    const storedBranch = localStorage.getItem('activeBranch');
+    if (storedBranch) {
+        const branch = JSON.parse(storedBranch);
+        setActiveBranchId(branch.id);
+    }
+  }, []);
+
+  const fetchInventory = React.useCallback(async () => {
+    if (!activeBranchId) return;
+    setLoading(true);
+    try {
+      // We fetch products for the branch, as they contain the stock info
+      const data = await getProductsForBranch(activeBranchId);
+      setInventoryData(data as InventoryItem[]);
+    } catch(error) {
+        console.error("Failed to fetch inventory data:", error);
+        toast({ title: "Error", description: "Could not fetch inventory for this branch.", variant: "destructive"});
+    } finally {
+        setLoading(false);
+    }
+  }, [activeBranchId, toast]);
 
   React.useEffect(() => {
-    async function fetchInventory() {
-      const data = await getInventory();
-      setInventoryData(data as InventoryItem[]);
-      setLoading(false);
-    }
     fetchInventory();
-  }, []);
+  }, [fetchInventory]);
+  
+  const handleUpdateClick = (item: InventoryItem) => {
+    setSelectedItem(item);
+    setNewStock(item.stock);
+    setIsAlertOpen(true);
+  };
+
+  const executeStockUpdate = async () => {
+    if (!selectedItem || !activeBranchId) return;
+    
+    try {
+        await updateProductInBranch(activeBranchId, selectedItem.id, { stock: newStock });
+        toast({ title: "Success", description: `Stock for ${selectedItem.name} updated.` });
+        fetchInventory(); // Refresh data
+    } catch(error) {
+        console.error("Failed to update stock:", error);
+        toast({ title: "Error", description: "Could not update stock.", variant: "destructive" });
+    } finally {
+        setIsAlertOpen(false);
+        setSelectedItem(null);
+    }
+  };
+
 
   const filteredInventory = inventoryData.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -83,7 +135,7 @@ export default function InventoryPage() {
         <CardHeader>
           <CardTitle>Inventory Management</CardTitle>
           <CardDescription>
-            View and manage your product stock levels.
+            View and manage product stock levels for the current branch.
           </CardDescription>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -120,72 +172,81 @@ export default function InventoryPage() {
                         <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                     </TableRow>
                 ))
-              ) : filteredInventory.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.name}</TableCell>
-                  <TableCell>{item.sku}</TableCell>
-                  <TableCell>
-                    <Badge
-                      className={cn({
-                        'bg-green-500/20 text-green-700 border-green-500/20 hover:bg-green-500/30': item.status === 'In Stock',
-                        'bg-yellow-500/20 text-yellow-700 border-yellow-500/20 hover:bg-yellow-500/30': item.status === 'Low Stock',
-                        'bg-red-500/20 text-red-700 border-red-500/20 hover:bg-red-500/30': item.status === 'Out of Stock',
-                      })}
-                      variant="outline"
-                    >
-                      {item.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{item.stock}</TableCell>
-                  <TableCell>
-                    <AlertDialog>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            aria-haspopup="true"
-                            size="icon"
-                            variant="ghost"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Toggle menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <AlertDialogTrigger asChild>
-                            <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Update Stock</DropdownMenuItem>
-                          </AlertDialogTrigger>
-                          <DropdownMenuItem>View Details</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Update Stock for {item.name}</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Enter the new stock quantity. This will overwrite the current value.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <div className="grid gap-4 py-4">
-                           <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="stock" className="text-right">
-                              New Quantity
-                            </Label>
-                            <Input id="stock" type="number" defaultValue={item.stock} className="col-span-3" />
-                          </div>
-                        </div>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction>Update</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </TableCell>
-                </TableRow>
-              ))}
+              ) : filteredInventory.map((item) => {
+                  const status = getStatus(item.stock);
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell>{item.sku}</TableCell>
+                      <TableCell>
+                        <Badge
+                          className={cn({
+                            'bg-green-500/20 text-green-700 border-green-500/20 hover:bg-green-500/30': status === 'In Stock',
+                            'bg-yellow-500/20 text-yellow-700 border-yellow-500/20 hover:bg-yellow-500/30': status === 'Low Stock',
+                            'bg-red-500/20 text-red-700 border-red-500/20 hover:bg-red-500/30': status === 'Out of Stock',
+                          })}
+                          variant="outline"
+                        >
+                          {status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{item.stock}</TableCell>
+                      <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                aria-haspopup="true"
+                                size="icon"
+                                variant="ghost"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem onSelect={() => handleUpdateClick(item)}>Update Stock</DropdownMenuItem>
+                              <DropdownMenuItem disabled>View Details</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+              })}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+      
+       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Update Stock for {selectedItem?.name}</AlertDialogTitle>
+              <AlertDialogDescription>
+                Enter the new stock quantity. This will overwrite the current value.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="stock" className="text-right">
+                    New Quantity
+                </Label>
+                <Input 
+                    id="stock" 
+                    type="number" 
+                    value={newStock} 
+                    onChange={(e) => setNewStock(parseInt(e.target.value, 10) || 0)}
+                    className="col-span-3" 
+                />
+                </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={executeStockUpdate}>Update</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
     </div>
   );
 }
