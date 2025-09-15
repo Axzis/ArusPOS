@@ -35,7 +35,6 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
   SheetFooter,
 } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
