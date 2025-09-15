@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import {
   Card,
@@ -34,7 +34,8 @@ import {
   Trash2,
   X,
   List,
-  Grid
+  Grid,
+  Barcode
 } from 'lucide-react';
 import { getProductsForBranch, getCustomers, getTransactionsForBranch, addTransactionAndUpdateStock } from '@/lib/firestore';
 import { Separator } from '@/components/ui/separator';
@@ -68,6 +69,7 @@ type Product = {
   name: string;
   price: number;
   stock: number;
+  sku: string;
   imageUrl?: string;
 };
 
@@ -100,6 +102,7 @@ export default function TransactionsPage() {
   const { currency, taxEnabled, taxRate, loading: loadingBusiness } = useBusiness();
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
   const { toast } = useToast();
+  const [scannerEnabled, setScannerEnabled] = useState(false);
 
 
   useEffect(() => {
@@ -108,9 +111,11 @@ export default function TransactionsPage() {
         const branch = JSON.parse(storedBranch);
         setActiveBranchId(branch.id);
     }
+    const scannerPref = localStorage.getItem('barcodeScannerEnabled');
+    setScannerEnabled(scannerPref === 'true');
   }, []);
 
-  const fetchData = React.useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!activeBranchId) return;
     setLoading(true);
     try {
@@ -136,8 +141,7 @@ export default function TransactionsPage() {
     }
   }, [activeBranchId, fetchData]);
 
-
-  const addToOrder = (product: Product) => {
+  const addToOrder = useCallback((product: Product) => {
     setOrderItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
       if (existingItem) {
@@ -157,7 +161,60 @@ export default function TransactionsPage() {
         }
       return [...prevItems, { ...product, quantity: 1 }];
     });
-  };
+  }, [toast]);
+
+
+  // Barcode scanner logic
+  useEffect(() => {
+    if (!scannerEnabled) return;
+
+    let barcode = '';
+    let lastKeyTime = Date.now();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+        // Ignore input if a text field is focused
+        const activeElement = document.activeElement;
+        if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
+            return;
+        }
+        
+        const currentTime = Date.now();
+        // If there's a long pause between keys, reset the barcode
+        if (currentTime - lastKeyTime > 100) {
+            barcode = '';
+        }
+        
+        if (event.key === 'Enter') {
+            if (barcode.length > 2) { // Minimum length for a barcode
+                const product = allProducts.find(p => p.sku === barcode);
+                if (product) {
+                    addToOrder(product);
+                    toast({
+                        title: "Product Added",
+                        description: `${product.name} was added to the order.`,
+                    });
+                } else {
+                     toast({
+                        title: "Product Not Found",
+                        description: `No product found with SKU: ${barcode}`,
+                        variant: "destructive"
+                    });
+                }
+            }
+            barcode = ''; // Reset after enter
+        } else if (event.key.length === 1) { // Append character keys
+            barcode += event.key;
+        }
+
+        lastKeyTime = currentTime;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [scannerEnabled, allProducts, addToOrder, toast]);
+
 
   const removeFromOrder = (productId: string) => {
     setOrderItems((prevItems) =>
@@ -317,7 +374,10 @@ export default function TransactionsPage() {
         <Card className="flex flex-col">
           <CardHeader>
             <div className="flex items-center justify-between">
-                 <CardTitle>Products</CardTitle>
+                <div className='flex items-center gap-2'>
+                    <CardTitle>Products</CardTitle>
+                    {scannerEnabled && <Badge variant="secondary" className="gap-1.5 pl-1.5"><Barcode className="h-3.5 w-3.5" /> On</Badge>}
+                </div>
                  <div className="flex items-center gap-1">
                     <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => setViewMode('list')}>
                         <List className="h-4 w-4" />
