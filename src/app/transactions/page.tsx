@@ -93,6 +93,8 @@ type Transaction = {
     type: 'Sale' | 'Refund';
 }
 
+const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
+
 export default function TransactionsPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -257,7 +259,9 @@ export default function TransactionsPage() {
       
       setIsProcessing(true);
       try {
-          const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+          const isAnonymous = selectedCustomerId === ANONYMOUS_CUSTOMER_ID || selectedCustomerId === '';
+          const selectedCustomer = isAnonymous ? null : customers.find(c => c.id === selectedCustomerId);
+
           const transactionData = {
               customerName: selectedCustomer?.name || 'Anonymous',
               amount: total,
@@ -316,7 +320,7 @@ export default function TransactionsPage() {
                       <SelectValue placeholder="Select a customer (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                      <SelectItem value="">Anonymous</SelectItem>
+                      <SelectItem value={ANONYMOUS_CUSTOMER_ID}>Anonymous</SelectItem>
                       {customers.map(customer => (
                           <SelectItem key={customer.id} value={customer.id}>
                               {customer.name}
