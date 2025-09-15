@@ -2,11 +2,13 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   BarChart,
   Boxes,
+  Building,
   LayoutDashboard,
+  LogOut,
   Package,
   Receipt,
   Settings,
@@ -38,6 +40,7 @@ import {
 } from './ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Skeleton } from './ui/skeleton';
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -52,9 +55,34 @@ const bottomNavItems = [
   { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
+type ActiveBranch = {
+    id: string;
+    name: string;
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const isMobile = useIsMobile();
+  const [activeBranch, setActiveBranch] = React.useState<ActiveBranch | null>(null);
+  const [loadingBranch, setLoadingBranch] = React.useState(true);
+
+  React.useEffect(() => {
+     try {
+        const storedBranch = localStorage.getItem('activeBranch');
+        if (storedBranch) {
+            setActiveBranch(JSON.parse(storedBranch));
+        } else if (pathname !== '/select-branch') {
+            router.replace('/select-branch');
+        }
+     } catch (error) {
+        console.error("Could not parse active branch", error);
+        router.replace('/select-branch');
+     } finally {
+        setLoadingBranch(false);
+     }
+  }, [pathname, router]);
+
   // Set sidebar open state based on cookie
   const [open, setOpen] = React.useState(() => {
     if (typeof window === 'undefined') return true;
@@ -63,6 +91,29 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .find((row) => row.startsWith('sidebar_state='));
     return stored ? stored.split('=')[1] === 'true' : true;
   });
+
+  const handleLogout = () => {
+    localStorage.removeItem('activeBranch');
+    router.push('/login');
+  };
+
+  const handleSwitchBranch = () => {
+    router.push('/select-branch');
+  }
+
+  // Don't render the shell for auth/setup pages
+  if (['/login', '/quick-assessment', '/select-branch'].includes(pathname)) {
+      return <>{children}</>;
+  }
+  
+  if (loadingBranch) {
+      return (
+          <div className="flex h-screen items-center justify-center">
+              <Logo className="size-10 text-primary animate-pulse" />
+          </div>
+      )
+  }
+
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
@@ -77,15 +128,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <SidebarMenu>
             {navItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href} passHref>
+                <Link href={item.href}>
                   <SidebarMenuButton
-                    asChild
                     isActive={pathname.startsWith(item.href)}
                   >
-                    <div>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </div>
+                    <item.icon />
+                    <span>{item.label}</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
@@ -96,15 +144,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <SidebarMenu>
             {bottomNavItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href} passHref>
+                <Link href={item.href}>
                   <SidebarMenuButton
-                    asChild
                     isActive={pathname.startsWith(item.href)}
                   >
-                    <div>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </div>
+                    <item.icon />
+                    <span>{item.label}</span>
                   </SidebarMenuButton>
                 </Link>
               </SidebarMenuItem>
@@ -115,6 +160,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
           <SidebarTrigger className={cn(!isMobile && open ? 'invisible' : '')} />
+
+            <div className="flex items-center gap-2 text-sm font-medium">
+                <Building className="size-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Managing:</span>
+                {loadingBranch ? <Skeleton className="h-5 w-24" /> : <span>{activeBranch?.name ?? '...'}</span>}
+            </div>
+
           <div className="ml-auto">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -128,10 +180,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSwitchBranch}>Switch Branch</DropdownMenuItem>
                 <DropdownMenuItem>Settings</DropdownMenuItem>
                 <DropdownMenuItem>Support</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Logout</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                    <LogOut className='mr-2' />
+                    Logout
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

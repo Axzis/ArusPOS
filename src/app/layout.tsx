@@ -24,6 +24,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
+        {/* Wrap children in AppShell to provide context and layout */}
         <AppShell>{children}</AppShell>
         <Toaster />
       </body>

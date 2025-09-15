@@ -6,15 +6,94 @@ import {
   addDoc,
   query,
   limit,
+  writeBatch,
+  serverTimestamp,
+  where,
+  getDoc,
+  doc,
 } from 'firebase/firestore';
 import { products, customers, transactions, inventory } from './data';
 
 const db = getFirestore(app);
 
+const USERS_COLLECTION = 'users';
+const BUSINESSES_COLLECTION = 'businesses';
+const BRANCHES_COLLECTION = 'branches';
 const PRODUCTS_COLLECTION = 'products';
 const CUSTOMERS_COLLECTION = 'customers';
 const TRANSACTIONS_COLLECTION = 'transactions';
 const INVENTORY_COLLECTION = 'inventory';
+
+type BusinessData = {
+    adminName: string;
+    email: string;
+    password?: string;
+    businessName: string;
+    businessType: string;
+    branches: {
+        name: string;
+        address: string;
+        phone: string;
+    }[];
+}
+
+// === New Business and User Registration ===
+export async function addUserAndBusiness(data: BusinessData) {
+    const batch = writeBatch(db);
+
+    // 1. Create the Business document
+    const businessRef = doc(collection(db, BUSINESSES_COLLECTION));
+    batch.set(businessRef, {
+        name: data.businessName,
+        type: data.businessType,
+        createdAt: serverTimestamp(),
+    });
+
+    // 2. Create Branch documents
+    data.branches.forEach(branchData => {
+        const branchRef = doc(collection(db, `businesses/${businessRef.id}/branches`));
+        batch.set(branchRef, {
+            ...branchData,
+            createdAt: serverTimestamp(),
+        });
+    });
+
+    // 3. Create the User document
+    const userRef = doc(collection(db, USERS_COLLECTION));
+    batch.set(userRef, {
+        name: data.adminName,
+        email: data.email,
+        // In a real app, you would use Firebase Auth and store the UID.
+        // The password should be handled by Firebase Auth, not stored in Firestore.
+        role: 'Admin', // Initial user is an Admin
+        businessId: businessRef.id,
+        createdAt: serverTimestamp(),
+    });
+
+    // Commit the batch
+    await batch.commit();
+    return { userId: userRef.id, businessId: businessRef.id };
+}
+
+// === Get Business and its Branches ===
+export async function getBusinessWithBranches() {
+    const businessQuery = query(collection(db, BUSINESSES_COLLECTION), limit(1));
+    const businessSnapshot = await getDocs(businessQuery);
+    
+    if (businessSnapshot.empty) {
+        return [];
+    }
+
+    const businesses = await Promise.all(businessSnapshot.docs.map(async (businessDoc) => {
+        const business = { id: businessDoc.id, ...businessDoc.data() };
+        const branchesSnapshot = await getDocs(collection(db, `businesses/${business.id}/branches`));
+        const branches = branchesSnapshot.docs.map(branchDoc => ({ id: branchDoc.id, ...branchDoc.data() }));
+        return { ...business, branches };
+    }));
+
+    return businesses;
+}
+
 
 // Function to seed initial data if collections are empty
 export async function seedDatabase() {
