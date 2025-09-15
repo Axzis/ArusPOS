@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -174,7 +175,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   if (pathname === '/superadmin') {
      return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
-             <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background px-4 lg:h-[60px] lg:px-6">
+             <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background px-4 lg:h-[60px] lg:px-6 z-30">
                 <Link
                     href="/dashboard"
                     className="flex items-center gap-2 font-semibold"
@@ -251,7 +252,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </SidebarFooter>
         </Sidebar>
         <SidebarInset>
-          <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+          <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 md:h-[72px]">
             <SidebarTrigger className={cn(!isMobile && open ? 'invisible' : '')} />
 
               <div className="flex items-center gap-2 text-sm font-medium">

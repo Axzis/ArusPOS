@@ -75,8 +75,8 @@ export default function SuperAdminPage() {
     const [loading, setLoading] = useState(true);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
-    const [isDeactivateAlertOpen, setIsDeactivateAlertOpen] = useState(false);
-    const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+    const [businessToDeactivate, setBusinessToDeactivate] = useState<Business | null>(null);
+    const [businessToDelete, setBusinessToDelete] = useState<Business | null>(null);
     const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
     const { toast } = useToast();
 
@@ -107,53 +107,41 @@ export default function SuperAdminPage() {
         setIsDetailSheetOpen(true);
     }
     
-    const handleDeactivateClick = (business: Business) => {
-        setSelectedBusiness(business);
-        setIsDeactivateAlertOpen(true);
-    }
-    
-    const handleDeleteClick = (business: Business) => {
-        setSelectedBusiness(business);
-        setIsDeleteAlertOpen(true);
-    }
-    
     const executeDeactivation = async () => {
-        if (!selectedBusiness) return;
+        if (!businessToDeactivate) return;
         
         try {
-            const newStatus = !(selectedBusiness.isActive !== false);
-            await updateBusiness(selectedBusiness.id, { isActive: newStatus });
-            toast({ title: "Success", description: `Business ${selectedBusiness.name} has been ${newStatus ? 'activated' : 'deactivated'}.` });
+            const newStatus = !(businessToDeactivate.isActive !== false);
+            await updateBusiness(businessToDeactivate.id, { isActive: newStatus });
+            toast({ title: "Success", description: `Business ${businessToDeactivate.name} has been ${newStatus ? 'activated' : 'deactivated'}.` });
             fetchBusinesses(); // Refresh list
         } catch (error) {
             console.error("Failed to update business status:", error);
             toast({ title: "Error", description: "Could not update business status.", variant: "destructive" });
         } finally {
-            setIsDeactivateAlertOpen(false);
-            setSelectedBusiness(null);
+            setBusinessToDeactivate(null);
         }
     }
     
     const executeDelete = async () => {
-        if (!selectedBusiness) return;
+        if (!businessToDelete) return;
         
         try {
-            await deleteBusiness(selectedBusiness.id);
-            toast({ title: "Success", description: `Business document for ${selectedBusiness.name} has been deleted.` });
+            await deleteBusiness(businessToDelete.id);
+            toast({ title: "Success", description: `Business document for ${businessToDelete.name} has been deleted.` });
             fetchBusinesses(); // Refresh list
         } catch (error) {
             console.error("Failed to delete business:", error);
             toast({ title: "Error", description: "Could not delete the business document.", variant: "destructive" });
         } finally {
-            setIsDeleteAlertOpen(false);
-            setSelectedBusiness(null);
+            setBusinessToDelete(null);
         }
     }
 
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="flex items-center">
+            <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm sticky top-14 z-20 md:-mx-6 md:p-6 md:top-[60px]">
                 <h1 className="text-lg font-semibold md:text-2xl">Super Admin</h1>
             </div>
             <Card>
@@ -226,13 +214,13 @@ export default function SuperAdminPage() {
                                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                                 <DropdownMenuItem onSelect={() => handleViewDetails(business)}>View Details</DropdownMenuItem>
                                                 <DropdownMenuItem 
-                                                    onSelect={() => handleDeactivateClick(business)}
+                                                    onSelect={() => setBusinessToDeactivate(business)}
                                                 >
                                                     {business.isActive !== false ? 'Deactivate' : 'Activate'}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem 
-                                                    onSelect={() => handleDeleteClick(business)}
+                                                    onSelect={() => setBusinessToDelete(business)}
                                                     className="text-destructive focus:text-destructive"
                                                 >
                                                     <Trash2 className="mr-2 h-4 w-4" />
@@ -278,12 +266,12 @@ export default function SuperAdminPage() {
             </Sheet>
             
             {/* Deactivation Alert */}
-            <AlertDialog open={isDeactivateAlertOpen} onOpenChange={setIsDeactivateAlertOpen}>
+            <AlertDialog open={!!businessToDeactivate} onOpenChange={(open) => !open && setBusinessToDeactivate(null)}>
                 <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will {selectedBusiness?.isActive !== false ? 'deactivate' : 'activate'} the business "{selectedBusiness?.name}". They may lose access temporarily.
+                        This will {businessToDeactivate?.isActive !== false ? 'deactivate' : 'activate'} the business "{businessToDeactivate?.name}". They may lose access temporarily.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -294,10 +282,10 @@ export default function SuperAdminPage() {
             </AlertDialog>
             
             {/* Delete Alert */}
-            <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+            <AlertDialog open={!!businessToDelete} onOpenChange={(open) => !open && setBusinessToDelete(null)}>
                 <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Business "{selectedBusiness?.name}"?</AlertDialogTitle>
+                    <AlertDialogTitle>Delete Business "{businessToDelete?.name}"?</AlertDialogTitle>
                     <AlertDialogDescription>
                         This action cannot be undone. This will permanently delete the business document. 
                         <br/><br/>

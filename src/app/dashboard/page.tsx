@@ -125,6 +125,10 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm sticky top-[55px] z-20 md:-mx-6 md:p-6 md:top-[71px]">
+        <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
