@@ -17,6 +17,7 @@ import { Separator } from '@/components/ui/separator';
 import { addUserAndBusiness } from '@/lib/firestore';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { FirebaseError } from 'firebase/app';
 
 export default function QuickAssessmentPage() {
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function QuickAssessmentPage() {
     const businessData = {
       adminName: formData.get('admin-name') as string,
       email: formData.get('email') as string,
-      password: formData.get('password') as string, // In a real app, hash this!
+      password: formData.get('password') as string,
       businessName: formData.get('business-name') as string,
       businessType: formData.get('business-type') as string,
       branches: branches,
@@ -59,17 +60,24 @@ export default function QuickAssessmentPage() {
 
         toast({
             title: "Registration Successful",
-            description: "Your business and branches have been created.",
+            description: "Your business has been created. Please log in.",
         });
 
-        // Redirect to login after a short delay
-        setTimeout(() => router.push('/login'), 2000);
+        router.push('/login');
 
     } catch (error) {
         console.error("Registration failed:", error);
+        let description = "Could not create your business. Please try again.";
+         if (error instanceof FirebaseError) {
+            if (error.code === 'auth/email-already-in-use') {
+                description = "This email is already registered. Please try logging in.";
+            } else if (error.code === 'auth/weak-password') {
+                description = "Password is too weak. Please choose a stronger password.";
+            }
+        }
         toast({
             title: "Registration Failed",
-            description: "Could not create your business. Please try again.",
+            description: description,
             variant: "destructive",
         });
         setLoading(false);
@@ -109,7 +117,7 @@ export default function QuickAssessmentPage() {
                 </div>
                  <div className="grid gap-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input id="password" name="password" type="password" required />
+                    <Input id="password" name="password" type="password" required placeholder="Min. 6 characters" />
                 </div>
             </div>
 

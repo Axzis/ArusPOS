@@ -15,16 +15,51 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/icons';
 import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/hooks/use-toast';
+import { FirebaseError } from 'firebase/app';
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
+  const { toast } = useToast();
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate successful login
-    login();
-    router.push('/select-branch');
+    setLoading(true);
+    try {
+      await login(email, password);
+      // onAuthStateChanged in AuthProvider will handle the redirect
+      router.push('/select-branch');
+    } catch (error) {
+      console.error("Login failed:", error);
+      let description = "An unexpected error occurred. Please try again.";
+      if (error instanceof FirebaseError) {
+          switch (error.code) {
+              case 'auth/user-not-found':
+              case 'auth/wrong-password':
+              case 'auth/invalid-credential':
+                  description = "Invalid email or password.";
+                  break;
+              case 'auth/invalid-email':
+                  description = "Please enter a valid email address.";
+                  break;
+              default:
+                  description = "An error occurred during login. Please try again."
+                  break;
+          }
+      }
+      toast({
+        title: "Login Failed",
+        description: description,
+        variant: "destructive"
+      });
+    } finally {
+        setLoading(false);
+    }
   };
 
   return (
@@ -49,17 +84,26 @@ export default function LoginPage() {
                 type="email"
                 placeholder="m@example.com"
                 required
-                defaultValue="admin@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
               <div className="flex items-center">
                 <Label htmlFor="password">Password</Label>
               </div>
-              <Input id="password" type="password" required defaultValue="password" />
+              <Input 
+                id="password" 
+                type="password" 
+                required 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+               />
             </div>
-            <Button type="submit" className="w-full">
-              Login
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Logging in...' : 'Login'}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">

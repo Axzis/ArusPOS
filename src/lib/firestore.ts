@@ -1,7 +1,7 @@
 
-import app from './firebase';
+import { auth, db } from './firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import {
-  getFirestore,
   collection,
   getDocs,
   addDoc,
@@ -19,8 +19,6 @@ import {
   increment,
   Timestamp,
 } from 'firebase/firestore';
-
-const db = getFirestore(app);
 
 const USERS_COLLECTION = 'users';
 const BUSINESSES_COLLECTION = 'businesses';
@@ -48,25 +46,40 @@ type BusinessData = {
     }[];
 }
 
-// Helper to get the first (and only) active business ID.
+// Helper to get the business ID associated with the currently logged-in user.
 async function getBusinessId(): Promise<string | null> {
-    // This simplified logic is more robust for production environments.
-    // It strictly looks for an active business.
-    const businessQuery = query(collection(db, BUSINESSES_COLLECTION), where("isActive", "!=", false), limit(1));
-    const businessSnapshot = await getDocs(businessQuery);
-    if (businessSnapshot.empty) {
-        console.warn("No active business found in the database.");
+    const user = auth.currentUser;
+    if (!user) {
+        console.warn("No authenticated user found.");
         return null;
     }
-    return businessSnapshot.docs[0].id;
+
+    const usersQuery = query(collection(db, USERS_COLLECTION), where("uid", "==", user.uid), limit(1));
+    const usersSnapshot = await getDocs(usersQuery);
+
+    if (usersSnapshot.empty) {
+        console.warn(`No user document found for UID: ${user.uid}`);
+        return null;
+    }
+
+    const userData = usersSnapshot.docs[0].data();
+    return userData.businessId || null;
 }
 
 
 // === New Business and User Registration ===
 export async function addUserAndBusiness(data: BusinessData) {
+    if (!data.email || !data.password) {
+        throw new Error("Email and password are required to create a new user.");
+    }
+    
+    // 1. Create user in Firebase Authentication
+    const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+    const user = userCredential.user;
+
     const batch = writeBatch(db);
 
-    // 1. Create the Business document
+    // 2. Create the Business document
     const businessRef = doc(collection(db, BUSINESSES_COLLECTION));
     batch.set(businessRef, {
         name: data.businessName,
@@ -76,9 +89,10 @@ export async function addUserAndBusiness(data: BusinessData) {
         taxRate: 8,
         isActive: true,
         createdAt: serverTimestamp(),
+        adminUid: user.uid,
     });
 
-    // 2. Create Branch documents 
+    // 3. Create Branch documents 
     data.branches.forEach(branchData => {
         const branchRef = doc(collection(db, `businesses/${businessRef.id}/branches`));
         batch.set(branchRef, {
@@ -88,9 +102,10 @@ export async function addUserAndBusiness(data: BusinessData) {
         });
     });
 
-    // 3. Create the User document
+    // 4. Create the User document in Firestore
     const userRef = doc(collection(db, USERS_COLLECTION));
     batch.set(userRef, {
+        uid: user.uid,
         name: data.adminName,
         email: data.email,
         role: 'Admin',
@@ -104,39 +119,36 @@ export async function addUserAndBusiness(data: BusinessData) {
 
 // === Get Business and its Branches ===
 export async function getBusinessWithBranches() {
-    // First, try to get the active business. This is the standard path.
-    const businessQuery = query(collection(db, BUSINESSES_COLLECTION), where("isActive", "!=", false), limit(1));
-    const businessSnapshot = await getDocs(businessQuery);
+    const businessId = await getBusinessId();
+    if (!businessId) {
+        // This can happen if the user is authenticated but their user doc/business is not found
+        // Or if they are not authenticated at all. The UI should handle this.
+        return [];
+    }
+
+    const businessDocRef = doc(db, BUSINESSES_COLLECTION, businessId);
+    const businessDoc = await getDoc(businessDocRef);
+
+    if (!businessDoc.exists()) {
+        console.error(`Business with ID ${businessId} not found.`);
+        return [];
+    }
     
-    if (!businessSnapshot.empty) {
-        const businessDoc = businessSnapshot.docs[0];
-        const business = { id: businessDoc.id, ...businessDoc.data() };
+    const business = { id: businessDoc.id, ...businessDoc.data() };
+    
+    // If business is inactive, return it but with empty branches.
+    if (business.isActive === false) {
+        return [{ ...business, branches: [] }];
+    }
         
-        const branchesCollectionRef = collection(db, `businesses/${business.id}/branches`);
-        const branchesQuery = query(branchesCollectionRef, where("isActive", "==", true));
-        const branchesSnapshot = await getDocs(branchesQuery);
-        const branches = branchesSnapshot.docs.map(branchDoc => ({ id: branchDoc.id, ...branchDoc.data() }));
+    const branchesCollectionRef = collection(db, `businesses/${business.id}/branches`);
+    const branchesQuery = query(branchesCollectionRef, where("isActive", "==", true));
+    const branchesSnapshot = await getDocs(branchesQuery);
+    const branches = branchesSnapshot.docs.map(branchDoc => ({ id: branchDoc.id, ...branchDoc.data() }));
 
-        return [{ ...business, branches }];
-    }
-
-    // If no active business is found, try to find ANY business. 
-    // This is important for the `select-branch` page to show a proper message.
-    const anyBusinessQuery = query(collection(db, BUSINESSES_COLLECTION), limit(1));
-    const anyBusinessSnapshot = await getDocs(anyBusinessQuery);
-
-    if (!anyBusinessSnapshot.empty) {
-        console.log("No active business found, but an inactive one exists.");
-        const businessDoc = anyBusinessSnapshot.docs[0];
-        // Return the business but with an empty branches array since it's inactive.
-        const business = { id: businessDoc.id, ...businessDoc.data(), branches: [] };
-        return [business];
-    }
-    
-    // If no business exists at all.
-    console.log("No businesses found in the database.");
-    return [];
+    return [{ ...business, branches }];
 }
+
 
 // === Super Admin functions ===
 export async function getAllBusinesses() {
@@ -273,7 +285,7 @@ export async function addTransactionAndUpdateStock(
   const batch = writeBatch(db);
 
   // 1. Add the transaction document
-  const transactionRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLlection));
+  const transactionRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION));
   batch.set(transactionRef, {
     ...transactionData,
     date: serverTimestamp(),
