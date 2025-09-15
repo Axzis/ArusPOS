@@ -100,11 +100,12 @@ const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
 
 
 const PrintableInvoice = React.forwardRef<HTMLDivElement, { transaction: Transaction | null, currency: string }>(({ transaction, currency }, ref) => {
-    const subtotal = transaction?.items.reduce((sum, item) => sum + (item.price * item.quantity), 0) ?? 0;
+    if (!transaction) return null;
+
+    const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     
     return (
-        <div ref={ref} className="print-invoice hidden">
-            {transaction && (
+        <div ref={ref} className="print-invoice">
             <Card>
                 <CardHeader className='text-center'>
                     <CardTitle>Invoice</CardTitle>
@@ -164,7 +165,6 @@ const PrintableInvoice = React.forwardRef<HTMLDivElement, { transaction: Transac
                     <p>Arus POS</p>
                 </CardFooter>
             </Card>
-            )}
         </div>
     );
 });
@@ -194,52 +194,14 @@ export default function TransactionsPage() {
   const [transactionToPrint, setTransactionToPrint] = useState<Transaction | null>(null);
   const invoiceRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (transactionToPrint) {
-      const handleBeforePrint = () => {
-        document.body.classList.add('printing');
-      };
-      const handleAfterPrint = () => {
-        document.body.classList.remove('printing');
-        setTransactionToPrint(null); // Reset after printing
-      };
-
-      window.addEventListener('beforeprint', handleBeforePrint);
-      window.addEventListener('afterprint', handleAfterPrint);
-      
-      window.print();
-
-      return () => {
-        window.removeEventListener('beforeprint', handleBeforePrint);
-        window.removeEventListener('afterprint', handleAfterPrint);
-      };
-    }
-  }, [transactionToPrint]);
-
-  const handlePrintInvoice = (transaction: Transaction) => {
-    setTransactionToPrint(transaction);
-  };
-
-
-  useEffect(() => {
-    const storedBranch = localStorage.getItem('activeBranch');
-    if (storedBranch) {
-        const branch = JSON.parse(storedBranch);
-        setActiveBranchId(branch.id);
-    }
-    const scannerPref = localStorage.getItem('barcodeScannerEnabled');
-    setScannerEnabled(scannerPref === 'true');
-  }, []);
-
-  const fetchData = useCallback(async () => {
-    if (!activeBranchId) return;
+  const fetchData = useCallback(async (branchId: string) => {
     setLoading(true);
     try {
         const [transactionsData, productsData, customersData, promoData] = await Promise.all([
-            getTransactionsForBranch(activeBranchId),
-            getProductsForBranch(activeBranchId),
+            getTransactionsForBranch(branchId),
+            getProductsForBranch(branchId),
             getCustomers(),
-            getPromosForBranch(activeBranchId),
+            getPromosForBranch(branchId),
         ]);
         setTransactions(transactionsData as Transaction[]);
         setAllProducts(productsData as Product[]);
@@ -251,13 +213,43 @@ export default function TransactionsPage() {
     } finally {
         setLoading(false);
     }
-}, [activeBranchId, toast]);
+  }, [toast]);
 
   useEffect(() => {
-    if (activeBranchId) {
-        fetchData();
+    const storedBranch = localStorage.getItem('activeBranch');
+    const branch = storedBranch ? JSON.parse(storedBranch) : null;
+    if (branch?.id) {
+        setActiveBranchId(branch.id);
+        fetchData(branch.id);
     }
-  }, [activeBranchId, fetchData]);
+    const scannerPref = localStorage.getItem('barcodeScannerEnabled');
+    setScannerEnabled(scannerPref === 'true');
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (transactionToPrint) {
+      const handleBeforePrint = () => document.body.classList.add('printing');
+      const handleAfterPrint = () => {
+        document.body.classList.remove('printing');
+        setTransactionToPrint(null);
+      };
+
+      window.addEventListener('beforeprint', handleBeforePrint);
+      window.addEventListener('afterprint', handleAfterPrint);
+      
+      window.print();
+
+      return () => {
+        window.removeEventListener('beforeprint', handleBeforePrint);
+        window.removeEventListener('afterprint', handleAfterPrint);
+        handleAfterPrint(); // Ensure cleanup if component unmounts
+      };
+    }
+  }, [transactionToPrint]);
+
+  const handlePrintInvoice = (transaction: Transaction) => {
+    setTransactionToPrint(transaction);
+  };
   
   const productsWithPromo = useMemo(() => {
     const now = new Date();
@@ -377,7 +369,7 @@ export default function TransactionsPage() {
           
           toast({ title: "Transaction Successful", description: `Payment of ${formatCurrency(total, currency)} charged.` });
           clearOrder();
-          fetchData();
+          if(activeBranchId) fetchData(activeBranchId);
       } catch (error) {
           console.error("Failed to charge payment:", error);
           toast({ title: "Error", description: "Could not process the payment.", variant: "destructive" });
@@ -413,11 +405,11 @@ export default function TransactionsPage() {
   };
 
   const handleRegisterAndSend = async () => {
-    if (!newCustomer.name || !newCustomer.phone || !transactionForRegistration) return;
+    if (!newCustomer.name || !newCustomer.phone || !transactionForRegistration || !activeBranchId) return;
     try {
       await addNewCustomer({ name: newCustomer.name, email: '', phone: newCustomer.phone });
       toast({ title: "Pelanggan Terdaftar", description: `${newCustomer.name} telah berhasil ditambahkan.` });
-      fetchData(); 
+      fetchData(activeBranchId); 
       generateWhatsAppMessage(transactionForRegistration, newCustomer.phone);
       setIsRegistering(false);
       setNewCustomer({ name: '', phone: '' });

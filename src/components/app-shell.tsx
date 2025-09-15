@@ -139,49 +139,40 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [activeBranch, setActiveBranch] = React.useState<ActiveBranch | null>(null);
   const [loadingBranch, setLoadingBranch] = React.useState(true);
   
-  const isSuperAdmin = user && !user.role; // SuperAdmins might not have a role field
+  const isSuperAdmin = user?.email === 'superadmin@gmail.com' || (user && !user.role);
   const isAdmin = user?.role === 'Admin';
   const navItems = isAdmin || isSuperAdmin ? allNavItems : staffNavItems;
   const showBottomNav = isAdmin || isSuperAdmin;
 
 
   React.useEffect(() => {
-    // Wait until Firebase has confirmed the auth state
     if (authLoading) return;
 
-    // User is not logged in
     if (!user) {
-      // If they are not on a public page, redirect to login
       if (!publicRoutes.includes(pathname)) {
         router.replace('/login');
       }
       return;
     }
     
-    // User is logged in
-    // If they are on a public page, it means they just logged in.
-    // Redirect them to the branch selection page.
     if (publicRoutes.includes(pathname)) {
         router.replace('/select-branch');
         return;
     }
     
-    // For all other protected pages, check for an active branch
     if (typeof window !== 'undefined') {
        try {
           const storedBranch = localStorage.getItem('activeBranch');
           if (storedBranch) {
               setActiveBranch(JSON.parse(storedBranch));
           } else {
-              // If there's no active branch, and they're not trying to select one,
-              // force them to the selection page.
-              if (!['/select-branch', '/superadmin'].some(p => pathname.startsWith(p))) {
+              if (!pathname.startsWith('/select-branch') && !pathname.startsWith('/superadmin')) {
                   router.replace('/select-branch');
               }
           }
        } catch (error) {
           console.error("Could not parse active branch", error);
-          router.replace('/select-branch'); // Default to safety
+          router.replace('/select-branch');
        } finally {
           setLoadingBranch(false);
        }
@@ -201,7 +192,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     await logout();
     localStorage.removeItem('activeBranch');
-    // The useEffect hook will automatically redirect to /login
+    router.replace('/login');
   };
 
   const handleSwitchBranch = () => {
@@ -209,7 +200,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     router.push('/select-branch');
   }
 
-  // This is a temporary gate while auth state is being confirmed by Firebase.
   if (authLoading) {
       return (
           <div className="flex h-screen items-center justify-center">
@@ -218,18 +208,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       )
   }
   
-  // If user is not logged in and is on a public page, just render the page.
   if (!user && publicRoutes.includes(pathname)) {
       return <>{children}</>;
   }
 
-  // If we are on a protected route but auth is still loading, or the user is not logged in,
-  // we render nothing to prevent a flash of incorrect content while the redirect in useEffect happens.
   if (!user && !publicRoutes.includes(pathname)) {
     return null;
   }
    
-   // Use a simpler layout for the Super Admin and branch selection page
   if (pathname.startsWith('/superadmin') || pathname === '/select-branch') {
      return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -242,7 +228,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <span>Arus POS</span>
                 </Link>
                  <div className="ml-auto flex items-center gap-4">
-                  {pathname !== '/select-branch' && <Button variant="outline" onClick={() => router.push('/dashboard')}>Back to App</Button>}
+                  {isSuperAdmin && pathname !== '/dashboard' && <Button variant="outline" onClick={() => router.push('/dashboard')}>Back to App</Button>}
                   <Button variant="secondary" onClick={handleLogout}><LogOut className='mr-2 h-4 w-4' /> Logout</Button>
                 </div>
              </header>
@@ -338,6 +324,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     My Profile
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleSwitchBranch}>Switch Branch</DropdownMenuItem>
+                  {isSuperAdmin && <DropdownMenuItem onClick={() => router.push('/superadmin')}>Super Admin</DropdownMenuItem>}
                   {showBottomNav && <DropdownMenuItem onClick={() => router.push('/settings')}>Settings</DropdownMenuItem>}
                   <DropdownMenuItem>Support</DropdownMenuItem>
                   <DropdownMenuSeparator />

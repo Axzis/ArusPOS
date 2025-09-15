@@ -72,39 +72,35 @@ export default function DashboardPage() {
     const { currency, loading: loadingBusiness } = useBusiness();
 
 
-     React.useEffect(() => {
-        const storedBranch = localStorage.getItem('activeBranch');
-        if (storedBranch) {
-            const branch = JSON.parse(storedBranch);
-            setActiveBranchId(branch.id);
-        }
-    }, []);
-
-    const loadData = React.useCallback(async () => {
-        if (!activeBranchId) return;
-        setLoading(true);
-        try {
-            const [transactionsData, customersData] = await Promise.all([
-                getTransactionsForBranch(activeBranchId),
-                getCustomers()
-            ]);
-            setTransactions(transactionsData as Transaction[]);
-            setCustomers(customersData as Customer[]);
-        } catch (error) {
-            console.error("Failed to load dashboard data:", error);
-            toast({
-                title: "Error",
-                description: "Could not fetch dashboard data.",
-                variant: "destructive"
-            });
-        } finally {
-            setLoading(false);
-        }
-    }, [activeBranchId, toast]);
-
     React.useEffect(() => {
-        loadData();
-    }, [loadData]);
+        const storedBranch = localStorage.getItem('activeBranch');
+        const branch = storedBranch ? JSON.parse(storedBranch) : null;
+        if (branch?.id) {
+            setActiveBranchId(branch.id);
+            const loadData = async () => {
+                setLoading(true);
+                try {
+                    const [transactionsData, customersData] = await Promise.all([
+                        getTransactionsForBranch(branch.id),
+                        getCustomers()
+                    ]);
+                    setTransactions(transactionsData as Transaction[]);
+                    setCustomers(customersData as Customer[]);
+                } catch (error) {
+                    console.error("Failed to load dashboard data:", error);
+                    toast({
+                        title: "Error",
+                        description: "Could not fetch dashboard data.",
+                        variant: "destructive"
+                    });
+                } finally {
+                    setLoading(false);
+                }
+            };
+            loadData();
+        }
+    }, [toast]);
+
 
   const totalRevenue = transactions
     .filter((t) => t.type === 'Sale')
