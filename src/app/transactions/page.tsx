@@ -195,6 +195,33 @@ export default function TransactionsPage() {
   const invoiceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (transactionToPrint) {
+      const handleBeforePrint = () => {
+        document.body.classList.add('printing');
+      };
+      const handleAfterPrint = () => {
+        document.body.classList.remove('printing');
+        setTransactionToPrint(null); // Reset after printing
+      };
+
+      window.addEventListener('beforeprint', handleBeforePrint);
+      window.addEventListener('afterprint', handleAfterPrint);
+      
+      window.print();
+
+      return () => {
+        window.removeEventListener('beforeprint', handleBeforePrint);
+        window.removeEventListener('afterprint', handleAfterPrint);
+      };
+    }
+  }, [transactionToPrint]);
+
+  const handlePrintInvoice = (transaction: Transaction) => {
+    setTransactionToPrint(transaction);
+  };
+
+
+  useEffect(() => {
     const storedBranch = localStorage.getItem('activeBranch');
     if (storedBranch) {
         const branch = JSON.parse(storedBranch);
@@ -359,17 +386,6 @@ export default function TransactionsPage() {
           setIsConfirming(false);
       }
   };
-
-  const handlePrintInvoice = (transaction: Transaction) => {
-    setTransactionToPrint(transaction);
-    setTimeout(() => {
-        document.body.classList.add('printing');
-        window.print();
-        document.body.classList.remove('printing');
-        setTransactionToPrint(null);
-    }, 100);
-  };
-
 
   const generateWhatsAppMessage = (transaction: Transaction, customerPhone: string) => {
     const itemsText = transaction.items.map(item => `${item.quantity}x ${item.name}`).join(', ');
@@ -795,3 +811,5 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
+    
