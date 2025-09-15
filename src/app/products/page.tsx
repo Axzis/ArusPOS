@@ -79,6 +79,7 @@ export default function ProductsPage() {
     const [searchTerm, setSearchTerm] = React.useState('');
     const [isSheetOpen, setIsSheetOpen] = React.useState(false);
     const [editingProduct, setEditingProduct] = React.useState<Product | null>(null);
+    const [productToDelete, setProductToDelete] = React.useState<Product | null>(null);
     const { toast } = useToast();
     const [activeBranchId, setActiveBranchId] = React.useState<string | null>(null);
     const [isSaveConfirmOpen, setIsSaveConfirmOpen] = React.useState(false);
@@ -116,11 +117,9 @@ export default function ProductsPage() {
 
     const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        // Check form validity before showing confirmation
         if (formRef.current?.checkValidity()) {
             setIsSaveConfirmOpen(true);
         } else {
-            // Trigger browser's built-in validation UI
             formRef.current?.reportValidity();
         }
     };
@@ -158,16 +157,18 @@ export default function ProductsPage() {
         }
     }
     
-    const handleDeleteProduct = async (productId: string) => {
-        if (!activeBranchId || !window.confirm("Are you sure you want to delete this product?")) return;
+    const executeDelete = async () => {
+        if (!productToDelete || !activeBranchId) return;
 
         try {
-            await deleteProductFromBranch(activeBranchId, productId);
+            await deleteProductFromBranch(activeBranchId, productToDelete.id);
             toast({ title: "Success", description: "Product deleted successfully." });
             fetchProducts();
         } catch (error) {
             console.error("Failed to delete product:", error);
             toast({ title: "Error", description: "Could not delete product.", variant: "destructive" });
+        } finally {
+            setProductToDelete(null);
         }
     };
 
@@ -199,7 +200,6 @@ export default function ProductsPage() {
         <h1 className="text-lg font-semibold md:text-2xl">Products</h1>
         <Sheet open={isSheetOpen} onOpenChange={(open) => {
             if (!open) {
-                // Prevent closing if the alert dialog is open
                 if (isSaveConfirmOpen) return;
                 closeSheet();
             } else {
@@ -276,6 +276,21 @@ export default function ProductsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={executeSave}>Save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!productToDelete} onOpenChange={(open) => !open && setProductToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the product "{productToDelete?.name}".
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={executeDelete}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -359,7 +374,7 @@ export default function ProductsPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem onSelect={() => openSheetForEdit(product)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => handleDeleteProduct(product.id)} className="text-destructive focus:text-destructive">
+                        <DropdownMenuItem onSelect={() => setProductToDelete(product)} className="text-destructive focus:text-destructive">
                             <Trash2 className='mr-2 h-4 w-4' /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
