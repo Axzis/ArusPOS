@@ -277,6 +277,7 @@ export async function getTransactionsForBranch(branchId: string) {
 
 export async function addTransactionAndUpdateStock(
   branchId: string,
+  customerId: string | null,
   transactionData: Omit<DocumentData, 'id'>,
   items: { id: string; quantity: number }[]
 ) {
@@ -298,7 +299,13 @@ export async function addTransactionAndUpdateStock(
     batch.update(productRef, { stock: increment(-item.quantity) });
   }
   
-  // 3. Commit all writes at once
+  // 3. Update customer's totalSpent if a customer is associated
+  if (customerId && transactionData.type === 'Sale') {
+    const customerRef = doc(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION, customerId);
+    batch.update(customerRef, { totalSpent: increment(transactionData.amount) });
+  }
+
+  // 4. Commit all writes at once
   await batch.commit();
 }
 
@@ -532,3 +539,5 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
+
+    

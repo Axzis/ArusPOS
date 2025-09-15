@@ -257,8 +257,7 @@ export default function CustomersPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>View History</DropdownMenuItem>
+                        <DropdownMenuItem disabled>Edit</DropdownMenuItem>
                         <DropdownMenuItem
                             onSelect={() => setCustomerToDelete(customer)}
                             className='text-destructive focus:text-destructive'
@@ -293,3 +292,5 @@ export default function CustomersPage() {
     </div>
   );
 }
+
+    

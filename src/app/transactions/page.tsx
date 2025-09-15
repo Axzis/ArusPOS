@@ -261,6 +261,7 @@ export default function TransactionsPage() {
       setIsProcessing(true);
       try {
           const isAnonymous = selectedCustomerId === ANONYMOUS_CUSTOMER_ID || selectedCustomerId === '';
+          const customerId = isAnonymous ? null : selectedCustomerId;
           const selectedCustomer = isAnonymous ? null : customers.find(c => c.id === selectedCustomerId);
 
           const transactionData = {
@@ -271,11 +272,11 @@ export default function TransactionsPage() {
               items: orderItems.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price, originalPrice: item.originalPrice })),
           };
 
-          await addTransactionAndUpdateStock(activeBranchId, transactionData, orderItems);
+          await addTransactionAndUpdateStock(activeBranchId, customerId, transactionData, orderItems);
           
           toast({ title: "Transaction Successful", description: `Payment of ${formatCurrency(total, currency)} charged.` });
           clearOrder();
-          fetchData();
+          fetchData(); // This will re-fetch transactions and customers (with updated totalSpent)
       } catch (error) {
           console.error("Failed to charge payment:", error);
           toast({ title: "Error", description: "Could not process the payment.", variant: "destructive" });
@@ -768,5 +769,4 @@ export default function TransactionsPage() {
   );
 }
 
-    
     
