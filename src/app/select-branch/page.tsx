@@ -14,6 +14,7 @@ import { getBusinessWithBranches } from '@/lib/firestore';
 import { Building, ChevronRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Logo } from '@/components/icons';
+import Link from 'next/link';
 
 type Branch = {
   id: string;
@@ -94,7 +95,7 @@ export default function SelectBranchPage() {
               </button>
             ))}
              { !loading && !business && (
-                <p className='text-center text-muted-foreground'>No business found. Please <a href="/quick-assessment" className='underline'>register</a> first.</p>
+                <p className='text-center text-muted-foreground'>No business found. Please <Link href="/quick-assessment" className='underline'>register</Link> first.</p>
              )}
           </div>
         </CardContent>
