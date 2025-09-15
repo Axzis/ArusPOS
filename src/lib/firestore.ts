@@ -18,6 +18,7 @@ import {
   orderBy,
   runTransaction,
   increment,
+  Timestamp,
 } from 'firebase/firestore';
 import { products as initialProducts, customers as initialCustomers, transactions as initialTransactions } from './data';
 import { formatCurrency } from './utils';
@@ -31,6 +32,8 @@ const PRODUCTS_COLLECTION = 'products';
 const CUSTOMERS_COLLECTION = 'customers';
 const TRANSACTIONS_COLLECTION = 'transactions';
 const INVENTORY_COLLECTION = 'inventory';
+const PROMOS_COLLECTION = 'promos';
+
 
 type BusinessData = {
     adminName: string;
@@ -144,7 +147,7 @@ export async function getBusinessWithBranches() {
     const businesses = await Promise.all(businessSnapshot.docs.map(async (businessDoc) => {
         const business = { id: businessDoc.id, ...businessDoc.data() };
         const branchesCollectionRef = collection(db, `businesses/${business.id}/branches`);
-        const branchesQuery = query(branchesCollectionRef);
+        const branchesQuery = query(branchesCollectionRef, where("isActive", "==", true));
         const branchesSnapshot = await getDocs(branchesQuery);
         const branches = branchesSnapshot.docs.map(branchDoc => ({ id: branchDoc.id, ...branchDoc.data() }));
         return { ...business, branches };
@@ -284,24 +287,22 @@ export async function addTransactionAndUpdateStock(
   const businessId = await getBusinessId();
   if (!businessId || !branchId) throw new Error("Missing business or branch ID");
 
-  const batch = writeBatch(db);
-
-  // 1. Add the new transaction document
   const transactionRef = doc(collection(db, `businesses/${businessId}/branches/${branchId}/transactions`));
-  batch.set(transactionRef, {
-    ...transactionData,
-    date: serverTimestamp(),
-  });
 
-  // 2. Update stock for each product in the same batch
-  items.forEach(item => {
-    const productRef = doc(db, `businesses/${businessId}/branches/${branchId}/products`, item.id);
-    // Decrement stock by the quantity sold. increment() with a negative number handles this.
-    batch.update(productRef, { stock: increment(-item.quantity) });
-  });
+  await runTransaction(db, async (transaction) => {
+    // 1. Add the new transaction document
+    transaction.set(transactionRef, {
+      ...transactionData,
+      date: serverTimestamp(), // Use server timestamp for consistency
+    });
 
-  // 3. Commit all writes (transaction and stock updates) as a single atomic operation
-  return await batch.commit();
+    // 2. Update stock for each product
+    for (const item of items) {
+      const productRef = doc(db, `businesses/${businessId}/branches/${branchId}/products`, item.id);
+      // Decrement stock by the quantity sold.
+      transaction.update(productRef, { stock: increment(-item.quantity) });
+    }
+  });
 }
 
 
@@ -333,6 +334,45 @@ export async function getUsers() {
         return [];
     }
 }
+
+// === Promotion Functions (Branch Specific) ===
+export async function getPromosForBranch(branchId: string) {
+    const businessId = await getBusinessId();
+    if (!businessId || !branchId) return [];
+    const promosCollectionRef = collection(db, `businesses/${businessId}/branches/${branchId}/${PROMOS_COLLECTION}`);
+    const q = query(promosCollectionRef, orderBy("endDate", "desc"));
+    const querySnapshot = await getDocs(q);
+
+    return querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            // Ensure dates are strings for client-side rendering
+            startDate: data.startDate.toDate().toISOString(),
+            endDate: data.endDate.toDate().toISOString(),
+        }
+    });
+}
+
+export async function addPromoToBranch(branchId: string, promoData: Omit<DocumentData, 'id'>) {
+    const businessId = await getBusinessId();
+    const promosCollectionRef = collection(db, `businesses/${businessId}/branches/${branchId}/${PROMOS_COLLECTION}`);
+    return await addDoc(promosCollectionRef, {
+        ...promoData,
+        // Convert JS dates to Firestore Timestamps
+        startDate: Timestamp.fromDate(new Date(promoData.startDate)),
+        endDate: Timestamp.fromDate(new Date(promoData.endDate)),
+        createdAt: serverTimestamp()
+    });
+}
+
+export async function deletePromoFromBranch(branchId: string, promoId: string) {
+    const businessId = await getBusinessId();
+    const promoDocRef = doc(db, `businesses/${businessId}/branches/${branchId}/${PROMOS_COLLECTION}`, promoId);
+    return await deleteDoc(promoDocRef);
+}
+
 
 
 // === Generic Getters (Legacy, to be phased out) ===

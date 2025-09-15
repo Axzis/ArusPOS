@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import {
   Card,
@@ -31,7 +31,7 @@ import {
   Grid,
   Barcode
 } from 'lucide-react';
-import { getProductsForBranch, getCustomers, getTransactionsForBranch, addTransactionAndUpdateStock } from '@/lib/firestore';
+import { getProductsForBranch, getCustomers, getTransactionsForBranch, addTransactionAndUpdateStock, getPromosForBranch } from '@/lib/firestore';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -49,6 +49,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Combobox } from '@/components/ui/combobox';
+import { isWithinInterval } from 'date-fns';
 
 
 type OrderItem = {
@@ -57,6 +58,7 @@ type OrderItem = {
   price: number;
   quantity: number;
   stock: number;
+  originalPrice: number;
 };
 
 type Product = {
@@ -67,6 +69,14 @@ type Product = {
   sku: string;
   imageUrl?: string;
 };
+
+type Promo = {
+  id: string;
+  productId: string;
+  promoPrice: number;
+  startDate: string;
+  endDate: string;
+}
 
 type Customer = {
     id: string;
@@ -89,6 +99,7 @@ export default function TransactionsPage() {
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [promos, setPromos] = useState<Promo[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
@@ -114,14 +125,16 @@ export default function TransactionsPage() {
     if (!activeBranchId) return;
     setLoading(true);
     try {
-        const [transactionsData, productsData, customersData] = await Promise.all([
+        const [transactionsData, productsData, customersData, promoData] = await Promise.all([
             getTransactionsForBranch(activeBranchId),
             getProductsForBranch(activeBranchId),
             getCustomers(),
+            getPromosForBranch(activeBranchId),
         ]);
         setTransactions(transactionsData as Transaction[]);
         setAllProducts(productsData as Product[]);
         setCustomers(customersData as Customer[]);
+        setPromos(promoData as Promo[]);
     } catch (error) {
         console.error("Failed to load transaction page data:", error);
         toast({ title: "Error", description: "Could not load data for transactions.", variant: "destructive" });
@@ -135,8 +148,24 @@ export default function TransactionsPage() {
         fetchData();
     }
   }, [activeBranchId, fetchData]);
+  
+  const productsWithPromo = useMemo(() => {
+    const now = new Date();
+    const activePromos = promos.filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
 
-  const addToOrder = useCallback((product: Product) => {
+    return allProducts.map(product => {
+        const promo = activePromos.find(p => p.productId === product.id);
+        return {
+            ...product,
+            originalPrice: product.price,
+            price: promo ? promo.promoPrice : product.price,
+            hasPromo: !!promo
+        };
+    });
+  }, [allProducts, promos]);
+
+
+  const addToOrder = useCallback((product: Product & { originalPrice: number }) => {
     setOrderItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
       if (existingItem) {
@@ -181,7 +210,7 @@ export default function TransactionsPage() {
         
         if (event.key === 'Enter') {
             if (barcode.length > 2) { // Minimum length for a barcode
-                const product = allProducts.find(p => p.sku === barcode);
+                const product = productsWithPromo.find(p => p.sku === barcode);
                 if (product) {
                     addToOrder(product);
                     toast({
@@ -208,7 +237,7 @@ export default function TransactionsPage() {
     return () => {
         window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [scannerEnabled, allProducts, addToOrder, toast]);
+  }, [scannerEnabled, productsWithPromo, addToOrder, toast]);
 
 
   const removeFromOrder = (productId: string) => {
@@ -233,7 +262,7 @@ export default function TransactionsPage() {
               amount: total,
               status: 'Paid' as 'Paid' | 'Refunded',
               type: 'Sale' as 'Sale' | 'Refund',
-              items: orderItems.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price })),
+              items: orderItems.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price, originalPrice: item.originalPrice })),
           };
 
           await addTransactionAndUpdateStock(activeBranchId, transactionData, orderItems);
@@ -259,7 +288,7 @@ export default function TransactionsPage() {
   const tax = taxEnabled ? subtotal * (taxRate / 100) : 0;
   const total = subtotal + tax;
 
-  const filteredProducts = allProducts.filter((product) =>
+  const filteredProducts = productsWithPromo.filter((product) =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -307,6 +336,9 @@ export default function TransactionsPage() {
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">
                             {item.name}
+                            {item.price < item.originalPrice && (
+                                <Badge variant="destructive" className="ml-2">Promo</Badge>
+                            )}
                           </TableCell>
                           <TableCell>{item.quantity}</TableCell>
                           <TableCell className="text-right">
@@ -413,10 +445,17 @@ export default function TransactionsPage() {
                             className="flex items-center justify-between py-2"
                         >
                             <div>
-                            <p className="font-medium">{product.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                                {formatCurrency(product.price, currency)}
-                            </p>
+                                <p className="font-medium">{product.name}</p>
+                                <div className="text-sm text-muted-foreground">
+                                    {product.hasPromo ? (
+                                        <>
+                                            <span className="text-destructive font-semibold">{formatCurrency(product.price, currency)}</span>
+                                            <span className="line-through ml-2">{formatCurrency(product.originalPrice, currency)}</span>
+                                        </>
+                                    ) : (
+                                        <span>{formatCurrency(product.price, currency)}</span>
+                                    )}
+                                </div>
                             </div>
                             <Button
                             size="icon"
@@ -454,10 +493,20 @@ export default function TransactionsPage() {
                                             data-ai-hint="product image"
                                         />
                                          {product.stock < 1 && <Badge variant="destructive" className="absolute top-1 left-1">Out of Stock</Badge>}
+                                         {product.hasPromo && <Badge variant="destructive" className="absolute top-1 right-1">Promo!</Badge>}
                                     </div>
                                     <div className="p-2">
                                         <h3 className="font-medium text-sm truncate">{product.name}</h3>
-                                        <p className="text-xs text-muted-foreground">{formatCurrency(product.price, currency)}</p>
+                                        <div className="text-xs text-muted-foreground">
+                                             {product.hasPromo ? (
+                                                <>
+                                                    <span className="text-destructive font-semibold">{formatCurrency(product.price, currency)}</span>
+                                                    <span className="line-through ml-2">{formatCurrency(product.originalPrice, currency)}</span>
+                                                </>
+                                            ) : (
+                                                <span>{formatCurrency(product.price, currency)}</span>
+                                            )}
+                                        </div>
                                     </div>
                                 </button>
                             </Card>

@@ -18,6 +18,7 @@ import {
   Maximize,
   Minimize,
   Shield,
+  Tag,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -54,6 +55,7 @@ const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/transactions', icon: Receipt, label: 'Transactions' },
   { href: '/products', icon: Package, label: 'Products' },
+  { href: '/promos', icon: Tag, label: 'Promotions' },
   { href: '/inventory', icon: Boxes, label: 'Inventory' },
   { href: '/customers', icon: Users, label: 'Customers' },
   { href: '/reports', icon: BarChart, label: 'Reports' },
@@ -172,7 +174,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
    
    // Use a simpler layout for the Super Admin page
-  if (pathname === '/superadmin') {
+  if (pathname.startsWith('/superadmin')) {
      return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
              <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background px-4 lg:h-[60px] lg:px-6 z-30">
