@@ -98,6 +98,83 @@ type Transaction = {
 
 const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
 
+
+const PrintableInvoice = ({ transaction, currency, onPrinted }: { transaction: Transaction, currency: string, onPrinted: () => void }) => {
+    useEffect(() => {
+        window.print();
+        onPrinted();
+    }, [onPrinted]);
+
+    const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    // Note: The logic for tax calculation needs to be inferred or passed if it's not on the transaction object
+    // Assuming transaction.amount is the final total for simplicity here.
+
+    return (
+        <div className="print-invoice">
+            <Card>
+                <CardHeader className='text-center'>
+                    <CardTitle>Invoice</CardTitle>
+                    <CardDescription>#{transaction.id.substring(0, 8)}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid gap-4">
+                        <div className="grid grid-cols-2 text-sm">
+                            <div>
+                                <p className="font-medium">Billed To</p>
+                                <p>{transaction.customerName}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="font-medium">Date</p>
+                                <p>{new Date(transaction.date).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <Separator />
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Product</TableHead>
+                                    <TableHead className="text-center">Qty</TableHead>
+                                    <TableHead className="text-right">Total</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {transaction.items.map(item => (
+                                    <TableRow key={item.id}>
+                                        <TableCell>{item.name}</TableCell>
+                                        <TableCell className="text-center">{item.quantity}</TableCell>
+                                        <TableCell className="text-right">{formatCurrency(item.price * item.quantity, currency)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                        <Separator />
+                         <div className="ml-auto w-full max-w-xs space-y-2 text-sm">
+                            <div className="flex justify-between">
+                                <span>Subtotal</span>
+                                <span>{formatCurrency(subtotal, currency)}</span>
+                            </div>
+                             {/* Assuming tax might be the difference if available */}
+                            <div className="flex justify-between">
+                                <span>Tax</span>
+                                <span>{formatCurrency(transaction.amount - subtotal, currency)}</span>
+                            </div>
+                            <Separator />
+                            <div className="flex justify-between font-bold">
+                                <span>Total</span>
+                                <span>{formatCurrency(transaction.amount, currency)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+                 <CardFooter className="flex-col gap-2 text-center text-xs text-muted-foreground">
+                    <p>Thank you for your business!</p>
+                    <p>Arus POS</p>
+                </CardFooter>
+            </Card>
+        </div>
+    );
+}
+
 export default function TransactionsPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -288,10 +365,6 @@ export default function TransactionsPage() {
 
   const handlePrintInvoice = (transaction: Transaction) => {
     setTransactionToPrint(transaction);
-    setTimeout(() => {
-        window.print();
-        setTransactionToPrint(null);
-    }, 100);
   };
 
   const generateWhatsAppMessage = (transaction: Transaction, customerPhone: string) => {
@@ -349,57 +422,9 @@ export default function TransactionsPage() {
   const isLoading = loading || loadingBusiness;
 
   if (transactionToPrint) {
-    return (
-        <div className="print-invoice">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Invoice #{transactionToPrint.id.substring(0, 7)}</CardTitle>
-                    <CardDescription>
-                        Tanggal: {new Date(transactionToPrint.date).toLocaleString()}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <p>Pelanggan: {transactionToPrint.customerName}</p>
-                    <Separator className="my-4" />
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Produk</TableHead>
-                                <TableHead>Jumlah</TableHead>
-                                <TableHead className="text-right">Harga</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {transactionToPrint.items.map(item => (
-                                <TableRow key={item.id}>
-                                    <TableCell>{item.name}</TableCell>
-                                    <TableCell>{item.quantity}</TableCell>
-                                    <TableCell className="text-right">{formatCurrency(item.price * item.quantity, currency)}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                    <Separator className="my-4" />
-                    <div className="flex justify-end">
-                        <div className="w-full max-w-xs space-y-2">
-                             <div className="flex justify-between">
-                                <span>Subtotal</span>
-                                <span>{formatCurrency(transactionToPrint.amount, currency)}</span>
-                            </div>
-                            <div className="flex justify-between font-bold text-lg">
-                                <span>Total</span>
-                                <span>{formatCurrency(transactionToPrint.amount, currency)}</span>
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
-                <CardFooter className="justify-center">
-                    <p>Terima kasih telah berbelanja!</p>
-                </CardFooter>
-            </Card>
-        </div>
-    );
+    return <PrintableInvoice transaction={transactionToPrint} currency={currency} onPrinted={() => setTransactionToPrint(null)} />;
   }
+
 
   return (
     <div className="flex flex-col gap-6" id="main-content">
