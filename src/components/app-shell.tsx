@@ -68,6 +68,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [loadingBranch, setLoadingBranch] = React.useState(true);
 
   React.useEffect(() => {
+     // localStorage is only available in the browser.
+     if (typeof window === 'undefined') {
+      return;
+    }
      try {
         const storedBranch = localStorage.getItem('activeBranch');
         if (storedBranch) {
