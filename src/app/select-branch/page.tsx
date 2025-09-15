@@ -25,6 +25,7 @@ type Branch = {
 type Business = {
     id: string;
     name: string;
+    isActive: boolean;
     branches: Branch[];
 }
 
@@ -35,9 +36,8 @@ export default function SelectBranchPage() {
 
   React.useEffect(() => {
     async function fetchBusiness() {
-      // In a real app, you'd get the business ID from the logged-in user session
+      // getBusinessWithBranches will now only return active businesses for regular users
       const businesses = await getBusinessWithBranches();
-      // For this demo, we'll just take the first business found
       if (businesses.length > 0) {
         setBusiness(businesses[0] as Business);
       }
@@ -53,6 +53,9 @@ export default function SelectBranchPage() {
     router.push('/dashboard');
   };
 
+  const hasActiveBranches = business && business.branches && business.branches.length > 0;
+  const isBusinessInactive = business && business.isActive === false;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <Card className="mx-auto max-w-md w-full">
@@ -63,7 +66,10 @@ export default function SelectBranchPage() {
           </div>
           <CardTitle className="text-2xl">Select a Branch</CardTitle>
           <CardDescription>
-            Choose which branch you want to manage.
+            {isBusinessInactive 
+                ? "This business is currently inactive. Please contact support."
+                : "Choose which branch you want to manage."
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -78,28 +84,36 @@ export default function SelectBranchPage() {
                     </div>
                 </div>
               ))
-            ) : business?.branches.map((branch) => (
-              <button
-                key={branch.id}
-                onClick={() => handleSelectBranch(branch)}
-                className="flex items-center justify-between text-left p-4 border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors w-full"
-              >
-                <div className="flex items-center gap-4">
-                    <Building className="h-6 w-6 text-muted-foreground" />
-                    <div>
-                        <p className="font-semibold">{branch.name}</p>
-                        <p className="text-sm text-muted-foreground">{branch.address}</p>
+            ) : hasActiveBranches ? (
+                business.branches.map((branch) => (
+                <button
+                    key={branch.id}
+                    onClick={() => handleSelectBranch(branch)}
+                    className="flex items-center justify-between text-left p-4 border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors w-full"
+                >
+                    <div className="flex items-center gap-4">
+                        <Building className="h-6 w-6 text-muted-foreground" />
+                        <div>
+                            <p className="font-semibold">{branch.name}</p>
+                            <p className="text-sm text-muted-foreground">{branch.address}</p>
+                        </div>
                     </div>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
-              </button>
-            ))}
-             { !loading && !business && (
-                <p className='text-center text-muted-foreground'>No business found. Please <Link href="/quick-assessment" className='underline'>register</Link> first.</p>
-             )}
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                </button>
+                ))
+            ) : (
+                 <p className='text-center text-muted-foreground p-4 border rounded-md'>
+                    { !business 
+                        ? <>No business found. Please <Link href="/quick-assessment" className='underline'>register</Link> first.</>
+                        : "No active branches available for this business."
+                    }
+                 </p>
+            )}
           </div>
         </CardContent>
       </Card>
     </div>
   );
 }
+
+    

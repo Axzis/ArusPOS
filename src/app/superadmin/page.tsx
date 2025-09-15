@@ -40,10 +40,11 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle } from 'lucide-react';
-import { getAllBusinesses, updateBusiness } from '@/lib/firestore';
+import { MoreHorizontal, PlusCircle, Trash2 } from 'lucide-react';
+import { getAllBusinesses, updateBusiness, deleteBusiness } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import CreateBusinessForm from './_components/create-business-form';
@@ -74,6 +75,7 @@ export default function SuperAdminPage() {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
     const [isDeactivateAlertOpen, setIsDeactivateAlertOpen] = useState(false);
+    const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
     const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
     const { toast } = useToast();
 
@@ -109,6 +111,11 @@ export default function SuperAdminPage() {
         setIsDeactivateAlertOpen(true);
     }
     
+    const handleDeleteClick = (business: Business) => {
+        setSelectedBusiness(business);
+        setIsDeleteAlertOpen(true);
+    }
+    
     const executeDeactivation = async () => {
         if (!selectedBusiness) return;
         
@@ -122,6 +129,22 @@ export default function SuperAdminPage() {
             toast({ title: "Error", description: "Could not update business status.", variant: "destructive" });
         } finally {
             setIsDeactivateAlertOpen(false);
+            setSelectedBusiness(null);
+        }
+    }
+    
+    const executeDelete = async () => {
+        if (!selectedBusiness) return;
+        
+        try {
+            await deleteBusiness(selectedBusiness.id);
+            toast({ title: "Success", description: `Business document for ${selectedBusiness.name} has been deleted.` });
+            fetchBusinesses(); // Refresh list
+        } catch (error) {
+            console.error("Failed to delete business:", error);
+            toast({ title: "Error", description: "Could not delete the business document.", variant: "destructive" });
+        } finally {
+            setIsDeleteAlertOpen(false);
             setSelectedBusiness(null);
         }
     }
@@ -203,9 +226,16 @@ export default function SuperAdminPage() {
                                                 <DropdownMenuItem onSelect={() => handleViewDetails(business)}>View Details</DropdownMenuItem>
                                                 <DropdownMenuItem 
                                                     onSelect={() => handleDeactivateClick(business)}
-                                                    className="text-destructive focus:text-destructive"
                                                 >
                                                     {business.isActive !== false ? 'Deactivate' : 'Activate'}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem 
+                                                    onSelect={() => handleDeleteClick(business)}
+                                                    className="text-destructive focus:text-destructive"
+                                                >
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    Delete
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
@@ -261,6 +291,27 @@ export default function SuperAdminPage() {
                 </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+            
+            {/* Delete Alert */}
+            <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+                <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Business "{selectedBusiness?.name}"?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the business document. 
+                        <br/><br/>
+                        <strong className='text-destructive-foreground'>Important:</strong> This will NOT delete sub-collections like branches, products, or transactions. For a full data wipe, you must use a Firebase Cloud Function or do it manually in the Firebase console.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction className='bg-destructive hover:bg-destructive/90' onClick={executeDelete}>Delete Anyway</AlertDialogAction>
+                </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
         </div>
     )
 }
+
+    

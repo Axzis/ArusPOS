@@ -54,12 +54,13 @@ async function getBusinessId(): Promise<string> {
     if (businessIdCache) {
         return businessIdCache;
     }
-    const businessQuery = query(collection(db, BUSINESSES_COLLECTION), limit(1));
+    // Only get active businesses for the main app flow
+    const businessQuery = query(collection(db, BUSINESSES_COLLECTION), where("isActive", "!=", false), limit(1));
     const businessSnapshot = await getDocs(businessQuery);
     if (businessSnapshot.empty) {
         // If there's no business, let's not throw an error but return an empty string,
         // so pages that rely on it don't break before registration.
-        console.warn("No business found in the database. Please register a business.");
+        console.warn("No active business found in the database. Please register a business or activate one.");
         return "";
     }
     businessIdCache = businessSnapshot.docs[0].id;
@@ -128,13 +129,24 @@ export async function addUserAndBusiness(data: BusinessData) {
 
 // === Get Business and its Branches ===
 export async function getBusinessWithBranches() {
-    // This is called by the main app, so we assume we want the first business
+    // This is called by the main app, so we assume we want the first active business
     // for now. A multi-business login flow would change this.
-    const businessQuery = query(collection(db, BUSINESSES_COLLECTION), limit(1));
+    const businessQuery = query(collection(db, BUSINESSES_COLLECTION), where("isActive", "!=", false), limit(1));
     const businessSnapshot = await getDocs(businessQuery);
     
     if (businessSnapshot.empty) {
-        return [];
+        // Attempt to find any business, even inactive ones, to guide user.
+        const anyBusinessQuery = query(collection(db, BUSINESSES_COLLECTION), limit(1));
+        const anyBusinessSnapshot = await getDocs(anyBusinessQuery);
+        if (anyBusinessSnapshot.empty) {
+             console.log("No businesses found at all.");
+             return [];
+        }
+         console.log("Found an inactive business. User should see no active branches.");
+         // returning the inactive business so the select branch page can inform the user
+         const businessDoc = anyBusinessSnapshot.docs[0];
+         const business = { id: businessDoc.id, ...businessDoc.data(), branches: [] }; // No branches to select
+         return [business];
     }
 
     const businesses = await Promise.all(businessSnapshot.docs.map(async (businessDoc) => {
@@ -177,6 +189,13 @@ export async function updateBusiness(businessId: string, businessData: Partial<B
         ...businessData,
         updatedAt: serverTimestamp()
     });
+}
+
+export async function deleteBusiness(businessId: string) {
+    // IMPORTANT: This deletes the business document but NOT its sub-collections (branches, products, etc.).
+    // A complete deletion requires a Firebase Cloud Function. This is a client-side simplification.
+    const businessDocRef = doc(db, BUSINESSES_COLLECTION, businessId);
+    return await deleteDoc(businessDocRef);
 }
 
 
@@ -367,3 +386,5 @@ export async function getTransactions() {
     }
     return [];
 }
+
+    
