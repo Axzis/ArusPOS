@@ -54,8 +54,7 @@ export default function QuickAssessmentPage() {
     };
 
     try {
-        // Simulate backend process
-        console.log('Simulating user and business creation:', businessData);
+        console.log('Creating user and business:', businessData);
         await addUserAndBusiness(businessData);
 
         toast({

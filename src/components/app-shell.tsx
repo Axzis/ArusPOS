@@ -76,12 +76,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         const storedBranch = localStorage.getItem('activeBranch');
         if (storedBranch) {
             setActiveBranch(JSON.parse(storedBranch));
-        } else if (pathname !== '/select-branch') {
+        } else if (!['/login', '/quick-assessment', '/select-branch'].includes(pathname)) {
             router.replace('/select-branch');
         }
      } catch (error) {
         console.error("Could not parse active branch", error);
-        router.replace('/select-branch');
+         if (!['/login', '/quick-assessment', '/select-branch'].includes(pathname)) {
+            router.replace('/select-branch');
+        }
      } finally {
         setLoadingBranch(false);
      }
@@ -110,7 +112,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       return <>{children}</>;
   }
   
-  if (loadingBranch) {
+  if (loadingBranch && !['/login', '/quick-assessment', '/select-branch'].includes(pathname)) {
       return (
           <div className="flex h-screen items-center justify-center">
               <Logo className="size-10 text-primary animate-pulse" />
