@@ -10,7 +10,6 @@ const settingsNav = [
   { href: '/settings', label: 'Business' },
   { href: '/settings/branches', label: 'Branches' },
   { href: '/settings/users', label: 'Users & Roles' },
-  { href: '/settings/profile', label: 'My Profile' },
   { href: '/settings/scanner', label: 'Barcode Scanner' },
   { href: '/settings/seeding', label: 'Seeding' },
 ];
