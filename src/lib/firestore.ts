@@ -19,6 +19,7 @@ import {
   orderBy,
   increment,
   Timestamp,
+  setDoc,
 } from 'firebase/firestore';
 
 const USERS_COLLECTION = 'users';
