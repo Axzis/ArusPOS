@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/select"
 import { getBusinessWithBranches, updateBusiness } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
-import SettingsLayout from './layout';
 import { useToast } from '@/hooks/use-toast';
 
 type Business = {
@@ -92,53 +91,51 @@ export default function SettingsProfilePage() {
 
 
   return (
-    <SettingsLayout>
-        <div className="grid gap-6">
-            <Card>
-            <form onSubmit={handleSave}>
-                <CardHeader>
-                    <CardTitle>Business Profile</CardTitle>
-                    <CardDescription>Update your business name, type, and other details.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {loading ? <SettingsSkeleton /> : (
-                    <div className="grid gap-4">
-                        <div className="grid md:grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="name">Business Name</Label>
-                                <Input id="name" value={formData.name} onChange={handleInputChange} />
-                            </div>
-                             <div className="grid gap-2">
-                                <Label htmlFor="type">Business Type</Label>
-                                <Input id="type" value={formData.type} onChange={handleInputChange} />
-                            </div>
-                        </div>
+    <div className="grid gap-6">
+        <Card>
+        <form onSubmit={handleSave}>
+            <CardHeader>
+                <CardTitle>Business Profile</CardTitle>
+                <CardDescription>Update your business name, type, and other details.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {loading ? <SettingsSkeleton /> : (
+                <div className="grid gap-4">
+                    <div className="grid md:grid-cols-2 gap-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="currency">Currency</Label>
-                             <Select value={formData.currency} onValueChange={handleCurrencyChange}>
-                                <SelectTrigger id="currency" className="w-[200px]">
-                                    <SelectValue placeholder="Select currency" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="USD">USD ($)</SelectItem>
-                                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                                    <SelectItem value="JPY">JPY (¥)</SelectItem>
-                                    <SelectItem value="IDR">IDR (Rp)</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Label htmlFor="name">Business Name</Label>
+                            <Input id="name" value={formData.name} onChange={handleInputChange} />
+                        </div>
+                         <div className="grid gap-2">
+                            <Label htmlFor="type">Business Type</Label>
+                            <Input id="type" value={formData.type} onChange={handleInputChange} />
                         </div>
                     </div>
-                    )}
-                </CardContent>
-                <CardFooter className="border-t px-6 py-4">
-                    <Button type="submit" disabled={loading || saving}>
-                        {saving ? 'Saving...' : 'Save'}
-                    </Button>
-                </CardFooter>
-            </form>
-            </Card>
-        </div>
-    </SettingsLayout>
+                    <div className="grid gap-2">
+                        <Label htmlFor="currency">Currency</Label>
+                         <Select value={formData.currency} onValueChange={handleCurrencyChange}>
+                            <SelectTrigger id="currency" className="w-[200px]">
+                                <SelectValue placeholder="Select currency" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="USD">USD ($)</SelectItem>
+                                <SelectItem value="EUR">EUR (€)</SelectItem>
+                                <SelectItem value="JPY">JPY (¥)</SelectItem>
+                                <SelectItem value="IDR">IDR (Rp)</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                )}
+            </CardContent>
+            <CardFooter className="border-t px-6 py-4">
+                <Button type="submit" disabled={loading || saving}>
+                    {saving ? 'Saving...' : 'Save'}
+                </Button>
+            </CardFooter>
+        </form>
+        </Card>
+    </div>
   )
 }
 

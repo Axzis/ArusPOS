@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
-import SettingsLayout from '../layout';
 import { getUsers } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -49,56 +48,54 @@ export default function UsersPage() {
     }, []);
 
     return (
-        <SettingsLayout>
-             <Card>
-                <CardHeader>
-                    <div className='flex justify-between items-center'>
-                        <div>
-                            <CardTitle>Users & Roles</CardTitle>
-                            <CardDescription>Manage who can access your business.</CardDescription>
-                        </div>
-                        <Button size="sm" className="gap-1">
-                            <PlusCircle className="h-4 w-4" />
-                            Add User
-                        </Button>
+        <Card>
+            <CardHeader>
+                <div className='flex justify-between items-center'>
+                    <div>
+                        <CardTitle>Users & Roles</CardTitle>
+                        <CardDescription>Manage who can access your business.</CardDescription>
                     </div>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Role</TableHead>
-                                <TableHead><span className="sr-only">Actions</span></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loading ? (
-                                Array.from({length: 3}).map((_, i) => (
-                                    <TableRow key={i}>
-                                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                                        <TableCell><Skeleton className="h-5 w-40" /></TableCell>
-                                        <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
-                                        <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                                    </TableRow>
-                                ))
-                            ) : users.map(user => (
-                                <TableRow key={user.id}>
-                                    <TableCell className="font-medium">{user.name}</TableCell>
-                                    <TableCell>{user.email}</TableCell>
-                                    <TableCell><Badge variant="secondary">{user.role}</Badge></TableCell>
-                                    <TableCell className="text-right">
-                                         <Button variant="ghost" size="icon">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                         </Button>
-                                    </TableCell>
+                    <Button size="sm" className="gap-1">
+                        <PlusCircle className="h-4 w-4" />
+                        Add User
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead><span className="sr-only">Actions</span></TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {loading ? (
+                            Array.from({length: 3}).map((_, i) => (
+                                <TableRow key={i}>
+                                    <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                                    <TableCell><Skeleton className="h-5 w-40" /></TableCell>
+                                    <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                                    <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-        </SettingsLayout>
+                            ))
+                        ) : users.map(user => (
+                            <TableRow key={user.id}>
+                                <TableCell className="font-medium">{user.name}</TableCell>
+                                <TableCell>{user.email}</TableCell>
+                                <TableCell><Badge variant="secondary">{user.role}</Badge></TableCell>
+                                <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
     )
 }
