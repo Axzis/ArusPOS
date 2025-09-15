@@ -42,9 +42,9 @@ export default function QuickAssessmentPage() {
       businessName: data['business-name'] as string,
       businessType: data['business-type'] as string,
       branches: Array.from({ length: branchCount }, (_, i) => ({
-        name: data[`branch-name-${i}`] as string,
-        address: data[`branch-address-${i}`] as string,
-        phone: data[`branch-phone-${i}`] as string,
+        name: formData.get(`branch-name-${i}`) as string,
+        address: formData.get(`branch-address-${i}`) as string,
+        phone: formData.get(`branch-phone-${i}`) as string,
       })),
     };
 
