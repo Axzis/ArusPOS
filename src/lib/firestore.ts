@@ -266,7 +266,7 @@ export async function getTransactionsForBranch(branchId: string) {
     return querySnapshot.docs.map(doc => {
         const data = doc.data();
         // Convert Firestore Timestamp to ISO string date, handle serverTimestamp pending write
-        const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
+        const date = data.date instanceof Timestamp ? data.date.toISOString() : new Date().toISOString();
         return {
             id: doc.id,
             ...data,
@@ -353,7 +353,6 @@ export async function addUserToBusiness(userData: NewUser) {
 
     if (!existingUserSnapshot.empty) {
         // This email is already associated with a user in the users collection, regardless of business.
-        // It might not be in Firebase Auth yet, or it might be for another business.
         // To be safe and respect unique emails, we prevent this.
         const error = new Error("Email address is already in use by another account in the system.") as any;
         error.code = "auth/email-already-in-use";
@@ -387,8 +386,9 @@ export async function deleteUserFromBusiness(userId: string): Promise<void> {
 
     const userDocRef = doc(db, USERS_COLLECTION, userId);
     const userDoc = await getDoc(userDocRef);
+    const userData = userDoc.data();
 
-    if (!userDoc.exists() || userDoc.data().businessId !== businessId) {
+    if (!userData || userData.businessId !== businessId) {
         throw new Error("User does not belong to this business or does not exist.");
     }
     
