@@ -1,5 +1,7 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
+import './print.css';
 import { Toaster } from '@/components/ui/toaster';
 import AppShell from '@/components/app-shell';
 import { AuthProvider } from '@/contexts/auth-context';
@@ -33,3 +35,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+    

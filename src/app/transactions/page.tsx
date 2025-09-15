@@ -29,9 +29,11 @@ import {
   X,
   List,
   Grid,
-  Barcode
+  Barcode,
+  Printer,
+  MessageSquare,
 } from 'lucide-react';
-import { getProductsForBranch, getCustomers, getTransactionsForBranch, addTransactionAndUpdateStock, getPromosForBranch } from '@/lib/firestore';
+import { getProductsForBranch, getCustomers, getTransactionsForBranch, addTransactionAndUpdateStock, getPromosForBranch, addCustomer as addNewCustomer } from '@/lib/firestore';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -50,7 +52,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { isWithinInterval } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
+import { Label } from '@/components/ui/label';
 
 type OrderItem = {
   id: string;
@@ -81,6 +83,7 @@ type Promo = {
 type Customer = {
     id: string;
     name: string;
+    phone?: string;
 };
 
 type Transaction = {
@@ -90,6 +93,7 @@ type Transaction = {
     date: string;
     status: 'Paid' | 'Refunded';
     type: 'Sale' | 'Refund';
+    items: OrderItem[];
 }
 
 const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
@@ -111,7 +115,10 @@ export default function TransactionsPage() {
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
   const { toast } = useToast();
   const [scannerEnabled, setScannerEnabled] = useState(false);
-
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
+  const [transactionForRegistration, setTransactionForRegistration] = useState<Transaction | null>(null);
+  const [transactionToPrint, setTransactionToPrint] = useState<Transaction | null>(null);
 
   useEffect(() => {
     const storedBranch = localStorage.getItem('activeBranch');
@@ -189,8 +196,6 @@ export default function TransactionsPage() {
     });
   }, [toast]);
 
-
-  // Barcode scanner logic
   useEffect(() => {
     if (!scannerEnabled) return;
 
@@ -198,20 +203,18 @@ export default function TransactionsPage() {
     let lastKeyTime = Date.now();
 
     const handleKeyDown = (event: KeyboardEvent) => {
-        // Ignore input if a text field is focused
         const activeElement = document.activeElement;
         if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.getAttribute('role') === 'combobox')) {
             return;
         }
         
         const currentTime = Date.now();
-        // If there's a long pause between keys, reset the barcode
         if (currentTime - lastKeyTime > 100) {
             barcode = '';
         }
         
         if (event.key === 'Enter') {
-            if (barcode.length > 2) { // Minimum length for a barcode
+            if (barcode.length > 2) {
                 const product = productsWithPromo.find(p => p.sku === barcode);
                 if (product) {
                     addToOrder(product);
@@ -227,8 +230,8 @@ export default function TransactionsPage() {
                     });
                 }
             }
-            barcode = ''; // Reset after enter
-        } else if (event.key.length === 1) { // Append character keys
+            barcode = '';
+        } else if (event.key.length === 1) {
             barcode += event.key;
         }
 
@@ -240,7 +243,6 @@ export default function TransactionsPage() {
         window.removeEventListener('keydown', handleKeyDown);
     };
   }, [scannerEnabled, productsWithPromo, addToOrder, toast]);
-
 
   const removeFromOrder = (productId: string) => {
     setOrderItems((prevItems) =>
@@ -273,7 +275,7 @@ export default function TransactionsPage() {
           
           toast({ title: "Transaction Successful", description: `Payment of ${formatCurrency(total, currency)} charged.` });
           clearOrder();
-          fetchData(); // Refresh recent transactions
+          fetchData();
       } catch (error) {
           console.error("Failed to charge payment:", error);
           toast({ title: "Error", description: "Could not process the payment.", variant: "destructive" });
@@ -283,6 +285,53 @@ export default function TransactionsPage() {
       }
   };
 
+  const handlePrintInvoice = (transaction: Transaction) => {
+    setTransactionToPrint(transaction);
+    setTimeout(() => {
+        window.print();
+        setTransactionToPrint(null);
+    }, 100);
+  };
+
+  const generateWhatsAppMessage = (transaction: Transaction, customerPhone: string) => {
+    const itemsText = transaction.items.map(item => `${item.quantity}x ${item.name}`).join(', ');
+    const message = `Halo! Terima kasih atas pembelian Anda. Berikut adalah detail transaksi Anda:\n\n*Total:* ${formatCurrency(transaction.amount, currency)}\n*Item:* ${itemsText}\n\nTerima kasih telah berbelanja!`;
+    const whatsappUrl = `https://wa.me/${customerPhone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
+  const handleSendWhatsApp = (transaction: Transaction) => {
+    if (transaction.customerName === 'Anonymous') {
+      setTransactionForRegistration(transaction);
+      setIsRegistering(true);
+    } else {
+      const customer = customers.find(c => c.name === transaction.customerName);
+      if (customer?.phone) {
+        generateWhatsAppMessage(transaction, customer.phone);
+      } else {
+        toast({
+          title: "Nomor Telepon Tidak Ditemukan",
+          description: `Pelanggan ${customer?.name} tidak memiliki nomor telepon terdaftar.`,
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const handleRegisterAndSend = async () => {
+    if (!newCustomer.name || !newCustomer.phone || !transactionForRegistration) return;
+    try {
+      await addNewCustomer({ name: newCustomer.name, email: '', phone: newCustomer.phone });
+      toast({ title: "Pelanggan Terdaftar", description: `${newCustomer.name} telah berhasil ditambahkan.` });
+      fetchData(); // Refresh customer list
+      generateWhatsAppMessage(transactionForRegistration, newCustomer.phone);
+      setIsRegistering(false);
+      setNewCustomer({ name: '', phone: '' });
+      setTransactionForRegistration(null);
+    } catch (error) {
+      toast({ title: "Error", description: "Gagal mendaftarkan pelanggan baru.", variant: "destructive" });
+    }
+  };
 
   const subtotal = orderItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -298,13 +347,66 @@ export default function TransactionsPage() {
   
   const isLoading = loading || loadingBusiness;
 
+  if (transactionToPrint) {
+    return (
+        <div className="print-invoice">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Invoice #{transactionToPrint.id.substring(0, 7)}</CardTitle>
+                    <CardDescription>
+                        Tanggal: {new Date(transactionToPrint.date).toLocaleString()}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p>Pelanggan: {transactionToPrint.customerName}</p>
+                    <Separator className="my-4" />
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Produk</TableHead>
+                                <TableHead>Jumlah</TableHead>
+                                <TableHead className="text-right">Harga</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {transactionToPrint.items.map(item => (
+                                <TableRow key={item.id}>
+                                    <TableCell>{item.name}</TableCell>
+                                    <TableCell>{item.quantity}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(item.price * item.quantity, currency)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    <Separator className="my-4" />
+                    <div className="flex justify-end">
+                        <div className="w-full max-w-xs space-y-2">
+                             <div className="flex justify-between">
+                                <span>Subtotal</span>
+                                <span>{formatCurrency(transactionToPrint.amount, currency)}</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-lg">
+                                <span>Total</span>
+                                <span>{formatCurrency(transactionToPrint.amount, currency)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+                <CardFooter className="justify-center">
+                    <p>Terima kasih telah berbelanja!</p>
+                </CardFooter>
+            </Card>
+        </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-6">
-       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm md:-mx-6 md:p-6">
+    <div className="flex flex-col gap-6" id="main-content">
+       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm md:-mx-6 md:p-6 no-print">
         <h1 className="text-lg font-semibold md:text-2xl">Transactions</h1>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 no-print">
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>New Transaction</CardTitle>
@@ -524,7 +626,7 @@ export default function TransactionsPage() {
           </CardContent>
         </Card>
       </div>
-      <Card>
+      <Card className="no-print">
         <CardHeader>
           <CardTitle>Recent Transactions</CardTitle>
         </CardHeader>
@@ -537,6 +639,7 @@ export default function TransactionsPage() {
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -548,6 +651,7 @@ export default function TransactionsPage() {
                         <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                         <TableCell><Skeleton className="h-5 w-20" /></TableCell>
                         <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-20" /></TableCell>
                     </TableRow>
                 ))
               ) : transactions.map((transaction) => (
@@ -584,6 +688,16 @@ export default function TransactionsPage() {
                   >
                     {formatCurrency(Math.abs(transaction.amount), currency)}
                   </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                        <Button variant="outline" size="icon" onClick={() => handlePrintInvoice(transaction)}>
+                            <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => handleSendWhatsApp(transaction)}>
+                            <MessageSquare className="h-4 w-4" />
+                        </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -608,8 +722,51 @@ export default function TransactionsPage() {
             </AlertDialogContent>
         </AlertDialog>
 
+        <AlertDialog open={isRegistering} onOpenChange={setIsRegistering}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Register New Customer</AlertDialogTitle>
+              <AlertDialogDescription>
+                This transaction was for an anonymous customer. To send an invoice via WhatsApp, please register them first.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Name
+                </Label>
+                <Input
+                  id="name"
+                  value={newCustomer.name}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="phone" className="text-right">
+                  Phone
+                </Label>
+                <Input
+                  id="phone"
+                  placeholder="e.g., 6281234567890"
+                  value={newCustomer.phone}
+                  onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setIsRegistering(false)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleRegisterAndSend}>Register & Send</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
     </div>
   );
 }
 
+    
     
