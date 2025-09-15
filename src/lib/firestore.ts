@@ -346,13 +346,27 @@ export async function addUserToBusiness(userData: NewUser) {
         throw new Error("Email and password are required to create a new user.");
     }
 
-    // Note: Creating an auth user and then a DB user isn't transactional.
-    // In a real-world app, you might use a Cloud Function for this to ensure atomicity.
+    // First, check if a user with this email already exists in the Firestore `users` collection for this business
+    const usersCollectionRef = collection(db, USERS_COLLECTION);
+    const existingUserQuery = query(usersCollectionRef, where("email", "==", userData.email), where("businessId", "==", businessId), limit(1));
+    const existingUserSnapshot = await getDocs(existingUserQuery);
+
+    if (!existingUserSnapshot.empty) {
+        // A user with this email already exists in Firestore for this business.
+        // We can throw a custom error or the same as Firebase Auth for consistency.
+        const error = new Error("Email address is already in use by another account.") as any;
+        error.code = "auth/email-already-in-use";
+        throw error;
+    }
+
+    // If no user in Firestore, proceed to create in Auth and then Firestore
     const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
     const user = userCredential.user;
-
+    
+    const batch = writeBatch(db);
     const userRef = doc(collection(db, USERS_COLLECTION));
-    await setDoc(userRef, {
+
+    batch.set(userRef, {
         uid: user.uid,
         name: userData.name,
         email: userData.email,
@@ -360,6 +374,8 @@ export async function addUserToBusiness(userData: NewUser) {
         businessId: businessId,
         createdAt: serverTimestamp(),
     });
+    
+    await batch.commit();
 
     return { userId: userRef.id };
 }
@@ -435,7 +451,7 @@ export async function resetBranchData(branchId: string): Promise<void> {
     // Define paths for collections to be deleted
     const productsPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PRODUCTS_COLLECTION}`;
     const transactionsPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${TRANSACTIONS_COLLECTION}`;
-    const promosPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PROMOS_COLlection}`;
+    const promosPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PROMOS_COLLECTION}`;
 
     // Note: Customers are global to the business, so we do not delete them when resetting a branch.
 
