@@ -34,7 +34,6 @@ import {
   SheetContent,
   SheetDescription,
   SheetHeader,
-  SheetTitle,
   SheetFooter,
   SheetTrigger,
 } from '@/components/ui/sheet';
@@ -124,7 +123,8 @@ export default function CustomersPage() {
     setCustomerToDelete(customer);
   };
   
-  const executeDelete = async () => {
+  const executeDelete = async (event: React.MouseEvent) => {
+    event.preventDefault();
     if (!customerToDelete) return;
     
     try {
