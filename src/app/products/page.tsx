@@ -1,5 +1,7 @@
+
 "use client";
 import * as React from 'react';
+import Image from 'next/image';
 import {
   MoreHorizontal,
   PlusCircle,
@@ -68,6 +70,7 @@ type Product = {
   stock: number;
   category: string;
   unit: string;
+  imageUrl?: string;
 };
 
 export default function ProductsPage() {
@@ -134,6 +137,7 @@ export default function ProductsPage() {
             stock: parseInt(formData.get('stock') as string, 10),
             category: formData.get('category') as string,
             unit: formData.get('unit') as string,
+            imageUrl: formData.get('imageUrl') as string,
         };
 
         try {
@@ -246,6 +250,10 @@ export default function ProductsPage() {
                         <Label htmlFor="stock" className="text-right">Stock</Label>
                         <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock ?? ''} className="col-span-3" required />
                       </div>
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="imageUrl" className="text-right">Image URL</Label>
+                        <Input id="imageUrl" name="imageUrl" defaultValue={editingProduct?.imageUrl ?? ''} className="col-span-3" placeholder="https://example.com/image.png" />
+                      </div>
                   </div>
                 </ScrollArea>
                 <SheetFooter className="pt-4 mt-auto">
@@ -293,6 +301,7 @@ export default function ProductsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[80px]">Image</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>Category</TableHead>
@@ -307,6 +316,7 @@ export default function ProductsPage() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
+                        <TableCell><Skeleton className="h-10 w-10 rounded-md" /></TableCell>
                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-5 w-32" /></TableCell>
                         <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
@@ -317,6 +327,16 @@ export default function ProductsPage() {
                 ))
               ) : filteredProducts.map((product) => (
                 <TableRow key={product.id}>
+                  <TableCell>
+                    <Image
+                      src={product.imageUrl || `https://picsum.photos/seed/${product.id}/40/40`}
+                      alt={product.name}
+                      width={40}
+                      height={40}
+                      className="rounded-md object-cover"
+                      data-ai-hint="product image"
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell>{product.sku}</TableCell>
                    <TableCell>
@@ -354,3 +374,5 @@ export default function ProductsPage() {
     </div>
   );
 }
+
+    
