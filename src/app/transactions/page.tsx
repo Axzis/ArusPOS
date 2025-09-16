@@ -110,9 +110,8 @@ export default function TransactionsPage() {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [productsWithPromo, setProductsWithPromo] = useState<ProductWithPromo[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [promos, setPromos] = useState<Promo[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [selectedCustomerId, setSelectedCustomerId] = useState(ANONYMOUS_CUSTOMER_ID);
@@ -136,9 +135,23 @@ export default function TransactionsPage() {
             getPromosForBranch(branchId),
         ]);
         setTransactions(transactionsData as Transaction[]);
-        setAllProducts(productsData as Product[]);
         setCustomers(customersData as Customer[]);
-        setPromos(promoData as Promo[]);
+
+        const now = new Date();
+        const activePromos = (promoData as Promo[]).filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
+
+        const processedProducts = (productsData as Product[]).map(product => {
+            const promo = activePromos.find(p => p.productId === product.id);
+            return {
+                ...product,
+                originalPrice: product.price,
+                price: promo ? promo.promoPrice : product.price,
+                hasPromo: !!promo,
+            };
+        });
+
+        setProductsWithPromo(processedProducts);
+
     } catch (error) {
         console.error("Failed to load transaction page data:", error);
         toast({ title: "Error", description: "Could not load data for transactions.", variant: "destructive" });
@@ -159,23 +172,6 @@ export default function TransactionsPage() {
     const scannerPref = localStorage.getItem('barcodeScannerEnabled');
     setScannerEnabled(scannerPref === 'true');
   }, [fetchData]);
-  
-  const productsWithPromo = useMemo(() => {
-    if (loading) return [];
-    const now = new Date();
-    const activePromos = promos.filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
-
-    return allProducts.map(product => {
-      const promo = activePromos.find(p => p.productId === product.id);
-      return {
-        ...product,
-        originalPrice: product.price,
-        price: promo ? promo.promoPrice : product.price,
-        hasPromo: !!promo,
-      };
-    });
-  }, [allProducts, promos, loading]);
-
 
   const handlePrintInvoice = (transactionId: string) => {
     window.open(`/print/invoice/${transactionId}`, '_blank');
