@@ -295,45 +295,35 @@ export async function getTransactionsForBranch(branchId: string) {
     });
 }
 
-export async function getTransactionById(transactionId: string) {
+export async function getTransactionById(transactionId: string): Promise<DocumentData | null> {
     if (!transactionId) return null;
     
-    // Find the transaction without knowing the business/branch beforehand.
-    const transactionsCollectionGroup = collectionGroup(db, TRANSACTIONS_COLLECTION);
-    const q = query(transactionsCollectionGroup, where("__name__", "==", `*/${transactionId}`));
+    // Use collectionGroup to find the transaction across all subcollections
+    const transactionsQuery = query(collectionGroup(db, TRANSACTIONS_COLLECTION), where('__name__', '==', `*/${transactionId}`), limit(1));
+    const allTransactionsSnapshot = await getDocs(transactionsQuery);
 
-    try {
-        const querySnapshot = await getDocs(q);
-        
-        let foundDoc: DocumentData | null = null;
-        if (!querySnapshot.empty) {
-            foundDoc = querySnapshot.docs[0];
-        } else {
-            // Fallback for document ID only query if direct path fails
-            const allTransactionsSnapshot = await getDocs(collectionGroup(db, TRANSACTIONS_COLLECTION));
-            const doc = allTransactionsSnapshot.docs.find(d => d.id === transactionId);
-            if (doc) {
-                foundDoc = doc;
-            }
-        }
-    
-        if (!foundDoc) {
-            console.warn(`Transaction with ID ${transactionId} not found.`);
-            return null;
-        }
+    let foundDoc: DocumentData | null = null;
+    if (!allTransactionsSnapshot.empty) {
+        foundDoc = allTransactionsSnapshot.docs[0];
+    } else {
+        // Fallback for document ID only query if direct path fails
+        const snapshot = await getDocs(collectionGroup(db, TRANSACTIONS_COLLECTION));
+        const doc = snapshot.docs.find(d => d.id === transactionId);
+        if(doc) foundDoc = doc;
+    }
 
-        const data = foundDoc.data();
-        const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
-        return {
-            id: foundDoc.id,
-            ...data,
-            date: date
-        };
-
-    } catch (error) {
-        console.error("Error getting transaction by ID:", error);
+    if (!foundDoc) {
+        console.warn(`Transaction with ID ${transactionId} not found.`);
         return null;
     }
+    
+    const data = foundDoc.data();
+    const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
+    return {
+        id: foundDoc.id,
+        ...data,
+        date: date
+    };
 }
 
 

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import {
   Card,
@@ -99,6 +99,7 @@ type Transaction = {
     status: 'Paid' | 'Refunded';
     type: 'Sale' | 'Refund';
     items: OrderItem[];
+    discount?: number;
 }
 
 const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
@@ -124,6 +125,7 @@ export default function TransactionsPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const [transactionForRegistration, setTransactionForRegistration] = useState<Transaction | null>(null);
+  const [discount, setDiscount] = useState(0);
 
   const fetchData = useCallback(async (branchId: string) => {
     setLoading(true);
@@ -256,6 +258,7 @@ export default function TransactionsPage() {
   const clearOrder = () => {
     setOrderItems([]);
     setSelectedCustomerId(ANONYMOUS_CUSTOMER_ID);
+    setDiscount(0);
   };
 
   const handleChargePayment = async () => {
@@ -270,6 +273,7 @@ export default function TransactionsPage() {
           const transactionData = {
               customerName: selectedCustomer?.name || 'Anonymous',
               amount: total,
+              discount: discount,
               status: 'Paid' as 'Paid' | 'Refunded',
               type: 'Sale' as 'Sale' | 'Refund',
               currency: currency,
@@ -336,7 +340,7 @@ export default function TransactionsPage() {
   );
   
   const tax = taxEnabled ? subtotal * (taxRate / 100) : 0;
-  const total = subtotal + tax;
+  const total = subtotal + tax - discount;
 
   const filteredProducts = productsWithPromo.filter((product) =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -423,19 +427,30 @@ export default function TransactionsPage() {
                 </Table>
               </div>
               {orderItems.length > 0 && (
-                <div className="flex flex-col items-end gap-2 text-sm">
-                  <div className="flex w-full max-w-xs justify-between">
+                 <div className="ml-auto w-full max-w-xs space-y-2 text-sm">
+                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Subtotal</span>
                     <span>{formatCurrency(subtotal, currency)}</span>
                   </div>
                   {taxEnabled && (
-                    <div className="flex w-full max-w-xs justify-between">
+                    <div className="flex justify-between">
                         <span className="text-muted-foreground">Tax ({taxRate}%)</span>
                         <span>{formatCurrency(tax, currency)}</span>
                     </div>
                   )}
-                  <Separator className="my-1 w-full max-w-xs" />
-                  <div className="flex w-full max-w-xs justify-between font-bold">
+                   <div className="flex justify-between items-center">
+                    <Label htmlFor="discount" className="text-muted-foreground">Discount</Label>
+                    <Input 
+                      id="discount"
+                      type="number"
+                      value={discount}
+                      onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                      className="h-8 w-[100px] text-right"
+                      placeholder="0"
+                    />
+                  </div>
+                  <Separator className="my-1" />
+                  <div className="flex justify-between font-bold">
                     <span>Total</span>
                     <span>{formatCurrency(total, currency)}</span>
                   </div>

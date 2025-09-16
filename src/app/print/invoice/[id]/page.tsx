@@ -27,6 +27,7 @@ type Transaction = {
     type: 'Sale' | 'Refund';
     items: TransactionItem[];
     currency: string;
+    discount?: number;
 };
 
 export default function InvoicePrintPage() {
@@ -94,6 +95,8 @@ export default function InvoicePrintPage() {
     }
     
     const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const discount = transaction.discount || 0;
+    const tax = transaction.amount + discount - subtotal;
     const currency = transaction.currency || 'USD';
 
     return (
@@ -140,10 +143,18 @@ export default function InvoicePrintPage() {
                                 <span>Subtotal</span>
                                 <span>{formatCurrency(subtotal, currency)}</span>
                             </div>
-                            <div className="flex justify-between">
-                                <span>Tax</span>
-                                <span>{formatCurrency(transaction.amount - subtotal, currency)}</span>
-                            </div>
+                             {tax > 0 && (
+                                <div className="flex justify-between">
+                                    <span>Tax</span>
+                                    <span>{formatCurrency(tax, currency)}</span>
+                                </div>
+                            )}
+                            {discount > 0 && (
+                                <div className="flex justify-between text-destructive">
+                                    <span>Discount</span>
+                                    <span>-{formatCurrency(discount, currency)}</span>
+                                </div>
+                            )}
                             <Separator />
                             <div className="flex justify-between font-bold">
                                 <span>Total</span>
