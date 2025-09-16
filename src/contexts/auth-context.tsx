@@ -18,6 +18,7 @@ type AuthContextType = {
     login: (email: string, password: string) => Promise<void>;
     logout: () => Promise<void>;
     sendPasswordReset: (email: string) => Promise<void>;
+    updateUserPassword: (currentPass: string, newPass: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -72,10 +73,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const sendPasswordReset = async (email: string) => {
         await sendPasswordResetEmail(auth, email);
-    }
+    };
+
+    const updateUserPassword = async (currentPass: string, newPass: string) => {
+        const user = auth.currentUser;
+        if (!user || !user.email) {
+            throw new Error("No user is currently signed in.");
+        }
+
+        const credential = EmailAuthProvider.credential(user.email, currentPass);
+        
+        try {
+            // Re-authenticate user to confirm their identity
+            await reauthenticateWithCredential(user, credential);
+            // If re-authentication is successful, update the password
+            await updatePassword(user, newPass);
+        } catch (error) {
+            // Re-throw the error to be handled by the UI
+            throw error;
+        }
+    };
 
 
-    const value = { user, loading, login, logout, sendPasswordReset };
+    const value = { user, loading, login, logout, sendPasswordReset, updateUserPassword };
 
     // While checking user state, show a loader
     if (loading) {

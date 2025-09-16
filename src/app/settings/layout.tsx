@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 
 const settingsNav = [
   { href: '/settings', label: 'Business' },
+  { href: '/settings/profile', label: 'My Profile' },
   { href: '/settings/branches', label: 'Branches' },
   { href: '/settings/users', label: 'Users & Roles' },
   { href: '/settings/scanner', label: 'Barcode Scanner' },
