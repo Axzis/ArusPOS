@@ -5,6 +5,8 @@ import {
   MoreHorizontal,
   PlusCircle,
   Search,
+  Download,
+  Upload
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,7 +42,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
-import { getCustomers, addCustomer, deleteCustomer } from '@/lib/firestore';
+import { getCustomers, addCustomer, deleteCustomer, upsertCustomersByEmail } from '@/lib/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -55,6 +57,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import ExcelImport from '@/components/excel-import';
+import { utils, writeFile } from 'xlsx';
 
 
 type Customer = {
@@ -136,6 +140,31 @@ export default function CustomersPage() {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const template = [{ name: 'John Doe', email: 'john.doe@example.com', phone: '555-0104' }];
+    const ws = utils.json_to_sheet(template);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Customers");
+    writeFile(wb, "customer_template.xlsx");
+  };
+
+  const handleImport = async (data: any[]) => {
+    try {
+        const result = await upsertCustomersByEmail(data);
+        toast({
+            title: "Import Successful",
+            description: `${result.updated} customers updated, ${result.inserted} new customers added.`,
+        });
+        fetchCustomers();
+    } catch (error: any) {
+        toast({
+            title: "Import Failed",
+            description: error.message || "An unexpected error occurred during import.",
+            variant: "destructive"
+        });
+    }
+  }
+
 
   const filteredCustomers = customers.filter(customer => 
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -146,46 +175,61 @@ export default function CustomersPage() {
     <div className="flex flex-col gap-6">
       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex items-center justify-between md:-mx-6 md:p-6">
         <h1 className="text-lg font-semibold md:text-2xl">Customers</h1>
-        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-          <SheetTrigger asChild>
-            <Button size="sm" className="ml-auto gap-1" onClick={() => setIsSheetOpen(true)}>
-              <PlusCircle className="h-4 w-4" />
-              Add Customer
+        <div className="flex items-center gap-2">
+            <ExcelImport 
+                onImport={handleImport}
+                requiredFields={['name', 'email', 'phone']}
+            >
+                <Button size="sm" variant="outline" className="gap-1">
+                    <Upload className="h-4 w-4" />
+                    Import
+                </Button>
+            </ExcelImport>
+            <Button size="sm" variant="outline" className="gap-1" onClick={handleDownloadTemplate}>
+                <Download className="h-4 w-4" />
+                Template
             </Button>
-          </SheetTrigger>
-          <SheetContent>
-            <SheetHeader>
-              <SheetTitle>Add Customer</SheetTitle>
-              <SheetDescription>
-                Enter the details for the new customer.
-              </SheetDescription>
-            </SheetHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  Name
-                </Label>
-                <Input id="name" placeholder="John Doe" value={newCustomer.name} onChange={handleInputChange} className="col-span-3" required />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">
-                  Email
-                </Label>
-                <Input id="email" type="email" placeholder="john@example.com" value={newCustomer.email} onChange={handleInputChange} className="col-span-3" />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phone" className="text-right">
-                  Phone
-                </Label>
-                <Input id="phone" placeholder="555-0199" value={newCustomer.phone} onChange={handleInputChange} className="col-span-3" />
-              </div>
-            </div>
-            <SheetFooter>
-                <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>Cancel</Button>
-                <Button type="submit" onClick={handleSaveCustomer}>Save customer</Button>
-            </SheetFooter>
-          </SheetContent>
-        </Sheet>
+            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+            <SheetTrigger asChild>
+                <Button size="sm" className="gap-1" onClick={() => setIsSheetOpen(true)}>
+                <PlusCircle className="h-4 w-4" />
+                Add Customer
+                </Button>
+            </SheetTrigger>
+            <SheetContent>
+                <SheetHeader>
+                <SheetTitle>Add Customer</SheetTitle>
+                <SheetDescription>
+                    Enter the details for the new customer.
+                </SheetDescription>
+                </SheetHeader>
+                <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">
+                    Name
+                    </Label>
+                    <Input id="name" placeholder="John Doe" value={newCustomer.name} onChange={handleInputChange} className="col-span-3" required />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="email" className="text-right">
+                    Email
+                    </Label>
+                    <Input id="email" type="email" placeholder="john@example.com" value={newCustomer.email} onChange={handleInputChange} className="col-span-3" />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="phone" className="text-right">
+                    Phone
+                    </Label>
+                    <Input id="phone" placeholder="555-0199" value={newCustomer.phone} onChange={handleInputChange} className="col-span-3" />
+                </div>
+                </div>
+                <SheetFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsSheetOpen(false)}>Cancel</Button>
+                    <Button type="submit" onClick={handleSaveCustomer}>Save customer</Button>
+                </SheetFooter>
+            </SheetContent>
+            </Sheet>
+        </div>
       </div>
 
       <Card>
@@ -292,5 +336,3 @@ export default function CustomersPage() {
     </div>
   );
 }
-
-    

@@ -238,6 +238,52 @@ export async function deleteProductFromBranch(branchId: string, productId: strin
     return await deleteDoc(productDocRef);
 }
 
+export async function upsertProductsBySku(branchId: string, productsData: any[]) {
+    const businessId = await getBusinessId();
+    if (!businessId) throw new Error("No business ID found");
+
+    const productsRef = collection(db, PRODUCTS_COLLECTION);
+    const q = query(productsRef, where('businessId', '==', businessId), where('branchId', '==', branchId));
+    const querySnapshot = await getDocs(q);
+    const existingProducts = new Map(querySnapshot.docs.map(doc => [doc.data().sku, { id: doc.id, ...doc.data() }]));
+
+    const batch = writeBatch(db);
+    let updated = 0;
+    let inserted = 0;
+
+    for (const product of productsData) {
+        // Ensure numeric fields are numbers
+        product.price = parseFloat(product.price);
+        product.purchasePrice = parseFloat(product.purchasePrice);
+        product.stock = parseInt(product.stock, 10);
+
+        if(isNaN(product.price) || isNaN(product.purchasePrice) || isNaN(product.stock)) {
+            console.warn("Skipping product with invalid number format:", product);
+            continue;
+        }
+
+        const existing = existingProducts.get(product.sku);
+        const productPayload = {
+            ...product,
+            businessId,
+            branchId,
+        };
+
+        if (existing) {
+            const docRef = doc(db, PRODUCTS_COLLECTION, existing.id);
+            batch.set(docRef, { ...productPayload, updatedAt: serverTimestamp() });
+            updated++;
+        } else {
+            const docRef = doc(collection(db, PRODUCTS_COLLECTION));
+            batch.set(docRef, { ...productPayload, createdAt: serverTimestamp() });
+            inserted++;
+        }
+    }
+
+    await batch.commit();
+    return { updated, inserted };
+}
+
 
 // === Customer Functions (Global for the business) ===
 export async function getCustomers() {
@@ -272,6 +318,52 @@ export async function deleteCustomer(customerId: string) {
     if (!businessId) throw new Error("No business ID found to delete customer from.");
     const customerDocRef = doc(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION, customerId);
     return await deleteDoc(customerDocRef);
+}
+
+export async function upsertCustomersByEmail(customersData: any[]) {
+    const businessId = await getBusinessId();
+    if (!businessId) throw new Error("No business ID found");
+
+    const customersRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION);
+    const q = query(customersRef);
+    const querySnapshot = await getDocs(q);
+    const existingCustomers = new Map(querySnapshot.docs.map(doc => [doc.data().email, { id: doc.id, ...doc.data() }]));
+
+    const batch = writeBatch(db);
+    let updated = 0;
+    let inserted = 0;
+
+    for (const customer of customersData) {
+        if (!customer.email || !customer.name || !customer.phone) {
+            console.warn("Skipping customer with missing required fields:", customer);
+            continue;
+        }
+
+        const existing = existingCustomers.get(customer.email);
+        const customerPayload = {
+            name: customer.name,
+            email: customer.email,
+            phone: customer.phone,
+        };
+
+        if (existing) {
+            const docRef = doc(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION, existing.id);
+            batch.update(docRef, { ...customerPayload, updatedAt: serverTimestamp() });
+            updated++;
+        } else {
+            const docRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION));
+            batch.set(docRef, {
+                ...customerPayload,
+                totalSpent: 0,
+                avatar: `https://picsum.photos/seed/${Math.random()}/40/40`,
+                createdAt: serverTimestamp(),
+            });
+            inserted++;
+        }
+    }
+
+    await batch.commit();
+    return { updated, inserted };
 }
 
 

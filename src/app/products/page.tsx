@@ -6,7 +6,9 @@ import {
   MoreHorizontal,
   PlusCircle,
   Search,
-  Trash2
+  Trash2,
+  Upload,
+  Download,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -33,7 +35,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { getProductsForBranch, addProductToBranch, updateProductInBranch, deleteProductFromBranch } from '@/lib/firestore';
+import { getProductsForBranch, addProductToBranch, updateProductInBranch, deleteProductFromBranch, upsertProductsBySku } from '@/lib/firestore';
 import { Badge } from '@/components/ui/badge';
 import {
   Sheet,
@@ -60,6 +62,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useBusiness } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
+import ExcelImport from '@/components/excel-import';
+import { utils, writeFile } from 'xlsx';
 
 type Product = {
   id: string;
@@ -172,6 +176,44 @@ export default function ProductsPage() {
         }
     };
 
+    const handleDownloadTemplate = () => {
+        const template = [{
+            name: 'Sample Coffee',
+            sku: 'SKU-001',
+            category: 'Beverages',
+            unit: 'pcs',
+            price: 3.50,
+            purchasePrice: 1.50,
+            stock: 100,
+            imageUrl: 'https://example.com/image.png'
+        }];
+        const ws = utils.json_to_sheet(template);
+        const wb = utils.book_new();
+        utils.book_append_sheet(wb, ws, "Products");
+        writeFile(wb, "product_template.xlsx");
+    };
+
+    const handleImport = async (data: any[]) => {
+        if (!activeBranchId) {
+            toast({ title: "Error", description: "No active branch selected.", variant: "destructive" });
+            return;
+        }
+        try {
+            const result = await upsertProductsBySku(activeBranchId, data);
+            toast({
+                title: "Import Successful",
+                description: `${result.updated} products updated, ${result.inserted} new products added.`,
+            });
+            fetchProducts();
+        } catch (error: any) {
+            toast({
+                title: "Import Failed",
+                description: error.message || "An unexpected error occurred during import.",
+                variant: "destructive"
+            });
+        }
+    }
+
     const openSheetForEdit = (product: Product) => {
         setEditingProduct(product);
         setIsSheetOpen(true);
@@ -198,71 +240,86 @@ export default function ProductsPage() {
     <div className="flex flex-col gap-6">
       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex items-center justify-between md:-mx-6 md:p-6">
         <h1 className="text-lg font-semibold md:text-2xl">Products</h1>
-        <Sheet open={isSheetOpen} onOpenChange={(open) => {
-            if (!open) {
-                if (isSaveConfirmOpen) return;
-                closeSheet();
-            } else {
-                setIsSheetOpen(true);
-            }
-        }}>
-          <SheetTrigger asChild>
-            <Button size="sm" className="ml-auto gap-1" onClick={openSheetForNew}>
-              <PlusCircle className="h-4 w-4" />
-              Add Product
+        <div className="flex items-center gap-2">
+            <ExcelImport 
+                onImport={handleImport}
+                requiredFields={['name', 'sku', 'category', 'unit', 'price', 'purchasePrice', 'stock']}
+            >
+                <Button size="sm" variant="outline" className="gap-1">
+                    <Upload className="h-4 w-4" />
+                    Import
+                </Button>
+            </ExcelImport>
+            <Button size="sm" variant="outline" className="gap-1" onClick={handleDownloadTemplate}>
+                <Download className="h-4 w-4" />
+                Template
             </Button>
-          </SheetTrigger>
-          <SheetContent className="flex flex-col sm:max-w-lg">
-            <SheetHeader>
-                <SheetTitle>{editingProduct ? 'Edit Product' : 'Add Product'}</SheetTitle>
-                <SheetDescription>
-                  {editingProduct ? 'Update the details for this product.' : 'Enter the details for the new product.'}
-                </SheetDescription>
-            </SheetHeader>
-             <form ref={formRef} onSubmit={handleFormSubmit} id="product-form" className="flex flex-col flex-grow overflow-hidden">
-                <ScrollArea className="flex-grow pr-6">
-                  <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="name" className="text-right">Name</Label>
-                        <Input id="name" name="name" defaultValue={editingProduct?.name ?? ''} className="col-span-3" required />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="sku" className="text-right">SKU</Label>
-                        <Input id="sku" name="sku" defaultValue={editingProduct?.sku ?? ''} className="col-span-3" required />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="category" className="text-right">Category</Label>
-                          <Input id="category" name="category" defaultValue={editingProduct?.category ?? ''} className="col-span-3" required />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="unit" className="text-right">Unit</Label>
-                          <Input id="unit" name="unit" defaultValue={editingProduct?.unit ?? 'pcs'} className="col-span-3" required />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="price" className="text-right">Sale Price</Label>
-                        <Input id="price" name="price" type="number" step="0.01" defaultValue={editingProduct?.price ?? ''} className="col-span-3" required />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="purchasePrice" className="text-right">Purchase Price</Label>
-                        <Input id="purchasePrice" name="purchasePrice" type="number" step="0.01" defaultValue={editingProduct?.purchasePrice ?? ''} className="col-span-3" required />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="stock" className="text-right">Stock</Label>
-                        <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock ?? ''} className="col-span-3" required />
-                      </div>
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="imageUrl" className="text-right">Image URL</Label>
-                        <Input id="imageUrl" name="imageUrl" defaultValue={editingProduct?.imageUrl ?? ''} className="col-span-3" placeholder="https://example.com/image.png" />
-                      </div>
-                  </div>
-                </ScrollArea>
-                <SheetFooter className="pt-4 mt-auto">
-                    <Button type="button" variant="outline" onClick={closeSheet}>Cancel</Button>
-                    <Button type="submit">Save changes</Button>
-                </SheetFooter>
-            </form>
-          </SheetContent>
-        </Sheet>
+            <Sheet open={isSheetOpen} onOpenChange={(open) => {
+                if (!open) {
+                    if (isSaveConfirmOpen) return;
+                    closeSheet();
+                } else {
+                    setIsSheetOpen(true);
+                }
+            }}>
+            <SheetTrigger asChild>
+                <Button size="sm" className="ml-auto gap-1" onClick={openSheetForNew}>
+                <PlusCircle className="h-4 w-4" />
+                Add Product
+                </Button>
+            </SheetTrigger>
+            <SheetContent className="flex flex-col sm:max-w-lg">
+                <SheetHeader>
+                    <SheetTitle>{editingProduct ? 'Edit Product' : 'Add Product'}</SheetTitle>
+                    <SheetDescription>
+                    {editingProduct ? 'Update the details for this product.' : 'Enter the details for the new product.'}
+                    </SheetDescription>
+                </SheetHeader>
+                <form ref={formRef} onSubmit={handleFormSubmit} id="product-form" className="flex flex-col flex-grow overflow-hidden">
+                    <ScrollArea className="flex-grow pr-6">
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="name" className="text-right">Name</Label>
+                            <Input id="name" name="name" defaultValue={editingProduct?.name ?? ''} className="col-span-3" required />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="sku" className="text-right">SKU</Label>
+                            <Input id="sku" name="sku" defaultValue={editingProduct?.sku ?? ''} className="col-span-3" required />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="category" className="text-right">Category</Label>
+                            <Input id="category" name="category" defaultValue={editingProduct?.category ?? ''} className="col-span-3" required />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="unit" className="text-right">Unit</Label>
+                            <Input id="unit" name="unit" defaultValue={editingProduct?.unit ?? 'pcs'} className="col-span-3" required />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="price" className="text-right">Sale Price</Label>
+                            <Input id="price" name="price" type="number" step="0.01" defaultValue={editingProduct?.price ?? ''} className="col-span-3" required />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="purchasePrice" className="text-right">Purchase Price</Label>
+                            <Input id="purchasePrice" name="purchasePrice" type="number" step="0.01" defaultValue={editingProduct?.purchasePrice ?? ''} className="col-span-3" required />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="stock" className="text-right">Stock</Label>
+                            <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock ?? ''} className="col-span-3" required />
+                        </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="imageUrl" className="text-right">Image URL</Label>
+                            <Input id="imageUrl" name="imageUrl" defaultValue={editingProduct?.imageUrl ?? ''} className="col-span-3" placeholder="https://example.com/image.png" />
+                        </div>
+                    </div>
+                    </ScrollArea>
+                    <SheetFooter className="pt-4 mt-auto">
+                        <Button type="button" variant="outline" onClick={closeSheet}>Cancel</Button>
+                        <Button type="submit">Save changes</Button>
+                    </SheetFooter>
+                </form>
+            </SheetContent>
+            </Sheet>
+        </div>
       </div>
       
       <AlertDialog open={isSaveConfirmOpen} onOpenChange={setIsSaveConfirmOpen}>
