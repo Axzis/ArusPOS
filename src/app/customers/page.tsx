@@ -163,7 +163,19 @@ export default function CustomersPage() {
             variant: "destructive"
         });
     }
-  }
+  };
+
+  const handleDownload = () => {
+    const ws = utils.json_to_sheet(filteredCustomers.map(c => ({
+        name: c.name,
+        email: c.email,
+        phone: c.phone,
+        totalSpent: c.totalSpent,
+    })));
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, "Customers");
+    writeFile(wb, "customers.xlsx");
+  };
 
 
   const filteredCustomers = customers.filter(customer => 
@@ -185,6 +197,10 @@ export default function CustomersPage() {
                     Import
                 </Button>
             </ExcelImport>
+            <Button size="sm" variant="outline" className="gap-1" onClick={handleDownload}>
+                <Download className="h-4 w-4" />
+                Export
+            </Button>
             <Button size="sm" variant="outline" className="gap-1" onClick={handleDownloadTemplate}>
                 <Download className="h-4 w-4" />
                 Template
@@ -336,3 +352,5 @@ export default function CustomersPage() {
     </div>
   );
 }
+
+    

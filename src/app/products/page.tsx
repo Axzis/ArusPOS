@@ -213,6 +213,22 @@ export default function ProductsPage() {
             });
         }
     }
+    
+    const handleDownload = () => {
+        const ws = utils.json_to_sheet(filteredProducts.map(p => ({
+            name: p.name,
+            sku: p.sku,
+            category: p.category,
+            unit: p.unit,
+            price: p.price,
+            purchasePrice: p.purchasePrice,
+            stock: p.stock,
+            imageUrl: p.imageUrl
+        })));
+        const wb = utils.book_new();
+        utils.book_append_sheet(wb, ws, "Products");
+        writeFile(wb, "products.xlsx");
+    };
 
     const openSheetForEdit = (product: Product) => {
         setEditingProduct(product);
@@ -250,8 +266,11 @@ export default function ProductsPage() {
                     Import
                 </Button>
             </ExcelImport>
-            <Button size="sm" variant="outline" className="gap-1" onClick={handleDownloadTemplate}>
+            <Button size="sm" variant="outline" className="gap-1" onClick={handleDownload}>
                 <Download className="h-4 w-4" />
+                Export
+            </Button>
+            <Button size="sm" variant="outline" className="gap-1" onClick={handleDownloadTemplate}>
                 Template
             </Button>
             <Sheet open={isSheetOpen} onOpenChange={(open) => {
@@ -300,7 +319,7 @@ export default function ProductsPage() {
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="purchasePrice" className="text-right">Purchase Price</Label>
-                            <Input id="purchasePrice" name="purchasePrice" type="number" step="0.01" defaultValue={editingProduct?.purchasePrice ?? ''} className="col-span-3" required />
+                            <Input id="purchasePrice" name="purchasePrice" type="number" step="0.01" defaultValue={editingProduct?.purchasePrice ?? ''} className=" col-span-3" required />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="stock" className="text-right">Stock</Label>
@@ -446,3 +465,5 @@ export default function ProductsPage() {
     </div>
   );
 }
+
+    
