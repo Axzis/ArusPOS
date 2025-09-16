@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import {
   Card,
@@ -113,8 +113,7 @@ export default function TransactionsPage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
-  const [productsWithPromo, setProductsWithPromo] = useState<ProductWithPromo[]>([]);
-
+  
   const [loading, setLoading] = useState(true);
   const [selectedCustomerId, setSelectedCustomerId] = useState(ANONYMOUS_CUSTOMER_ID);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -160,24 +159,21 @@ export default function TransactionsPage() {
     const scannerPref = localStorage.getItem('barcodeScannerEnabled');
     setScannerEnabled(scannerPref === 'true');
   }, [fetchData]);
-
-  // This effect processes products and promos together once they are loaded.
-  useEffect(() => {
-    if (loading) return; // Wait until all data is fetched
-    
+  
+  const productsWithPromo = useMemo(() => {
+    if (loading) return [];
     const now = new Date();
     const activePromos = promos.filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
 
-    const processedProducts = allProducts.map(product => {
-        const promo = activePromos.find(p => p.productId === product.id);
-        return {
-            ...product,
-            originalPrice: product.price,
-            price: promo ? promo.promoPrice : product.price,
-            hasPromo: !!promo
-        };
+    return allProducts.map(product => {
+      const promo = activePromos.find(p => p.productId === product.id);
+      return {
+        ...product,
+        originalPrice: product.price,
+        price: promo ? promo.promoPrice : product.price,
+        hasPromo: !!promo,
+      };
     });
-    setProductsWithPromo(processedProducts);
   }, [allProducts, promos, loading]);
 
 
@@ -720,5 +716,3 @@ export default function TransactionsPage() {
     </div>
   );
 }
-
-    

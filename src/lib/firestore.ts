@@ -20,6 +20,7 @@ import {
   increment,
   Timestamp,
   setDoc,
+  collectionGroup,
 } from 'firebase/firestore';
 
 const USERS_COLLECTION = 'users';
@@ -298,20 +299,27 @@ export async function getTransactionById(transactionId: string) {
     if (!transactionId) return null;
     
     // Find the transaction without knowing the business/branch beforehand.
-    // This requires a collection group query.
     const transactionsCollectionGroup = collectionGroup(db, TRANSACTIONS_COLLECTION);
-    const q = query(transactionsCollectionGroup, where('__name__', '==', `*/${transactionId}`));
-    const querySnapshot = await getDocs(q);
+    const q = query(transactionsCollectionGroup, where("__name__", "==", `*/${transactionId}`));
 
-    if (querySnapshot.empty) {
-        // Fallback to find by ID in case the full path isn't known, this is less efficient.
-        const allTransactionsQuery = query(collectionGroup(db, TRANSACTIONS_COLLECTION));
-        const allTransactionsSnapshot = await getDocs(allTransactionsQuery);
-        const foundDoc = allTransactionsSnapshot.docs.find(doc => doc.id === transactionId);
-
+    try {
+        const querySnapshot = await getDocs(q);
+        
+        let foundDoc: DocumentData | null = null;
+        if (!querySnapshot.empty) {
+            foundDoc = querySnapshot.docs[0];
+        } else {
+            // Fallback for document ID only query if direct path fails
+            const allTransactionsSnapshot = await getDocs(collectionGroup(db, TRANSACTIONS_COLLECTION));
+            const doc = allTransactionsSnapshot.docs.find(d => d.id === transactionId);
+            if (doc) {
+                foundDoc = doc;
+            }
+        }
+    
         if (!foundDoc) {
-             console.log(`Transaction with ID ${transactionId} not found.`);
-             return null;
+            console.warn(`Transaction with ID ${transactionId} not found.`);
+            return null;
         }
 
         const data = foundDoc.data();
@@ -321,16 +329,11 @@ export async function getTransactionById(transactionId: string) {
             ...data,
             date: date
         };
+
+    } catch (error) {
+        console.error("Error getting transaction by ID:", error);
+        return null;
     }
-    
-    const docSnap = querySnapshot.docs[0];
-    const data = docSnap.data();
-    const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
-    return {
-        id: docSnap.id,
-        ...data,
-        date: date
-    };
 }
 
 

@@ -49,7 +49,6 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from './ui/skeleton';
-import { BusinessProvider } from '@/contexts/business-context';
 import { useAuth } from '@/contexts/auth-context';
 
 
@@ -73,7 +72,7 @@ const bottomNavItems = [
   { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
-const publicRoutes = ['/login', '/quick-assessment'];
+const publicRoutes = ['/login', '/quick-assessment', '/print'];
 
 type ActiveBranch = {
     id: string;
@@ -148,19 +147,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     if (authLoading) return;
 
-    if (!user) {
-      if (!publicRoutes.includes(pathname)) {
-        router.replace('/login');
-      }
+    const isPublic = publicRoutes.some(route => pathname.startsWith(route));
+
+    if (!user && !isPublic) {
+      router.replace('/login');
       return;
     }
     
-    if (publicRoutes.includes(pathname)) {
+    if (user && (pathname === '/login' || pathname === '/quick-assessment')) {
         router.replace('/select-branch');
         return;
     }
     
-    if (typeof window !== 'undefined') {
+    if (user && !isPublic) {
        try {
           const storedBranch = localStorage.getItem('activeBranch');
           if (storedBranch) {
@@ -176,6 +175,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        } finally {
           setLoadingBranch(false);
        }
+    } else {
+        setLoadingBranch(false);
     }
   }, [pathname, router, user, authLoading]);
 
@@ -200,7 +201,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     router.push('/select-branch');
   }
 
-  if (authLoading) {
+  const isPublicPage = publicRoutes.some(route => pathname.startsWith(route));
+
+  if (isPublicPage && !pathname.startsWith('/print')) {
+      return <>{children}</>;
+  }
+  
+  if (pathname.startsWith('/print')) {
+    return <div className="print-invoice">{children}</div>;
+  }
+
+  if (authLoading || (loadingBranch && user)) {
       return (
           <div className="flex h-screen items-center justify-center">
               <Logo className="size-10 text-primary animate-pulse" />
@@ -208,11 +219,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       )
   }
   
-  if (!user && publicRoutes.includes(pathname)) {
-      return <>{children}</>;
-  }
-
-  if (!user && !publicRoutes.includes(pathname)) {
+  if (!user) {
     return null;
   }
    
@@ -239,103 +246,94 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
      )
   }
   
-  if (loadingBranch && user) {
-      return (
-          <div className="flex h-screen items-center justify-center">
-              <Logo className="size-10 text-primary animate-pulse" />
-          </div>
-      )
-  }
 
   return (
-    <BusinessProvider>
-      <SidebarProvider open={open} onOpenChange={setOpen}>
-        <Sidebar>
-          <SidebarHeader className="h-14">
-            <div className="flex items-center gap-2">
-              <Logo className="size-7 text-primary" />
-              <h1 className="text-lg font-bold font-headline">Arus POS</h1>
-            </div>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <Link href={item.href}>
-                    <SidebarMenuButton
-                      isActive={pathname.startsWith(item.href)}
-                       tooltip={item.label}
-                    >
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarContent>
-          <SidebarFooter>
-            <SidebarMenu>
-              {showBottomNav && bottomNavItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <Link href={item.href}>
-                    <SidebarMenuButton
-                      isActive={pathname.startsWith(item.href)}
-                      tooltip={item.label}
-                    >
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </Link>
-                </SidebarMenuItem>
-              ))}
-               <SidebarMenuItem>
-                  <SidebarToggleButton />
-               </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarFooter>
-        </Sidebar>
-        <SidebarInset>
-          <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 md:h-[72px]">
-            <SidebarTrigger className={cn(!isMobile && open ? 'invisible' : '')} />
+    <SidebarProvider open={open} onOpenChange={setOpen}>
+    <Sidebar>
+        <SidebarHeader className="h-14">
+        <div className="flex items-center gap-2">
+            <Logo className="size-7 text-primary" />
+            <h1 className="text-lg font-bold font-headline">Arus POS</h1>
+        </div>
+        </SidebarHeader>
+        <SidebarContent>
+        <SidebarMenu>
+            {navItems.map((item) => (
+            <SidebarMenuItem key={item.href}>
+                <Link href={item.href}>
+                <SidebarMenuButton
+                    isActive={pathname.startsWith(item.href)}
+                    tooltip={item.label}
+                >
+                    <item.icon />
+                    <span>{item.label}</span>
+                </SidebarMenuButton>
+                </Link>
+            </SidebarMenuItem>
+            ))}
+        </SidebarMenu>
+        </SidebarContent>
+        <SidebarFooter>
+        <SidebarMenu>
+            {showBottomNav && bottomNavItems.map((item) => (
+            <SidebarMenuItem key={item.href}>
+                <Link href={item.href}>
+                <SidebarMenuButton
+                    isActive={pathname.startsWith(item.href)}
+                    tooltip={item.label}
+                >
+                    <item.icon />
+                    <span>{item.label}</span>
+                </SidebarMenuButton>
+                </Link>
+            </SidebarMenuItem>
+            ))}
+            <SidebarMenuItem>
+                <SidebarToggleButton />
+            </SidebarMenuItem>
+        </SidebarMenu>
+        </SidebarFooter>
+    </Sidebar>
+    <SidebarInset>
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 md:h-[72px]">
+        <SidebarTrigger className={cn(!isMobile && open ? 'invisible' : '')} />
 
-              <div className="flex items-center gap-2 text-sm font-medium">
-                  <Building className="size-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Managing:</span>
-                  {loadingBranch ? <Skeleton className="h-5 w-24" /> : <span>{activeBranch?.name ?? '...'}</span>}
-              </div>
-
-            <div className="ml-auto flex items-center gap-2">
-               <FullscreenButton />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
-                    <Avatar>
-                      <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/40/40`} alt={user?.email || 'User'} />
-                      <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push('/settings/profile')}>My Profile</DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleSwitchBranch}>Switch Branch</DropdownMenuItem>
-                  {isSuperAdmin && <DropdownMenuItem onClick={() => router.push('/superadmin')}>Super Admin</DropdownMenuItem>}
-                  {showBottomNav && <DropdownMenuItem onClick={() => router.push('/settings')}>Settings</DropdownMenuItem>}
-                  <DropdownMenuItem>Support</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
-                      <LogOut className='mr-2 h-4 w-4' />
-                      Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            <div className="flex items-center gap-2 text-sm font-medium">
+                <Building className="size-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Managing:</span>
+                {loadingBranch ? <Skeleton className="h-5 w-24" /> : <span>{activeBranch?.name ?? '...'}</span>}
             </div>
-          </header>
-          <main className="flex-1 p-4 sm:p-6">{children}</main>
-        </SidebarInset>
-      </SidebarProvider>
-    </BusinessProvider>
+
+        <div className="ml-auto flex items-center gap-2">
+            <FullscreenButton />
+            <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
+                <Avatar>
+                    <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/40/40`} alt={user?.email || 'User'} />
+                    <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => router.push('/settings/profile')}>My Profile</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSwitchBranch}>Switch Branch</DropdownMenuItem>
+                {isSuperAdmin && <DropdownMenuItem onClick={() => router.push('/superadmin')}>Super Admin</DropdownMenuItem>}
+                {showBottomNav && <DropdownMenuItem onClick={() => router.push('/settings')}>Settings</DropdownMenuItem>}
+                <DropdownMenuItem>Support</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+                    <LogOut className='mr-2 h-4 w-4' />
+                    Logout
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
+        </header>
+        <main className="flex-1 p-4 sm:p-6">{children}</main>
+    </SidebarInset>
+    </SidebarProvider>
   );
 }

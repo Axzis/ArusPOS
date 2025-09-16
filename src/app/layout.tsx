@@ -5,6 +5,7 @@ import './print.css';
 import { Toaster } from '@/components/ui/toaster';
 import AppShell from '@/components/app-shell';
 import { AuthProvider } from '@/contexts/auth-context';
+import { BusinessProvider } from '@/contexts/business-context';
 
 export const metadata: Metadata = {
   title: 'Arus POS',
@@ -28,12 +29,12 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <AuthProvider>
-          <AppShell>{children}</AppShell>
+          <BusinessProvider>
+            <AppShell>{children}</AppShell>
+          </BusinessProvider>
         </AuthProvider>
         <Toaster />
       </body>
     </html>
   );
 }
-
-    
