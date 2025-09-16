@@ -111,6 +111,7 @@ export default function TransactionsPage() {
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
   const [productsWithPromo, setProductsWithPromo] = useState<ProductWithPromo[]>([]);
 
@@ -719,3 +720,5 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
+    
