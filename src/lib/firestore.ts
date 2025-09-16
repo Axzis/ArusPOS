@@ -192,21 +192,26 @@ export async function deleteBusiness(businessId: string) {
 }
 
 
-// === Product Functions (Branch Specific) ===
+// === Product Functions (Simplified Structure) ===
 export async function getProductsForBranch(branchId: string) {
     const businessId = await getBusinessId();
     if (!businessId || !branchId) return [];
-    const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
-    const querySnapshot = await getDocs(productsCollectionRef);
+
+    const productsCollectionRef = collection(db, PRODUCTS_COLLECTION);
+    const q = query(productsCollectionRef, where("businessId", "==", businessId), where("branchId", "==", branchId));
+    const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
 export async function addProductToBranch(branchId: string, productData: Omit<DocumentData, 'id'>) {
     const businessId = await getBusinessId();
     if (!businessId) throw new Error("No business ID found");
-    const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
+    
+    const productsCollectionRef = collection(db, PRODUCTS_COLLECTION);
     return await addDoc(productsCollectionRef, {
         ...productData,
+        businessId: businessId,
+        branchId: branchId,
         createdAt: serverTimestamp()
     });
 }
@@ -214,7 +219,9 @@ export async function addProductToBranch(branchId: string, productData: Omit<Doc
 export async function updateProductInBranch(branchId: string, productId: string, productData: Partial<DocumentData>) {
     const businessId = await getBusinessId();
     if (!businessId) throw new Error("No business ID found");
-    const productDocRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, productId);
+
+    const productDocRef = doc(db, PRODUCTS_COLLECTION, productId);
+    // Optional: You could add a check here to ensure the product belongs to the business/branch before updating.
     return await updateDoc(productDocRef, {
         ...productData,
         updatedAt: serverTimestamp()
@@ -224,7 +231,9 @@ export async function updateProductInBranch(branchId: string, productId: string,
 export async function deleteProductFromBranch(branchId: string, productId: string) {
     const businessId = await getBusinessId();
     if (!businessId) throw new Error("No business ID found");
-    const productDocRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, productId);
+
+    const productDocRef = doc(db, PRODUCTS_COLLECTION, productId);
+    // Optional: Add a check for ownership before deleting.
     return await deleteDoc(productDocRef);
 }
 
@@ -285,6 +294,26 @@ export async function getTransactionsForBranch(branchId: string) {
     });
 }
 
+export async function getTransactionById(branchId: string, transactionId: string) {
+    const businessId = await getBusinessId();
+    if (!businessId || !branchId) return null;
+    const transactionDocRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION, transactionId);
+    const docSnap = await getDoc(transactionDocRef);
+
+    if (!docSnap.exists()) {
+        return null;
+    }
+
+    const data = docSnap.data();
+    const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
+    return {
+        id: docSnap.id,
+        ...data,
+        date: date
+    };
+}
+
+
 export async function addTransactionAndUpdateStock(
   branchId: string,
   customerId: string | null,
@@ -305,7 +334,7 @@ export async function addTransactionAndUpdateStock(
 
   // 2. Update stock for each item in the transaction
   for (const item of items) {
-    const productRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, item.id);
+    const productRef = doc(db, PRODUCTS_COLLECTION, item.id);
     batch.update(productRef, { stock: increment(-item.quantity) });
   }
   
@@ -420,8 +449,10 @@ export async function deleteUserFromBusiness(userId: string): Promise<void> {
 export async function getPromosForBranch(branchId: string) {
     const businessId = await getBusinessId();
     if (!businessId || !branchId) return [];
-    const promosCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PROMOS_COLLECTION);
-    const q = query(promosCollectionRef, orderBy("endDate", "desc"));
+    
+    const promosCollectionRef = collection(db, PROMOS_COLLECTION);
+    const q = query(promosCollectionRef, where("businessId", "==", businessId), where("branchId", "==", branchId), orderBy("endDate", "desc"));
+
     const querySnapshot = await getDocs(q);
 
     return querySnapshot.docs.map(doc => {
@@ -441,9 +472,11 @@ export async function getPromosForBranch(branchId: string) {
 export async function addPromoToBranch(branchId: string, promoData: Omit<DocumentData, 'id'>) {
     const businessId = await getBusinessId();
     if (!businessId) throw new Error("No business ID found");
-    const promosCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PROMOS_COLLECTION);
+    const promosCollectionRef = collection(db, PROMOS_COLLECTION);
     return await addDoc(promosCollectionRef, {
         ...promoData,
+        businessId: businessId,
+        branchId: branchId,
         startDate: Timestamp.fromDate(new Date(promoData.startDate)),
         endDate: Timestamp.fromDate(new Date(promoData.endDate)),
         createdAt: serverTimestamp()
@@ -453,14 +486,14 @@ export async function addPromoToBranch(branchId: string, promoData: Omit<Documen
 export async function deletePromoFromBranch(branchId: string, promoId: string) {
     const businessId = await getBusinessId();
     if (!businessId) throw new Error("No business ID found");
-    const promoDocRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PROMOS_COLLECTION, promoId);
+    const promoDocRef = doc(db, PROMOS_COLLECTION, promoId);
+    // Optional: Add check to ensure promo belongs to the business/branch
     return await deleteDoc(promoDocRef);
 }
 
 // === Seeding & Reset Functions ===
 
-async function deleteCollection(collectionPath: string) {
-    const collectionRef = collection(db, collectionPath);
+async function deleteCollection(collectionRef: any) {
     const q = query(collectionRef);
     const snapshot = await getDocs(q);
 
@@ -483,18 +516,18 @@ export async function resetBranchData(branchId: string): Promise<void> {
         throw new Error("Missing Business ID or Branch ID for reset.");
     }
     
-    // Define paths for collections to be deleted
-    const productsPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PRODUCTS_COLLECTION}`;
+    // Define queries for collections to be deleted
+    const productsQuery = query(collection(db, PRODUCTS_COLLECTION), where("businessId", "==", businessId), where("branchId", "==", branchId));
     const transactionsPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${TRANSACTIONS_COLLECTION}`;
-    const promosPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PROMOS_COLLECTION}`;
+    const promosQuery = query(collection(db, PROMOS_COLLECTION), where("businessId", "==", businessId), where("branchId", "==", branchId));
 
     // Note: Customers are global to the business, so we do not delete them when resetting a branch.
 
     // Execute deletions in parallel
     await Promise.all([
-        deleteCollection(productsPath),
-        deleteCollection(transactionsPath),
-        deleteCollection(promosPath),
+        deleteCollection(productsQuery),
+        deleteCollection(collection(db, transactionsPath)),
+        deleteCollection(promosQuery),
     ]);
 }
 
@@ -505,11 +538,12 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
         throw new Error("Missing Business ID or Branch ID for seeding.");
     }
 
-    const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
+    const productsCollectionRef = collection(db, PRODUCTS_COLLECTION);
     const customersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION);
 
     // Check if products already exist to prevent re-seeding
-    const existingProducts = await getDocs(query(productsCollectionRef, limit(1)));
+    const existingProductsQuery = query(productsCollectionRef, where("businessId", "==", businessId), where("branchId", "==", branchId), limit(1));
+    const existingProducts = await getDocs(existingProductsQuery);
     if (!existingProducts.empty) {
         console.log("Branch already has products. Seeding aborted.");
         return false; // Indicate that seeding was not performed
@@ -528,7 +562,12 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
 
     initialProducts.forEach(product => {
         const docRef = doc(productsCollectionRef);
-        batch.set(docRef, { ...product, createdAt: serverTimestamp() });
+        batch.set(docRef, { 
+            ...product, 
+            businessId: businessId, 
+            branchId: branchId, 
+            createdAt: serverTimestamp() 
+        });
     });
     
     // Check if customers collection is empty before seeding
@@ -549,3 +588,5 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
+
+    

@@ -99,78 +99,6 @@ type Transaction = {
 const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
 
 
-const PrintableInvoice = React.forwardRef<HTMLDivElement, { transaction: Transaction | null, currency: string }>(({ transaction, currency }, ref) => {
-    if (!transaction) return null;
-
-    const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    
-    return (
-        <div ref={ref} className="print-invoice">
-            <Card>
-                <CardHeader className='text-center'>
-                    <CardTitle>Invoice</CardTitle>
-                    <CardDescription>#{transaction.id.substring(0, 8)}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid gap-4">
-                        <div className="grid grid-cols-2 text-sm">
-                            <div>
-                                <p className="font-medium">Billed To</p>
-                                <p>{transaction.customerName}</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="font-medium">Date</p>
-                                <p>{new Date(transaction.date).toLocaleDateString()}</p>
-                            </div>
-                        </div>
-                        <Separator />
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Product</TableHead>
-                                    <TableHead className="text-center">Qty</TableHead>
-                                    <TableHead className="text-right">Total</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {transaction.items.map(item => (
-                                    <TableRow key={item.id}>
-                                        <TableCell>{item.name}</TableCell>
-                                        <TableCell className="text-center">{item.quantity}</TableCell>
-                                        <TableCell className="text-right">{formatCurrency(item.price * item.quantity, currency)}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                        <Separator />
-                         <div className="ml-auto w-full max-w-xs space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span>Subtotal</span>
-                                <span>{formatCurrency(subtotal, currency)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span>Tax</span>
-                                <span>{formatCurrency(transaction.amount - subtotal, currency)}</span>
-                            </div>
-                            <Separator />
-                            <div className="flex justify-between font-bold">
-                                <span>Total</span>
-                                <span>{formatCurrency(transaction.amount, currency)}</span>
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
-                 <CardFooter className="flex-col gap-2 text-center text-xs text-muted-foreground">
-                    <p>Thank you for your business!</p>
-                    <p>Arus POS</p>
-                </CardFooter>
-            </Card>
-        </div>
-    );
-});
-PrintableInvoice.displayName = 'PrintableInvoice';
-
-
 export default function TransactionsPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -191,8 +119,6 @@ export default function TransactionsPage() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const [transactionForRegistration, setTransactionForRegistration] = useState<Transaction | null>(null);
-  const [transactionToPrint, setTransactionToPrint] = useState<Transaction | null>(null);
-  const invoiceRef = useRef<HTMLDivElement>(null);
 
   const fetchData = useCallback(async (branchId: string) => {
     setLoading(true);
@@ -226,29 +152,9 @@ export default function TransactionsPage() {
     setScannerEnabled(scannerPref === 'true');
   }, [fetchData]);
 
-  useEffect(() => {
-    if (transactionToPrint) {
-      const handleBeforePrint = () => document.body.classList.add('printing');
-      const handleAfterPrint = () => {
-        document.body.classList.remove('printing');
-        setTransactionToPrint(null);
-      };
 
-      window.addEventListener('beforeprint', handleBeforePrint);
-      window.addEventListener('afterprint', handleAfterPrint);
-      
-      window.print();
-
-      return () => {
-        window.removeEventListener('beforeprint', handleBeforePrint);
-        window.removeEventListener('afterprint', handleAfterPrint);
-        handleAfterPrint(); // Ensure cleanup if component unmounts
-      };
-    }
-  }, [transactionToPrint]);
-
-  const handlePrintInvoice = (transaction: Transaction) => {
-    setTransactionToPrint(transaction);
+  const handlePrintInvoice = (transactionId: string) => {
+    window.open(`/print/invoice/${transactionId}`, '_blank');
   };
   
   const productsWithPromo = useMemo(() => {
@@ -724,7 +630,7 @@ export default function TransactionsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                        <Button variant="outline" size="icon" onClick={() => handlePrintInvoice(transaction)}>
+                        <Button variant="outline" size="icon" onClick={() => handlePrintInvoice(transaction.id)}>
                             <Printer className="h-4 w-4" />
                         </Button>
                         <Button variant="outline" size="icon" onClick={() => handleSendWhatsApp(transaction)}>
@@ -797,11 +703,11 @@ export default function TransactionsPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        
-        <PrintableInvoice ref={invoiceRef} transaction={transactionToPrint} currency={currency} />
 
     </div>
   );
 }
+
+    
 
     
