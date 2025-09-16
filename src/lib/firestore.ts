@@ -451,7 +451,7 @@ export async function getPromosForBranch(branchId: string) {
     if (!businessId || !branchId) return [];
     
     const promosCollectionRef = collection(db, PROMOS_COLLECTION);
-    const q = query(promosCollectionRef, where("businessId", "==", businessId), where("branchId", "==", branchId), orderBy("endDate", "desc"));
+    const q = query(promosCollectionRef, where("businessId", "==", businessId), where("branchId", "==", branchId));
 
     const querySnapshot = await getDocs(q);
 

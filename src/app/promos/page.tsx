@@ -112,7 +112,9 @@ export default function PromosPage() {
                 getPromosForBranch(activeBranchId),
                 getProductsForBranch(activeBranchId),
             ]);
-            setPromos(promoData as Promo[]);
+            // Sort promos by end date client-side
+            const sortedPromos = (promoData as Promo[]).sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
+            setPromos(sortedPromos);
             setProducts(productData as Product[]);
         } catch (error) {
             console.error("Failed to fetch data:", error);
