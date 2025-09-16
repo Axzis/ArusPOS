@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { getTransactionById } from '@/lib/firestore';
-import { useBusiness } from '@/contexts/business-context';
+import { useBusiness, BusinessProvider } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -29,7 +29,7 @@ type Transaction = {
     items: TransactionItem[];
 };
 
-export default function InvoicePrintPage() {
+function InvoicePrintPageContent() {
     const params = useParams();
     const { id: transactionId } = params;
     const [transaction, setTransaction] = useState<Transaction | null>(null);
@@ -58,13 +58,26 @@ export default function InvoicePrintPage() {
 
     useEffect(() => {
         if (!loading && transaction) {
-            window.print();
-            // Add a small delay to allow the print dialog to open before closing the tab
+            // Give a very small delay to ensure DOM is fully painted
             setTimeout(() => {
-                 window.close();
-            }, 500);
+                window.print();
+            }, 100);
         }
     }, [loading, transaction]);
+    
+    // Add an event listener for after printing to close the window
+    useEffect(() => {
+        const handleAfterPrint = () => {
+             window.close();
+        };
+
+        window.addEventListener('afterprint', handleAfterPrint);
+
+        return () => {
+            window.removeEventListener('afterprint', handleAfterPrint);
+        };
+    }, []);
+
 
     if (loading) {
         return (
@@ -153,4 +166,11 @@ export default function InvoicePrintPage() {
     );
 }
 
-    
+
+export default function InvoicePrintPage() {
+    return (
+        <BusinessProvider>
+            <InvoicePrintPageContent />
+        </BusinessProvider>
+    )
+}

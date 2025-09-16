@@ -72,6 +72,11 @@ type Product = {
   imageUrl?: string;
 };
 
+type ProductWithPromo = Product & {
+    originalPrice: number;
+    hasPromo: boolean;
+}
+
 type Promo = {
   id: string;
   productId: string;
@@ -108,6 +113,8 @@ export default function TransactionsPage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [productsWithPromo, setProductsWithPromo] = useState<ProductWithPromo[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [selectedCustomerId, setSelectedCustomerId] = useState(ANONYMOUS_CUSTOMER_ID);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -152,16 +159,14 @@ export default function TransactionsPage() {
     setScannerEnabled(scannerPref === 'true');
   }, [fetchData]);
 
-
-  const handlePrintInvoice = (transactionId: string) => {
-    window.open(`/print/invoice/${transactionId}`, '_blank');
-  };
-  
-  const productsWithPromo = useMemo(() => {
+  // This effect processes products and promos together once they are loaded.
+  useEffect(() => {
+    if (loading) return; // Wait until all data is fetched
+    
     const now = new Date();
     const activePromos = promos.filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
 
-    return allProducts.map(product => {
+    const processedProducts = allProducts.map(product => {
         const promo = activePromos.find(p => p.productId === product.id);
         return {
             ...product,
@@ -170,10 +175,15 @@ export default function TransactionsPage() {
             hasPromo: !!promo
         };
     });
-  }, [allProducts, promos]);
+    setProductsWithPromo(processedProducts);
+  }, [allProducts, promos, loading]);
 
 
-  const addToOrder = useCallback((product: Product & { originalPrice: number }) => {
+  const handlePrintInvoice = (transactionId: string) => {
+    window.open(`/print/invoice/${transactionId}`, '_blank');
+  };
+
+  const addToOrder = useCallback((product: ProductWithPromo) => {
     setOrderItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
       if (existingItem) {
@@ -707,7 +717,3 @@ export default function TransactionsPage() {
     </div>
   );
 }
-
-    
-
-    
