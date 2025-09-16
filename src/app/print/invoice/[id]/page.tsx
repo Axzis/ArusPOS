@@ -4,7 +4,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { getTransactionById } from '@/lib/firestore';
-import { useBusiness, BusinessProvider } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -27,34 +26,29 @@ type Transaction = {
     status: 'Paid' | 'Refunded';
     type: 'Sale' | 'Refund';
     items: TransactionItem[];
+    currency: string;
 };
 
-function InvoicePrintPageContent() {
+export default function InvoicePrintPage() {
     const params = useParams();
     const { id: transactionId } = params;
     const [transaction, setTransaction] = useState<Transaction | null>(null);
     const [loading, setLoading] = useState(true);
-    const { currency } = useBusiness();
-    const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
-
 
     useEffect(() => {
-        const storedBranch = localStorage.getItem('activeBranch');
-        if (storedBranch) {
-            setActiveBranchId(JSON.parse(storedBranch).id);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (typeof transactionId === 'string' && activeBranchId) {
-            getTransactionById(activeBranchId, transactionId)
+        if (typeof transactionId === 'string') {
+            getTransactionById(transactionId)
                 .then(data => {
-                    setTransaction(data as Transaction);
+                    if(data){
+                        setTransaction(data as Transaction);
+                    }
                 })
                 .catch(console.error)
                 .finally(() => setLoading(false));
+        } else {
+            setLoading(false);
         }
-    }, [transactionId, activeBranchId]);
+    }, [transactionId]);
 
     useEffect(() => {
         if (!loading && transaction) {
@@ -96,10 +90,11 @@ function InvoicePrintPageContent() {
     }
 
     if (!transaction) {
-        return <div>Transaction not found.</div>;
+        return <div className="p-8 text-center">Transaction not found or could not be loaded.</div>;
     }
     
     const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const currency = transaction.currency || 'USD';
 
     return (
         <div className="p-8 bg-white">
@@ -164,13 +159,4 @@ function InvoicePrintPageContent() {
             </Card>
         </div>
     );
-}
-
-
-export default function InvoicePrintPage() {
-    return (
-        <BusinessProvider>
-            <InvoicePrintPageContent />
-        </BusinessProvider>
-    )
 }

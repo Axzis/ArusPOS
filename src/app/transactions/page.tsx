@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import {
   Card,
@@ -112,7 +112,6 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [productsWithPromo, setProductsWithPromo] = useState<ProductWithPromo[]>([]);
 
   const [loading, setLoading] = useState(true);
@@ -154,6 +153,8 @@ export default function TransactionsPage() {
     if (branch?.id) {
         setActiveBranchId(branch.id);
         fetchData(branch.id);
+    } else {
+        setLoading(false);
     }
     const scannerPref = localStorage.getItem('barcodeScannerEnabled');
     setScannerEnabled(scannerPref === 'true');
@@ -278,6 +279,7 @@ export default function TransactionsPage() {
               amount: total,
               status: 'Paid' as 'Paid' | 'Refunded',
               type: 'Sale' as 'Sale' | 'Refund',
+              currency: currency,
               items: orderItems.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price, originalPrice: item.originalPrice })),
           };
 

@@ -294,16 +294,36 @@ export async function getTransactionsForBranch(branchId: string) {
     });
 }
 
-export async function getTransactionById(branchId: string, transactionId: string) {
-    const businessId = await getBusinessId();
-    if (!businessId || !branchId) return null;
-    const transactionDocRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION, transactionId);
-    const docSnap = await getDoc(transactionDocRef);
+export async function getTransactionById(transactionId: string) {
+    if (!transactionId) return null;
+    
+    // Find the transaction without knowing the business/branch beforehand.
+    // This requires a collection group query.
+    const transactionsCollectionGroup = collectionGroup(db, TRANSACTIONS_COLLECTION);
+    const q = query(transactionsCollectionGroup, where('__name__', '==', `*/${transactionId}`));
+    const querySnapshot = await getDocs(q);
 
-    if (!docSnap.exists()) {
-        return null;
+    if (querySnapshot.empty) {
+        // Fallback to find by ID in case the full path isn't known, this is less efficient.
+        const allTransactionsQuery = query(collectionGroup(db, TRANSACTIONS_COLLECTION));
+        const allTransactionsSnapshot = await getDocs(allTransactionsQuery);
+        const foundDoc = allTransactionsSnapshot.docs.find(doc => doc.id === transactionId);
+
+        if (!foundDoc) {
+             console.log(`Transaction with ID ${transactionId} not found.`);
+             return null;
+        }
+
+        const data = foundDoc.data();
+        const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
+        return {
+            id: foundDoc.id,
+            ...data,
+            date: date
+        };
     }
-
+    
+    const docSnap = querySnapshot.docs[0];
     const data = docSnap.data();
     const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
     return {
@@ -588,5 +608,3 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
-
-    
