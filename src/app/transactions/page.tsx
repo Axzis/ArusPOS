@@ -1,7 +1,6 @@
-
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import {
   Card,
@@ -33,7 +32,7 @@ import {
   Printer,
   MessageSquare,
 } from 'lucide-react';
-import { getProductsForBranch, getCustomers as getCustomersFromDb, getTransactionsForBranch, addTransactionAndUpdateStock, getPromosForBranch, addCustomer as addNewCustomer } from '@/lib/firestore';
+import { getProductsForBranch, getCustomers, getTransactionsForBranch, addTransactionAndUpdateStock, getPromosForBranch, addCustomer as addNewCustomer } from '@/lib/firestore';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -54,33 +53,22 @@ import { isWithinInterval } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 
-type Bundle = {
-  quantity: number;
-  price: number;
-};
-
 type OrderItem = {
   id: string;
   name: string;
   price: number;
-  purchasePrice: number;
   quantity: number;
   stock: number;
   originalPrice: number;
-  unit: string;
-  bundles?: Bundle[];
 };
 
 type Product = {
   id: string;
   name: string;
   price: number;
-  purchasePrice: number;
   stock: number;
   sku: string;
-  unit: string;
   imageUrl?: string;
-  bundles?: Bundle[];
 };
 
 type ProductWithPromo = Product & {
@@ -102,16 +90,6 @@ type Customer = {
     phone?: string;
 };
 
-type TransactionItem = {
-  id: string;
-  name: string;
-  quantity: number;
-  price: number;
-  purchasePrice?: number;
-  originalPrice?: number;
-  unit?: string;
-};
-
 type Transaction = {
     id: string;
     customerName: string;
@@ -119,7 +97,7 @@ type Transaction = {
     date: string;
     status: 'Paid' | 'Refunded';
     type: 'Sale' | 'Refund';
-    items: TransactionItem[];
+    items: OrderItem[];
     discount?: number;
 }
 
@@ -132,11 +110,9 @@ export default function TransactionsPage() {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
-  const [promos, setPromos] = useState<Promo[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [productsWithPromo, setProductsWithPromo] = useState<ProductWithPromo[]>([]);
-
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  
   const [loading, setLoading] = useState(true);
   const [selectedCustomerId, setSelectedCustomerId] = useState(ANONYMOUS_CUSTOMER_ID);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -150,142 +126,84 @@ export default function TransactionsPage() {
   const [transactionForRegistration, setTransactionForRegistration] = useState<Transaction | null>(null);
   const [discount, setDiscount] = useState(0);
 
-    const getBestPrice = useCallback((product: Product, quantity: number): number => {
+  const fetchData = useCallback(async (branchId: string) => {
+    setLoading(true);
+    try {
+        const [transactionsData, productsData, customersData, promoData] = await Promise.all([
+            getTransactionsForBranch(branchId),
+            getProductsForBranch(branchId),
+            getCustomers(),
+            getPromosForBranch(branchId),
+        ]);
+        setTransactions(transactionsData as Transaction[]);
+        setCustomers(customersData as Customer[]);
+
         const now = new Date();
-        const activePromo = promos.find(p => 
-            p.productId === product.id && 
-            isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) })
-        );
+        const activePromos = (promoData as Promo[]).filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
 
-        if (activePromo) {
-            return activePromo.promoPrice;
-        }
-        
-        if (!product.bundles || product.bundles.length === 0) {
-            return product.price;
-        }
-        
-        const sortedBundles = [...product.bundles].sort((a, b) => b.quantity - a.quantity);
-        
-        for (const bundle of sortedBundles) {
-            if (quantity >= bundle.quantity) {
-                return bundle.price;
-            }
-        }
-        
-        return product.price;
-    }, [promos]);
+        const processedProducts = (productsData as Product[]).map(product => {
+            const promo = activePromos.find(p => p.productId === product.id);
+            return {
+                ...product,
+                originalPrice: product.price,
+                price: promo ? promo.promoPrice : product.price,
+                hasPromo: !!promo,
+            };
+        });
 
-    const fetchData = useCallback(async (branchId: string) => {
-        setLoading(true);
-        try {
-            const [transactionsData, productsData, customersData, promoData] = await Promise.all([
-                getTransactionsForBranch(branchId),
-                getProductsForBranch(branchId),
-                getCustomersFromDb(),
-                getPromosForBranch(branchId),
-            ]);
-            
-            setTransactions(transactionsData as Transaction[] || []);
-            setCustomers(customersData as Customer[] || []);
-            setAllProducts(productsData as Product[] || []);
-            setPromos(promoData as Promo[] || []);
+        setProductsWithPromo(processedProducts);
 
-            const now = new Date();
-            const activePromos = (promoData as Promo[]).filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
-
-            const processedProducts = (productsData as Product[]).map(product => {
-                const promo = activePromos.find(p => p.productId === product.id);
-                const bestPrice = getBestPrice(product, 1);
-                return {
-                    ...product,
-                    originalPrice: product.price,
-                    price: bestPrice,
-                    hasPromo: !!promo,
-                };
-            });
-            setProductsWithPromo(processedProducts);
-
-
-        } catch (error) {
-            console.error("Failed to load transaction page data:", error);
-            toast({ title: "Error", description: "Could not load data for transactions.", variant: "destructive" });
-        } finally {
-            setLoading(false);
-        }
-    }, [toast, getBestPrice]);
-
+    } catch (error) {
+        console.error("Failed to load transaction page data:", error);
+        toast({ title: "Error", description: "Could not load data for transactions.", variant: "destructive" });
+    } finally {
+        setLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     const storedBranch = localStorage.getItem('activeBranch');
     const branch = storedBranch ? JSON.parse(storedBranch) : null;
     if (branch?.id) {
         setActiveBranchId(branch.id);
-        fetchData(branch.id);
-    } else {
-        setLoading(false);
     }
     const scannerPref = localStorage.getItem('barcodeScannerEnabled');
     setScannerEnabled(scannerPref === 'true');
-  }, [fetchData]);
+  }, []);
+
+  useEffect(() => {
+    if (activeBranchId) {
+        fetchData(activeBranchId);
+    } else {
+        setLoading(false);
+    }
+  }, [activeBranchId, fetchData]);
 
   const handlePrintInvoice = (transactionId: string) => {
     window.open(`/print/invoice/${transactionId}`, '_blank');
   };
 
-  const handleQuantityChange = (productId: string, newQuantity: number) => {
-    setOrderItems((prevItems) => {
-        const itemToUpdate = prevItems.find(item => item.id === productId);
-        if (!itemToUpdate) return prevItems;
-
-        if (newQuantity < 1) {
-            return prevItems.filter(item => item.id !== productId);
-        }
-
-        if (newQuantity > itemToUpdate.stock) {
-            toast({ title: "Stock limit reached", description: `Only ${itemToUpdate.stock} items available.`, variant: "destructive" });
-            newQuantity = itemToUpdate.stock;
-        }
-        
-        const baseProduct = allProducts.find(p => p.id === productId);
-        if(!baseProduct) return prevItems;
-        
-        const bestPrice = getBestPrice(baseProduct, newQuantity);
-
-        return prevItems.map(item =>
-            item.id === productId ? { ...item, quantity: newQuantity, price: bestPrice } : item
-        );
-    });
-  };
-
   const addToOrder = useCallback((product: ProductWithPromo) => {
     setOrderItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
-      
-      if (product.stock < 1 && !existingItem) {
-            toast({ title: "Out of Stock", description: `${product.name} is out of stock.`, variant: "destructive" });
-            return prevItems;
-      }
-
-      const newQuantity = (existingItem?.quantity || 0) + 1;
-      
-      if (newQuantity > product.stock) {
-          toast({ title: "Stock limit reached", description: `Cannot add more ${product.name}.`, variant: "destructive" });
-          return prevItems;
-      }
-      
-      const bestPrice = getBestPrice(product, newQuantity);
-
       if (existingItem) {
+          if (existingItem.quantity >= existingItem.stock) {
+              toast({ title: "Stock limit reached", description: `Cannot add more ${product.name}.`, variant: "destructive" });
+              return prevItems;
+          }
         return prevItems.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: newQuantity, price: bestPrice }
+            ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
-      return [...prevItems, { ...product, quantity: 1, price: bestPrice, unit: product.unit }];
+       if (product.stock < 1) {
+            toast({ title: "Out of Stock", description: `${product.name} is out of stock.`, variant: "destructive" });
+            return prevItems;
+        }
+      return [...prevItems, { ...product, quantity: 1 }];
     });
-  }, [getBestPrice, toast]);
+  }, [toast]);
 
   useEffect(() => {
     if (!scannerEnabled) return;
@@ -363,7 +281,7 @@ export default function TransactionsPage() {
               status: 'Paid' as 'Paid' | 'Refunded',
               type: 'Sale' as 'Sale' | 'Refund',
               currency: currency,
-              items: orderItems.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price, purchasePrice: item.purchasePrice, originalPrice: item.originalPrice, unit: item.unit })),
+              items: orderItems.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price, originalPrice: item.originalPrice })),
           };
 
           await addTransactionAndUpdateStock(activeBranchId, customerId, transactionData, orderItems);
@@ -469,8 +387,7 @@ export default function TransactionsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Product</TableHead>
-                      <TableHead>Unit</TableHead>
-                      <TableHead className="w-[100px]">Quantity</TableHead>
+                      <TableHead>Quantity</TableHead>
                       <TableHead className="text-right">Price</TableHead>
                       <TableHead className="w-0"></TableHead>
                     </TableRow>
@@ -481,21 +398,11 @@ export default function TransactionsPage() {
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">
                             {item.name}
-                            {(item.price < item.originalPrice) && (
+                            {item.price < item.originalPrice && (
                                 <Badge variant="destructive" className="ml-2">Promo</Badge>
                             )}
                           </TableCell>
-                          <TableCell>{item.unit}</TableCell>
-                          <TableCell>
-                            <Input
-                                type="number"
-                                value={item.quantity}
-                                onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value, 10))}
-                                className="h-8 w-20 text-center"
-                                min="1"
-                                max={item.stock}
-                            />
-                          </TableCell>
+                          <TableCell>{item.quantity}</TableCell>
                           <TableCell className="text-right">
                             {formatCurrency(item.price * item.quantity, currency)}
                           </TableCell>
@@ -513,7 +420,7 @@ export default function TransactionsPage() {
                     ) : (
                       <TableRow>
                         <TableCell
-                          colSpan={5}
+                          colSpan={4}
                           className="py-10 text-center text-muted-foreground"
                         >
                           No items in order
@@ -659,168 +566,4 @@ export default function TransactionsPage() {
                                             data-ai-hint="product image"
                                         />
                                          {product.stock < 1 && <Badge variant="destructive" className="absolute top-1 left-1">Out of Stock</Badge>}
-                                         {product.hasPromo && <Badge variant="destructive" className="absolute top-1 right-1">Promo!</Badge>}
-                                    </div>
-                                    <div className="p-2">
-                                        <h3 className="font-medium text-sm truncate">{product.name}</h3>
-                                        <div className="text-xs text-muted-foreground">
-                                             {product.hasPromo ? (
-                                                <>
-                                                    <span className="text-destructive font-semibold">{formatCurrency(product.price, currency)}</span>
-                                                    <span className="line-through ml-2">{formatCurrency(product.originalPrice, currency)}</span>
-                                                </>
-                                            ) : (
-                                                <span>{formatCurrency(product.price, currency)}</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </button>
-                            </Card>
-                        ))}
-                    </div>
-                )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      </div>
-      <Card className="no-print">
-        <CardHeader>
-          <CardTitle>Recent Transactions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Customer</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
-                        <TableCell><Skeleton className="h-8 w-20" /></TableCell>
-                    </TableRow>
-                ))
-              ) : transactions.map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell>
-                    <div className="font-medium">
-                      {transaction.customerName || 'Anonymous'}
-                    </div>
-                  </TableCell>
-                  <TableCell>{transaction.type || 'Sale'}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        transaction.status === 'Paid'
-                          ? 'default'
-                          : 'destructive'
-                      }
-                      className={
-                        transaction.status === 'Paid'
-                          ? 'bg-green-500/20 text-green-700 border-green-500/20 hover:bg-green-500/30'
-                          : ''
-                      }
-                    >
-                      {transaction.status || 'Paid'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {transaction.date ? new Date(transaction.date).toLocaleDateString() : 'N/A'}
-                  </TableCell>
-                  <TableCell
-                    className={`text-right ${
-                      transaction.type === 'Refund' ? 'text-destructive' : ''
-                    }`}
-                  >
-                    {formatCurrency(Math.abs(transaction.amount || 0), currency)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="icon" onClick={() => handlePrintInvoice(transaction.id)}>
-                            <Printer className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="icon" onClick={() => handleSendWhatsApp(transaction)}>
-                            <MessageSquare className="h-4 w-4" />
-                        </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-      
-       <AlertDialog open={isConfirming} onOpenChange={setIsConfirming}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Payment</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Are you sure you want to charge {formatCurrency(total, currency)}? This will complete the transaction and update stock levels.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleChargePayment} disabled={isProcessing}>
-                        {isProcessing ? 'Processing...' : 'Confirm'}
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-
-        <AlertDialog open={isRegistering} onOpenChange={setIsRegistering}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Register New Customer</AlertDialogTitle>
-              <AlertDialogDescription>
-                This transaction was for an anonymous customer. To send an invoice via WhatsApp, please register them first.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="name" className="text-right">
-                  Name
-                </Label>
-                <Input
-                  id="name"
-                  value={newCustomer.name}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                  className="col-span-3"
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="phone" className="text-right">
-                  Phone
-                </Label>
-                <Input
-                  id="phone"
-                  placeholder="e.g., 6281234567890"
-                  value={newCustomer.phone}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                  className="col-span-3"
-                  required
-                />
-              </div>
-            </div>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setIsRegistering(false)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleRegisterAndSend}>Register & Send</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-    </div>
-  );
-}
+                                         {product.hasPromo
