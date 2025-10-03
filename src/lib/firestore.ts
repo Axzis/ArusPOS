@@ -206,7 +206,9 @@ export async function deleteBusiness(businessId: string) {
 // === Product Functions (Branch Specific) ===
 export async function getProductsForBranch(branchId: string) {
     const businessId = await getBusinessId();
-    if (!businessId || !branchId) return [];
+    if (!businessId || !branchId) {
+        throw new Error("No business ID or branch ID found.");
+    }
 
     const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
     const q = query(productsCollectionRef);
@@ -308,7 +310,6 @@ export async function addCustomer(customerData: { name: string, email: string, p
     const newCustomer = {
         ...customerData,
         totalSpent: 0,
-        avatar: `https://picsum.photos/seed/${Math.random()}/40/40`,
         createdAt: serverTimestamp(),
     };
     return await addDoc(customersCollectionRef, newCustomer);
@@ -371,7 +372,9 @@ export async function upsertCustomersByEmail(customersData: any[]) {
 // === Transaction Functions (Branch Specific) ===
 export async function getTransactionsForBranch(branchId: string) {
     const businessId = await getBusinessId();
-    if (!businessId || !branchId) return [];
+    if (!businessId || !branchId) {
+        throw new Error("No business ID or branch ID found.");
+    }
     const transactionsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION);
     const q = query(transactionsCollectionRef, orderBy("date", "desc"));
     const querySnapshot = await getDocs(q);
@@ -392,8 +395,10 @@ export async function getTransactionById(transactionId: string): Promise<Documen
     if (!transactionId) return null;
     
     // Use collectionGroup to find the transaction across all subcollections
-    const transactionsQuery = query(collectionGroup(db, TRANSACTIONS_COLLECTION), where('__name__', '==', `*/${transactionId}`), limit(1));
-    const snapshot = await getDocs(query(collectionGroup(db, 'transactions')));
+    const q = query(collectionGroup(db, 'transactions'), where('__name__', '==', `*/${transactionId}`), limit(1));
+    const snapshot = await getDocs(q);
+    
+    // Since document paths in collection group queries are complex, we find the specific doc ID.
     const transactionDoc = snapshot.docs.find(doc => doc.id === transactionId);
 
 
@@ -432,7 +437,7 @@ export async function addTransactionAndUpdateStock(
 
   // 2. Update stock for each item in the transaction
   for (const item of items) {
-    const productRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLlection, item.id);
+    const productRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, item.id);
     batch.update(productRef, { stock: increment(-item.quantity) });
   }
   
@@ -490,19 +495,21 @@ export async function addUserToBusiness(userData: NewUser) {
         throw new Error("Email and password are required to create a new user.");
     }
 
-    // First, check if a user with this email already exists in the Firestore `users` collection for this business
+    // First, check if a user with this email already exists in the Firebase Authentication
+    // This is a more reliable way to check for existing users system-wide.
+    // However, for simplicity and to avoid admin SDK, we'll rely on createUserWithEmailAndPassword's error.
+    
+    // Firestore check (optional, but good for specific error messages)
     const usersCollectionRef = collection(db, USERS_COLLECTION);
     const existingUserQuery = query(usersCollectionRef, where("email", "==", userData.email), limit(1));
     const existingUserSnapshot = await getDocs(existingUserQuery);
 
     if (!existingUserSnapshot.empty) {
-        // This email is already associated with a user in the users collection, regardless of business.
-        // To be safe and respect unique emails, we prevent this.
         const error = new Error("Email address is already in use by another account in the system.") as any;
         error.code = "auth/email-already-in-use";
         throw error;
     }
-
+    
     // If no user in Firestore, proceed to create in Auth and then Firestore
     const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
     const user = userCredential.user;
@@ -523,6 +530,7 @@ export async function addUserToBusiness(userData: NewUser) {
 
     return { userId: userRef.id };
 }
+
 
 export async function deleteUserFromBusiness(userId: string): Promise<void> {
     const businessId = await getBusinessId();
@@ -546,7 +554,9 @@ export async function deleteUserFromBusiness(userId: string): Promise<void> {
 // === Promotion Functions (Branch Specific) ===
 export async function getPromosForBranch(branchId: string) {
     const businessId = await getBusinessId();
-    if (!businessId || !branchId) return [];
+    if (!businessId || !branchId) {
+        throw new Error("No business ID or branch ID found.");
+    }
     
     const promosCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PROMOS_COLLECTION);
     const q = query(promosCollectionRef);
@@ -645,12 +655,12 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     const batch = writeBatch(db);
 
     const initialProducts = [
-        { name: 'Espresso', sku: 'CF-ESP-01', price: 2.99, purchasePrice: 1.50, stock: 100, category: 'Coffee', unit: 'pcs' },
-        { name: 'Latte', sku: 'CF-LAT-01', price: 4.50, purchasePrice: 2.50, stock: 75, category: 'Coffee', unit: 'pcs' },
-        { name: 'Croissant', sku: 'PS-CRO-01', price: 3.25, purchasePrice: 1.75, stock: 50, category: 'Pastry', unit: 'pcs' },
-        { name: 'Iced Tea', sku: 'BV-TEA-01', price: 3.00, purchasePrice: 1.20, stock: 80, category: 'Beverage', unit: 'pcs' },
-        { name: 'Blueberry Muffin', sku: 'PS-MUF-01', price: 3.50, purchasePrice: 2.00, stock: 40, category: 'Pastry', unit: 'pcs' },
-        { name: 'Sandwich', sku: 'FD-SAN-01', price: 8.99, purchasePrice: 5.50, stock: 20, category: 'Food', unit: 'pcs' },
+        { name: 'Espresso', sku: 'CF-ESP-01', price: 2.99, purchasePrice: 1.50, stock: 100, category: 'Coffee', unit: 'pcs', imageUrl: `https://picsum.photos/seed/espresso/400/400` },
+        { name: 'Latte', sku: 'CF-LAT-01', price: 4.50, purchasePrice: 2.50, stock: 75, category: 'Coffee', unit: 'pcs', imageUrl: `https://picsum.photos/seed/latte/400/400` },
+        { name: 'Croissant', sku: 'PS-CRO-01', price: 3.25, purchasePrice: 1.75, stock: 50, category: 'Pastry', unit: 'pcs', imageUrl: `https://picsum.photos/seed/croissant/400/400` },
+        { name: 'Iced Tea', sku: 'BV-TEA-01', price: 3.00, purchasePrice: 1.20, stock: 80, category: 'Beverage', unit: 'pcs', imageUrl: `https://picsum.photos/seed/icedtea/400/400` },
+        { name: 'Blueberry Muffin', sku: 'PS-MUF-01', price: 3.50, purchasePrice: 2.00, stock: 40, category: 'Pastry', unit: 'pcs', imageUrl: `https://picsum.photos/seed/muffin/400/400` },
+        { name: 'Sandwich', sku: 'FD-SAN-01', price: 8.99, purchasePrice: 5.50, stock: 20, category: 'Food', unit: 'pcs', imageUrl: `https://picsum.photos/seed/sandwich/400/400` },
     ];
 
     initialProducts.forEach(product => {
@@ -679,3 +689,5 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
+
+    

@@ -67,7 +67,7 @@ type Customer = {
   email: string;
   phone: string;
   totalSpent: number;
-  avatar: string;
+  avatar?: string;
 };
 
 const initialCustomerState = {
@@ -353,3 +353,5 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
     </div>
   );
 }
+
+    
