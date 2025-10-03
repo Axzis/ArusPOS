@@ -235,10 +235,16 @@ export default function ReportsPage() {
             });
             return;
         }
+        
+        // Ensure the end of the day is included in the filter
+        const inclusiveDateRange = {
+            from: dateRange.from,
+            to: endOfDay(dateRange.to),
+        }
 
         const filtered = transactions.filter(t => {
             try {
-                return isWithinInterval(parseISO(t.date), { start: dateRange.from!, end: dateRange.to! })
+                return isWithinInterval(parseISO(t.date), { start: inclusiveDateRange.from!, end: inclusiveDateRange.to! })
             } catch {
                 return false;
             }
@@ -456,5 +462,7 @@ export default function ReportsPage() {
 
 
 
+
+    
 
     
