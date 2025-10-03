@@ -36,6 +36,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useBusiness } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
 import { format, parseISO, isToday } from 'date-fns';
+import { Tooltip as RechartsTooltip } from 'recharts';
+
 
 const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), {
   ssr: false,
@@ -45,7 +47,6 @@ const Bar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false 
 const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false });
 const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
 const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false });
-const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false });
 
 
 const chartConfig = {
@@ -299,7 +300,7 @@ export default function DashboardPage() {
                  <YAxis 
                     tickFormatter={(value) => formatCurrency(value as number, currency, 'compact')}
                  />
-                <Tooltip
+                <RechartsTooltip
                   cursor={false}
                   content={<ChartTooltipContent indicator="dot" formatter={(value) => formatCurrency(value as number, currency)} />}
                 />
