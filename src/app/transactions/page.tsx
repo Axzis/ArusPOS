@@ -488,7 +488,7 @@ export default function TransactionsPage() {
 
     setIsProcessing(true);
     try {
-      await refundTransaction(activeBranchId, transactionToRefund, itemsToRefund, totalRefundAmount);
+      await refundTransaction(activeBranchId, transactionToRefund, itemsToRefund, totalRefundAmount, currency);
       toast({
         title: "Refund Successful",
         description: `Refund of ${formatCurrency(totalRefundAmount, currency)} processed.`,
@@ -966,4 +966,3 @@ export default function TransactionsPage() {
     </div>
   );
 }
-

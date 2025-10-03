@@ -465,7 +465,13 @@ type RefundItem = {
     price: number;
 }
 
-export async function refundTransaction(branchId: string, originalTransaction: DocumentData, itemsToRefund: RefundItem[], totalRefundAmount: number) {
+export async function refundTransaction(
+    branchId: string, 
+    originalTransaction: DocumentData, 
+    itemsToRefund: RefundItem[], 
+    totalRefundAmount: number,
+    currency: string
+) {
     const businessId = await getBusinessId();
     if (!businessId || !branchId) throw new Error("Missing business or branch ID");
     if (originalTransaction.status === 'Refunded') throw new Error("Transaction has already been fully refunded.");
@@ -484,7 +490,7 @@ export async function refundTransaction(branchId: string, originalTransaction: D
             ...originalTransaction.items.find((i: any) => i.id === item.id), // Get original item details
             quantity: item.quantity, // Overwrite with refunded quantity
         })),
-        currency: originalTransaction.currency || 'USD',
+        currency: currency, // Use the business's current currency
         date: serverTimestamp(),
     });
 
@@ -770,4 +776,3 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
-
