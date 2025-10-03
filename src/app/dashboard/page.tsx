@@ -24,6 +24,7 @@ import {
   CreditCard,
   Activity,
   TrendingUp,
+  LineChart as LineChartIcon
 } from 'lucide-react';
 import {
   ChartContainer,
@@ -37,6 +38,7 @@ import { useBusiness } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
 import { format, parseISO, isToday } from 'date-fns';
 import { Tooltip as RechartsTooltip } from 'recharts';
+import { Button } from '@/components/ui/button';
 
 
 const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), {
@@ -92,6 +94,7 @@ export default function DashboardPage() {
     const [activeBranchId, setActiveBranchId] = React.useState<string | null>(null);
     const { toast } = useToast();
     const { currency, loading: loadingBusiness } = useBusiness();
+    const [showSalesChart, setShowSalesChart] = React.useState(false);
 
 
     React.useEffect(() => {
@@ -287,27 +290,34 @@ export default function DashboardPage() {
             <CardDescription>A summary of sales over the past 12 months.</CardDescription>
           </CardHeader>
           <CardContent>
-            
-            <ChartContainer config={chartConfig} className="h-64 w-full">
-              <BarChart accessibilityLayer data={monthlySalesData}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="name"
-                  tickLine={false}
-                  tickMargin={10}
-                  axisLine={false}
-                />
-                 <YAxis 
-                    tickFormatter={(value) => formatCurrency(value as number, currency, 'compact')}
-                 />
-                <RechartsTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent indicator="dot" formatter={(value) => formatCurrency(value as number, currency)} />}
-                />
-                <Bar dataKey="sales" fill="var(--color-sales)" radius={4} />
-              </BarChart>
-            </ChartContainer>
-            
+            {showSalesChart ? (
+                <ChartContainer config={chartConfig} className="h-64 w-full">
+                <BarChart accessibilityLayer data={monthlySalesData}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                    dataKey="name"
+                    tickLine={false}
+                    tickMargin={10}
+                    axisLine={false}
+                    />
+                    <YAxis 
+                        tickFormatter={(value) => formatCurrency(value as number, currency, 'compact')}
+                    />
+                    <RechartsTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent indicator="dot" formatter={(value) => formatCurrency(value as number, currency)} />}
+                    />
+                    <Bar dataKey="sales" fill="var(--color-sales)" radius={4} />
+                </BarChart>
+                </ChartContainer>
+            ) : (
+                <div className="flex h-64 w-full items-center justify-center bg-muted/50 rounded-lg">
+                    <Button variant="outline" onClick={() => setShowSalesChart(true)}>
+                        <LineChartIcon className="mr-2 h-4 w-4" />
+                        Tampilkan Grafik
+                    </Button>
+                </div>
+            )}
           </CardContent>
         </Card>
 
