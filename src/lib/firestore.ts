@@ -494,10 +494,15 @@ export async function refundTransaction(
         date: serverTimestamp(),
     });
 
-    // 2. Restore stock for each refunded item
+    // 2. Restore stock for each refunded item (check for existence first)
     for (const item of itemsToRefund) {
         const productRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, item.id);
-        batch.update(productRef, { stock: increment(item.quantity) });
+        const productDoc = await getDoc(productRef);
+        if (productDoc.exists()) {
+            batch.update(productRef, { stock: increment(item.quantity) });
+        } else {
+            console.warn(`Product with ID ${item.id} not found. Could not restore stock.`);
+        }
     }
 
     // 3. Check if all items were refunded to update the original transaction status
