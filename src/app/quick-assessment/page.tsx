@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -85,7 +86,7 @@ export default function QuickAssessmentPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background py-12">
+    <div className="flex min-h-screen items-center justify-center bg-background py-12 px-4">
       <Card className="mx-auto max-w-2xl w-full">
         <CardHeader className="text-center">
           <div className="flex justify-center items-center gap-2 mb-4">

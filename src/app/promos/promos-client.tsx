@@ -202,11 +202,11 @@ export default function PromosClient() {
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex items-center justify-between md:-mx-6 md:p-6">
+            <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
                 <h1 className="text-lg font-semibold md:text-2xl">Promotions</h1>
                 <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
                     <SheetTrigger asChild>
-                        <Button size="sm" className="ml-auto gap-1" onClick={() => { resetForm(); setIsSheetOpen(true);}}>
+                        <Button size="sm" className="ml-auto gap-1 self-start md:self-auto" onClick={() => { resetForm(); setIsSheetOpen(true);}}>
                             <PlusCircle className="h-4 w-4" />
                             Add Promo
                         </Button>
@@ -309,14 +309,15 @@ export default function PromosClient() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  <div className="overflow-x-auto">
                     <Table>
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Product</TableHead>
-                                <TableHead>Original Price</TableHead>
+                                <TableHead className="hidden sm:table-cell">Original Price</TableHead>
                                 <TableHead>Promo Price</TableHead>
-                                <TableHead>Start Date</TableHead>
-                                <TableHead>End Date</TableHead>
+                                <TableHead className="hidden md:table-cell">Start Date</TableHead>
+                                <TableHead className="hidden md:table-cell">End Date</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead><span className="sr-only">Actions</span></TableHead>
                             </TableRow>
@@ -326,10 +327,10 @@ export default function PromosClient() {
                                 Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                                    <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-16" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                                    <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
-                                    <TableCell><Skeleton className="h-5 w-20" /></TableCell>
+                                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
+                                    <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
                                     <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                                     <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                                 </TableRow>
@@ -340,10 +341,10 @@ export default function PromosClient() {
                                 return (
                                 <TableRow key={promo.id}>
                                     <TableCell className="font-medium">{promo.productName}</TableCell>
-                                    <TableCell>{formatCurrency(originalProduct?.price ?? 0, currency)}</TableCell>
+                                    <TableCell className="hidden sm:table-cell">{formatCurrency(originalProduct?.price ?? 0, currency)}</TableCell>
                                     <TableCell className="font-semibold">{formatCurrency(promo.promoPrice, currency)}</TableCell>
-                                    <TableCell>{format(new Date(promo.startDate), "MMM dd, yyyy")}</TableCell>
-                                    <TableCell>{format(new Date(promo.endDate), "MMM dd, yyyy")}</TableCell>
+                                    <TableCell className="hidden md:table-cell">{format(new Date(promo.startDate), "MMM dd, yyyy")}</TableCell>
+                                    <TableCell className="hidden md:table-cell">{format(new Date(promo.endDate), "MMM dd, yyyy")}</TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className={cn(status.color, "hover:bg-opacity-30")}>{status.text}</Badge>
                                     </TableCell>
@@ -367,6 +368,7 @@ export default function PromosClient() {
                             )})}
                         </TableBody>
                     </Table>
+                  </div>
                      { !isLoading && promos.length === 0 && (
                         <div className="text-center p-10 text-muted-foreground">
                             No promotions found. Add one to get started!

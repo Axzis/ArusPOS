@@ -181,7 +181,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex items-center justify-between md:-mx-6 md:p-6">
+      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
         <h1 className="text-lg font-semibold md:text-2xl">Customers</h1>
         <div className="flex items-center gap-2">
             <ExcelImport 
@@ -190,16 +190,16 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
             >
                 <Button size="sm" variant="outline" className="gap-1">
                     <Upload className="h-4 w-4" />
-                    Import
+                    <span className="hidden sm:inline">Import</span>
                 </Button>
             </ExcelImport>
             <Button size="sm" variant="outline" className="gap-1" onClick={handleDownload}>
                 <Download className="h-4 w-4" />
-                Export
+                <span className="hidden sm:inline">Export</span>
             </Button>
             <Button size="sm" variant="outline" className="gap-1" onClick={handleDownloadTemplate}>
                 <Download className="h-4 w-4" />
-                Template
+                <span className="hidden sm:inline">Template</span>
             </Button>
             <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
@@ -262,71 +262,76 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Total Spent</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-             {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-9 w-full" /></TableCell>
-                    <TableCell><Skeleton className="h-9 w-full" /></TableCell>
-                    <TableCell><Skeleton className="h-9 w-full" /></TableCell>
-                    <TableCell><Skeleton className="h-9 w-full" /></TableCell>
-                    <TableCell><Skeleton className="h-9 w-9" /></TableCell>
-                  </TableRow>
-                ))
-              ) : filteredCustomers.map((customer) => (
-                <TableRow key={customer.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                         <AvatarImage src={customer.avatar} alt={customer.name} data-ai-hint="person portrait" />
-                        <AvatarFallback>{customer.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      {customer.name}
-                    </div>
-                  </TableCell>
-                  <TableCell>{customer.email}</TableCell>
-                  <TableCell>{customer.phone}</TableCell>
-                  <TableCell>{formatCurrency(customer.totalSpent)}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          aria-haspopup="true"
-                          size="icon"
-                          variant="ghost"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem disabled>Edit</DropdownMenuItem>
-                        <DropdownMenuItem
-                            onSelect={() => setCustomerToDelete(customer)}
-                            className='text-destructive focus:text-destructive'
-                          >
-                            Delete
-                          </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="hidden sm:table-cell">Email</TableHead>
+                  <TableHead className="hidden md:table-cell">Phone</TableHead>
+                  <TableHead className="hidden sm:table-cell">Total Spent</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+              {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-9 w-full" /></TableCell>
+                      <TableCell className="hidden sm:table-cell"><Skeleton className="h-9 w-full" /></TableCell>
+                      <TableCell className="hidden md:table-cell"><Skeleton className="h-9 w-full" /></TableCell>
+                      <TableCell className="hidden sm:table-cell"><Skeleton className="h-9 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-9 w-9" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : filteredCustomers.map((customer) => (
+                  <TableRow key={customer.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9">
+                          <AvatarImage src={customer.avatar} alt={customer.name} data-ai-hint="person portrait" />
+                          <AvatarFallback>{customer.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span>{customer.name}</span>
+                           <span className="text-muted-foreground text-sm sm:hidden">{customer.email}</span>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">{customer.email}</TableCell>
+                    <TableCell className="hidden md:table-cell">{customer.phone}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{formatCurrency(customer.totalSpent)}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            aria-haspopup="true"
+                            size="icon"
+                            variant="ghost"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Toggle menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem disabled>Edit</DropdownMenuItem>
+                          <DropdownMenuItem
+                              onSelect={() => setCustomerToDelete(customer)}
+                              className='text-destructive focus:text-destructive'
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
       

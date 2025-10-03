@@ -37,13 +37,15 @@ import { useBusiness } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
 import { format, parseISO, isToday } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Bar, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
+import { CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 
 
 const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), {
   ssr: false,
   loading: () => <Skeleton className="h-64 w-full" />,
 });
+
+const Bar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false });
 
 
 const chartConfig = {
@@ -199,7 +201,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm md:-mx-6 md:p-6">
+       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
         <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
       </div>
 
@@ -328,8 +330,8 @@ export default function DashboardPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Customer</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden sm:table-cell">Type</TableHead>
+                  <TableHead className="hidden sm:table-cell">Status</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                 </TableRow>
               </TableHeader>
@@ -338,8 +340,8 @@ export default function DashboardPage() {
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-16" /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-16" /></TableCell>
                         <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                     </TableRow>
                   ))
@@ -349,9 +351,12 @@ export default function DashboardPage() {
                       <div className="font-medium">
                         {transaction.customerName}
                       </div>
+                      <div className="text-sm text-muted-foreground md:hidden">
+                        {transaction.type} - {transaction.status}
+                      </div>
                     </TableCell>
-                    <TableCell>{transaction.type}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">{transaction.type}</TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <Badge
                         variant={
                           transaction.status === 'Paid'

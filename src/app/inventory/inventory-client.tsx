@@ -132,7 +132,7 @@ export default function InventoryClient() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm md:-mx-6 md:p-6">
+      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
         <h1 className="text-lg font-semibold md:text-2xl">Inventory</h1>
       </div>
 
@@ -154,72 +154,79 @@ export default function InventoryClient() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-10" /></TableCell>
-                        <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                    </TableRow>
-                ))
-              ) : filteredInventory.map((item) => {
-                  const status = getStatus(item.stock);
-                  return (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell>{item.sku}</TableCell>
-                      <TableCell>
-                        <Badge
-                          className={cn({
-                            'bg-green-500/20 text-green-700 border-green-500/20 hover:bg-green-500/30': status === 'In Stock',
-                            'bg-yellow-500/20 text-yellow-700 border-yellow-500/20 hover:bg-yellow-500/30': status === 'Low Stock',
-                            'bg-red-500/20 text-red-700 border-red-500/20 hover:bg-red-500/30': status === 'Out of Stock',
-                          })}
-                          variant="outline"
-                        >
-                          {status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{item.stock}</TableCell>
-                      <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                aria-haspopup="true"
-                                size="icon"
-                                variant="ghost"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Toggle menu</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onSelect={() => handleUpdateClick(item)}>Update Stock</DropdownMenuItem>
-                              <DropdownMenuItem disabled>View Details</DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-              })}
-            </TableBody>
-          </Table>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="hidden sm:table-cell">SKU</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Stock</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                          <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                          <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
+                          <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-10" /></TableCell>
+                          <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                      </TableRow>
+                  ))
+                ) : filteredInventory.map((item) => {
+                    const status = getStatus(item.stock);
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex flex-col">
+                              <span>{item.name}</span>
+                              <span className="text-muted-foreground text-sm sm:hidden">{item.sku}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">{item.sku}</TableCell>
+                        <TableCell>
+                          <Badge
+                            className={cn({
+                              'bg-green-500/20 text-green-700 border-green-500/20 hover:bg-green-500/30': status === 'In Stock',
+                              'bg-yellow-500/20 text-yellow-700 border-yellow-500/20 hover:bg-yellow-500/30': status === 'Low Stock',
+                              'bg-red-500/20 text-red-700 border-red-500/20 hover:bg-red-500/30': status === 'Out of Stock',
+                            })}
+                            variant="outline"
+                          >
+                            {status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{item.stock}</TableCell>
+                        <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  aria-haspopup="true"
+                                  size="icon"
+                                  variant="ghost"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                  <span className="sr-only">Toggle menu</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                <DropdownMenuItem onSelect={() => handleUpdateClick(item)}>Update Stock</DropdownMenuItem>
+                                <DropdownMenuItem disabled>View Details</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                })}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
       

@@ -97,6 +97,7 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
   const videoRef = React.useRef<HTMLVideoElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   React.useEffect(() => {
     let stream: MediaStream | null = null;
@@ -110,6 +111,11 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions in your browser settings.',
+        });
       }
     };
 
@@ -119,25 +125,17 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
     }
 
     return () => {
-      // Cleanup function to stop the stream
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
-       if (videoRef.current && videoRef.current.srcObject) {
-            const currentStream = videoRef.current.srcObject as MediaStream;
-            currentStream.getTracks().forEach(track => track.stop());
-            videoRef.current.srcObject = null;
-        }
     };
-  }, [isCameraOpen]);
+  }, [isCameraOpen, toast]);
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        // In a real app, you would upload the file and get a URL.
-        // For now, we'll use the Base64 data URI as a placeholder.
         onImageSelect(reader.result as string);
       };
       reader.readAsDataURL(file);
@@ -153,7 +151,14 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
         context.drawImage(videoRef.current, 0, 0, videoRef.current.videoWidth, videoRef.current.videoHeight);
         const dataUrl = canvasRef.current.toDataURL('image/png');
         setCapturedImage(dataUrl);
-        setIsCameraOpen(false); // This will trigger the useEffect cleanup
+
+        // Stop the camera stream
+        if (videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        }
+        setIsCameraOpen(false);
       }
     }
   };
@@ -183,6 +188,11 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
 
         {isCameraOpen ? (
           <div className="space-y-4">
+             {hasCameraPermission === null && (
+                 <div className="bg-muted rounded-md aspect-video flex items-center justify-center">
+                     <p>Requesting camera access...</p>
+                 </div>
+             )}
              {hasCameraPermission === false ? (
                  <Alert variant="destructive">
                     <Camera className="h-4 w-4" />
@@ -191,7 +201,7 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
                         Mohon izinkan akses kamera di pengaturan browser Anda untuk menggunakan fitur ini.
                     </AlertDescription>
                 </Alert>
-             ) : (
+             ) : hasCameraPermission === true ? (
                 <>
                     <div className="bg-muted rounded-md overflow-hidden aspect-video flex items-center justify-center">
                          <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
@@ -201,7 +211,7 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
                         <Camera className="mr-2 h-4 w-4" /> Ambil Gambar
                     </Button>
                 </>
-             )}
+             ) : null}
               <Button variant="outline" onClick={() => setIsCameraOpen(false)} className="w-full">Kembali</Button>
           </div>
         ) : capturedImage ? (
@@ -436,7 +446,7 @@ export default function ProductsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex items-center justify-between md:-mx-6 md:p-6">
+      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
         <h1 className="text-lg font-semibold md:text-2xl">Products</h1>
         <div className="flex items-center gap-2">
             <ExcelImport 
@@ -445,15 +455,18 @@ export default function ProductsPage() {
             >
                 <Button size="sm" variant="outline" className="gap-1">
                     <Upload className="h-4 w-4" />
-                    Import
+                    <span className="hidden sm:inline">Import</span>
                 </Button>
             </ExcelImport>
             <Button size="sm" variant="outline" className="gap-1" onClick={handleDownload}>
                 <Download className="h-4 w-4" />
-                Export
+                <span className="hidden sm:inline">Export</span>
             </Button>
             <Button size="sm" variant="outline" className="gap-1" onClick={handleDownloadTemplate}>
-                Template
+                <span className="hidden sm:inline">Template</span>
+                <span className="sm:hidden">
+                    <Download className="h-4 w-4" />
+                </span>
             </Button>
             <Sheet open={isSheetOpen} onOpenChange={(open) => {
                 if (!open) {
@@ -479,22 +492,22 @@ export default function ProductsPage() {
                 <form ref={formRef} onSubmit={handleFormSubmit} id="product-form" className="flex flex-col flex-grow overflow-hidden">
                     <ScrollArea className="flex-grow pr-6">
                         <div className="space-y-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="name" className="text-right">Name</Label>
-                                <Input id="name" name="name" defaultValue={editingProduct?.name ?? ''} className="col-span-3" required />
+                            <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
+                                <Label htmlFor="name" className="md:text-right md:pt-2">Name</Label>
+                                <Input id="name" name="name" defaultValue={editingProduct?.name ?? ''} className="md:col-span-3" required />
                             </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="sku" className="text-right">SKU</Label>
-                                <Input id="sku" name="sku" defaultValue={editingProduct?.sku ?? ''} className="col-span-3" required />
+                            <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
+                                <Label htmlFor="sku" className="md:text-right md:pt-2">SKU</Label>
+                                <Input id="sku" name="sku" defaultValue={editingProduct?.sku ?? ''} className="md:col-span-3" required />
                             </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="category" className="text-right">Category</Label>
-                                <Input id="category" name="category" defaultValue={editingProduct?.category ?? ''} className="col-span-3" required />
+                            <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
+                                <Label htmlFor="category" className="md:text-right md:pt-2">Category</Label>
+                                <Input id="category" name="category" defaultValue={editingProduct?.category ?? ''} className="md:col-span-3" required />
                             </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="unit" className="text-right">Unit</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
+                                <Label htmlFor="unit" className="md:text-right md:pt-2">Unit</Label>
                                 <Select name="unit" defaultValue={editingProduct?.unit ?? units[0]}>
-                                    <SelectTrigger className="col-span-3">
+                                    <SelectTrigger className="md:col-span-3">
                                         <SelectValue placeholder="Select a unit" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -504,21 +517,21 @@ export default function ProductsPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="price" className="text-right">Sale Price</Label>
-                                <Input id="price" name="price" type="number" step="0.01" defaultValue={editingProduct?.price ?? ''} className="col-span-3" required />
+                            <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
+                                <Label htmlFor="price" className="md:text-right md:pt-2">Sale Price</Label>
+                                <Input id="price" name="price" type="number" step="0.01" defaultValue={editingProduct?.price ?? ''} className="md:col-span-3" required />
                             </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="purchasePrice" className="text-right">Purchase Price</Label>
-                                <Input id="purchasePrice" name="purchasePrice" type="number" step="0.01" defaultValue={editingProduct?.purchasePrice ?? ''} className=" col-span-3" required />
+                            <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
+                                <Label htmlFor="purchasePrice" className="md:text-right md:pt-2">Purchase Price</Label>
+                                <Input id="purchasePrice" name="purchasePrice" type="number" step="0.01" defaultValue={editingProduct?.purchasePrice ?? ''} className="md:col-span-3" required />
                             </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="stock" className="text-right">Stock</Label>
-                                <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock ?? ''} className="col-span-3" required />
+                            <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
+                                <Label htmlFor="stock" className="md:text-right md:pt-2">Stock</Label>
+                                <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock ?? ''} className="md:col-span-3" required />
                             </div>
-                             <div className="grid grid-cols-4 items-start gap-4">
-                                <Label className="text-right pt-2">Image</Label>
-                                <div className="col-span-3 space-y-2">
+                             <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
+                                <Label className="md:text-right md:pt-2">Image</Label>
+                                <div className="md:col-span-3 space-y-2">
                                     <div className="aspect-video w-full bg-muted rounded-md overflow-hidden flex items-center justify-center">
                                       {productImageUrl ? (
                                         <Image src={productImageUrl} alt="Product preview" width={200} height={112} className="object-cover" />
@@ -624,82 +637,81 @@ export default function ProductsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[80px]">Image</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>
-                  <span className="sr-only">Actions</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                        <TableCell><Skeleton className="h-10 w-10 rounded-md" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-10" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-12" /></TableCell>
-                        <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                    </TableRow>
-                ))
-              ) : filteredProducts.map((product) => (
-                <TableRow key={product.id}>
-                  <TableCell>
-                    <Image
-                      src={product.imageUrl || `https://picsum.photos/seed/${product.id}/40/40`}
-                      alt={product.name}
-                      width={40}
-                      height={40}
-                      className="rounded-md object-cover"
-                      data-ai-hint="product image"
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">{product.name}</TableCell>
-                  <TableCell>{product.sku}</TableCell>
-                   <TableCell>
-                    <Badge variant="outline">{product.category}</Badge>
-                  </TableCell>
-                  <TableCell>{product.stock}</TableCell>
-                  <TableCell>{formatCurrency(product.price, currency)}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          aria-haspopup="true"
-                          size="icon"
-                          variant="ghost"
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onSelect={() => openSheetForEdit(product)}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setProductToDelete(product)} className="text-destructive focus:text-destructive">
-                            <Trash2 className='mr-2 h-4 w-4' /> Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[80px] hidden sm:table-cell">Image</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="hidden md:table-cell">SKU</TableHead>
+                  <TableHead className="hidden sm:table-cell">Category</TableHead>
+                  <TableHead>Stock</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                          <TableCell className="hidden sm:table-cell"><Skeleton className="h-10 w-10 rounded-md" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                          <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
+                          <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-10" /></TableCell>
+                          <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                          <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                      </TableRow>
+                  ))
+                ) : filteredProducts.map((product) => (
+                  <TableRow key={product.id}>
+                    <TableCell className="hidden sm:table-cell">
+                      <Image
+                        src={product.imageUrl || `https://picsum.photos/seed/${product.id}/40/40`}
+                        alt={product.name}
+                        width={40}
+                        height={40}
+                        className="rounded-md object-cover"
+                        data-ai-hint="product image"
+                      />
+                    </TableCell>
+                    <TableCell className="font-medium">{product.name}</TableCell>
+                    <TableCell className="hidden md:table-cell">{product.sku}</TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <Badge variant="outline">{product.category}</Badge>
+                    </TableCell>
+                    <TableCell>{product.stock}</TableCell>
+                    <TableCell>{formatCurrency(product.price, currency)}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            aria-haspopup="true"
+                            size="icon"
+                            variant="ghost"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Toggle menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuItem onSelect={() => openSheetForEdit(product)}>Edit</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setProductToDelete(product)} className="text-destructive focus:text-destructive">
+                              <Trash2 className='mr-2 h-4 w-4' /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
   );
 }
-    
-
-    

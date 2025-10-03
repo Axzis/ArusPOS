@@ -486,7 +486,7 @@ export default function TransactionsPage() {
 
   return (
     <div className="flex flex-col gap-6" id="main-content">
-       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm md:-mx-6 md:p-6 no-print">
+       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6 no-print">
         <h1 className="text-lg font-semibold md:text-2xl">Transactions</h1>
       </div>
 
@@ -519,7 +519,7 @@ export default function TransactionsPage() {
                     <TableRow>
                       <TableHead>Product</TableHead>
                       <TableHead className="w-[100px]">Quantity</TableHead>
-                      <TableHead>Unit</TableHead>
+                      <TableHead className="hidden sm:table-cell">Unit</TableHead>
                       <TableHead className="text-right">Price</TableHead>
                       <TableHead className="w-0"></TableHead>
                     </TableRow>
@@ -544,7 +544,7 @@ export default function TransactionsPage() {
                                 className="h-8 w-16 text-center"
                             />
                           </TableCell>
-                          <TableCell>{item.unit}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{item.unit}</TableCell>
                           <TableCell className="text-right">
                             {formatCurrency(item.price * item.quantity, currency)}
                           </TableCell>
@@ -604,11 +604,11 @@ export default function TransactionsPage() {
               )}
             </div>
           </CardContent>
-          <CardFooter className="justify-between gap-2">
-            <Button variant="outline" onClick={clearOrder} disabled={isProcessing}>
+          <CardFooter className="flex-col sm:flex-row items-stretch sm:items-center sm:justify-between gap-2">
+            <Button variant="outline" onClick={clearOrder} disabled={isProcessing} className="w-full sm:w-auto">
               <X className="mr-2 h-4 w-4" /> Clear Order
             </Button>
-            <Button disabled={orderItems.length === 0 || isProcessing} onClick={() => setIsConfirming(true)}>
+            <Button disabled={orderItems.length === 0 || isProcessing} onClick={() => setIsConfirming(true)} className="w-full sm:w-auto">
                 {isProcessing ? 'Processing...' : 'Charge Payment'}
             </Button>
           </CardFooter>
@@ -692,69 +692,71 @@ export default function TransactionsPage() {
             <CardDescription>A list of the most recent sales for this branch.</CardDescription>
         </CardHeader>
         <CardContent>
-             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Items</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="w-[100px]">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
-                        <TableCell><Skeleton className="h-5 w-16" /></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
-                        <TableCell className="flex gap-2 justify-end"><Skeleton className="h-8 w-8" /><Skeleton className="h-8 w-8" /></TableCell>
+            <div className="overflow-x-auto">
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>Customer</TableHead>
+                    <TableHead className="hidden sm:table-cell">Items</TableHead>
+                    <TableHead className="hidden md:table-cell">Status</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="w-[100px] text-right">Actions</TableHead>
                     </TableRow>
-                  ))
-                ) : transactions.slice(0, 5).map((transaction) => {
-                  const itemsSummary = transaction.items?.map(i => `${i.quantity}x ${i.name}`).join(', ') || 'No items';
-                  return (
-                  <TableRow key={transaction.id}>
-                    <TableCell>
-                      <div className="font-medium">
-                        {transaction.customerName || 'Anonymous'}
-                      </div>
-                    </TableCell>
-                    <TableCell className='max-w-[300px] truncate'>{itemsSummary}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          transaction.status === 'Paid'
-                            ? 'default'
-                            : 'destructive'
-                        }
-                      >
-                        {transaction.status || 'N/A'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell
-                      className={`text-right ${
-                        transaction.type === 'Refund'
-                          ? 'text-destructive'
-                          : ''
-                      }`}
-                    >
-                      {formatCurrency(Math.abs(transaction.amount || 0), transaction.currency || currency)}
-                    </TableCell>
-                    <TableCell className='text-right'>
-                        <Button variant="ghost" size="icon" onClick={() => handlePrintInvoice(transaction.id)} title="Print Invoice">
-                            <Printer className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleSendWhatsApp(transaction)} title="Send WhatsApp Receipt">
-                            <MessageSquare className="h-4 w-4" />
-                        </Button>
-                    </TableCell>
-                  </TableRow>
-                )})}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                    {isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                        <TableRow key={i}>
+                            <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                            <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
+                            <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-16" /></TableCell>
+                            <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                            <TableCell className="flex gap-2 justify-end"><Skeleton className="h-8 w-8" /><Skeleton className="h-8 w-8" /></TableCell>
+                        </TableRow>
+                    ))
+                    ) : transactions.slice(0, 5).map((transaction) => {
+                    const itemsSummary = transaction.items?.map(i => `${i.quantity}x ${i.name}`).join(', ') || 'No items';
+                    return (
+                    <TableRow key={transaction.id}>
+                        <TableCell>
+                        <div className="font-medium">
+                            {transaction.customerName || 'Anonymous'}
+                        </div>
+                        </TableCell>
+                        <TableCell className='max-w-[200px] truncate hidden sm:table-cell'>{itemsSummary}</TableCell>
+                        <TableCell className="hidden md:table-cell">
+                        <Badge
+                            variant={
+                            transaction.status === 'Paid'
+                                ? 'default'
+                                : 'destructive'
+                            }
+                        >
+                            {transaction.status || 'N/A'}
+                        </Badge>
+                        </TableCell>
+                        <TableCell
+                        className={`text-right ${
+                            transaction.type === 'Refund'
+                            ? 'text-destructive'
+                            : ''
+                        }`}
+                        >
+                        {formatCurrency(Math.abs(transaction.amount || 0), transaction.currency || currency)}
+                        </TableCell>
+                        <TableCell className='text-right'>
+                            <Button variant="ghost" size="icon" onClick={() => handlePrintInvoice(transaction.id)} title="Print Invoice">
+                                <Printer className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => handleSendWhatsApp(transaction)} title="Send WhatsApp Receipt">
+                                <MessageSquare className="h-4 w-4" />
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                    )})}
+                </TableBody>
+                </Table>
+            </div>
              { !isLoading && transactions.length === 0 && (
                 <div className="text-center p-10 text-muted-foreground">
                     No transactions found for this branch yet.

@@ -305,7 +305,7 @@ export default function ReportsPage() {
                 </div>
             </div>
             <Tabs defaultValue="weekly" className="w-full">
-                <div className="flex justify-end">
+                <div className="flex justify-start sm:justify-end overflow-x-auto">
                     <TabsList>
                         <TabsTrigger value="daily">Daily</TabsTrigger>
                         <TabsTrigger value="weekly">Weekly</TabsTrigger>
@@ -368,10 +368,10 @@ export default function ReportsPage() {
                             <CardContent>
                                 
                                 <ChartContainer config={topProductsConfig} className="h-72 w-full">
-                                    <BarChart accessibilityLayer data={topProductsData} layout="vertical" margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
+                                    <BarChart accessibilityLayer data={topProductsData} layout="vertical" margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                                         <CartesianGrid horizontal={false} />
                                         <XAxis type="number" hide />
-                                        <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} width={100} />
+                                        <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} width={80} tick={{fontSize: 12}} />
                                         <Tooltip content={<ChartTooltipContent indicator="dot" />} />
                                         <Bar dataKey="sales" fill="var(--color-sales)" radius={4} layout="vertical" />
                                     </BarChart>

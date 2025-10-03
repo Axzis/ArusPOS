@@ -20,18 +20,18 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     const pathname = usePathname();
   return (
     <div className="flex flex-col gap-6">
-      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm md:-mx-6 md:p-6">
+      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
         <h1 className="text-lg font-semibold md:text-2xl">Settings</h1>
       </div>
        <div className="flex flex-col md:flex-row gap-8">
         <aside className="w-full md:w-1/5">
-           <nav className="flex flex-row md:flex-col gap-1">
+           <nav className="flex flex-row overflow-x-auto md:flex-col gap-1">
                 {settingsNav.map((item) => (
                     <Link
                     key={item.label}
                     href={item.href}
                     className={cn(
-                        "rounded-md px-3 py-2 text-sm font-medium",
+                        "rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap",
                         pathname === item.href
                         ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground hover:bg-muted"
@@ -49,5 +49,3 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
-    
