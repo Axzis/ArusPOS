@@ -26,7 +26,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 async function getUserData(userAuth: User): Promise<DocumentData | null> {
-    const usersRef = collection(db, "users");
+    const usersRef = collection(db, USERS_COLLECTION);
     const q = query(usersRef, where("uid", "==", userAuth.uid));
     const querySnapshot = await getDocs(q);
 
@@ -59,8 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
-            if (userAuth && userAuth.emailVerified) {
-                // User is signed in AND verified, let's get their custom data from Firestore.
+            if (userAuth) { // MODIFIED: Check for user existence only, not verification status
+                // User is signed in, let's get their custom data from Firestore.
                 const userDoc = await getUserData(userAuth);
                 setUser({
                     ...userAuth,
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     photoURL: userDoc?.photoURL || userAuth.photoURL, // Prefer Firestore URL
                 });
             } else {
-                // User is signed out or not verified
+                // User is signed out
                 setUser(null);
             }
             setLoading(false);
@@ -81,12 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const login = async (email: string, password: string): Promise<AppUser | null> => {
         try {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            if (!userCredential.user.emailVerified) {
-                // Return the unverified user object for the UI to handle
-                return userCredential.user as AppUser;
-            }
-            // If verified, the onAuthStateChanged listener will handle setting the user state.
-            // We can return the user object here as well for immediate use.
+            // The onAuthStateChanged listener will handle setting the global user state.
+            // We just return the user object here for immediate use, e.g., checking emailVerified on the login page.
             const userDoc = await getUserData(userCredential.user);
             const appUser = {
                 ...userCredential.user,
