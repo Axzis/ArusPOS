@@ -138,7 +138,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [activeBranch, setActiveBranch] = React.useState<ActiveBranch | null>(null);
   const [loadingBranch, setLoadingBranch] = React.useState(true);
   
-  const isSuperAdmin = user?.email === 'superadmin@gmail.com' || (user && !user.role);
+  const isSuperAdmin = user?.email === 'superadmin@gmail.com';
   const isAdmin = user?.role === 'Admin';
   const navItems = isAdmin || isSuperAdmin ? allNavItems : staffNavItems;
   const showBottomNav = isAdmin || isSuperAdmin;
@@ -223,6 +223,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return null;
   }
    
+  if (pathname.startsWith('/superadmin') && !isSuperAdmin) {
+       router.replace('/dashboard');
+       return (
+            <div className="flex h-screen items-center justify-center">
+                <p>Redirecting...</p>
+            </div>
+       );
+  }
+
   if (pathname.startsWith('/superadmin') || pathname === '/select-branch') {
      return (
         <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -337,3 +346,5 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
+
+    

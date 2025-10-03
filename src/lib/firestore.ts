@@ -1,5 +1,4 @@
 
-
 import { auth, db } from './firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import {
@@ -62,7 +61,7 @@ async function getBusinessId(): Promise<string | null> {
     const usersSnapshot = await getDocs(usersQuery);
 
     if (usersSnapshot.empty) {
-        // If no user doc, might be superadmin, allow them to proceed if they have no businessId context
+        // This can happen if the user is the superadmin who doesn't have a businessId
         if (user.email === 'superadmin@gmail.com') return null;
         console.warn(`No user document found for UID: ${user.uid}`);
         return null;
@@ -394,14 +393,10 @@ export async function getTransactionsForBranch(branchId: string) {
 export async function getTransactionById(transactionId: string): Promise<DocumentData | null> {
     if (!transactionId) return null;
     
-    // This is a simplified approach assuming we can guess the path.
-    // A robust solution needs to know the businessId and branchId.
-    // For the print page, we'll rely on a Collection Group query.
-    const q = query(collectionGroup(db, 'transactions'), where('__name__', '==', `*/${transactionId}`), limit(1));
-    const snapshot = await getDocs(q);
-    
-    // This is tricky because we need the full path to match the doc id.
-    // A more direct way is better if we have business/branch context.
+    // Use a Collection Group query to find the transaction across all branches
+    const transactionQuery = query(collectionGroup(db, 'transactions'), where('__name__', '==', `*/${transactionId}`), limit(1));
+    const snapshot = await getDocs(transactionQuery);
+
     const transactionDoc = snapshot.docs.find(d => d.id === transactionId);
 
     if (!transactionDoc || !transactionDoc.exists()) {
@@ -735,3 +730,5 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
+
+    

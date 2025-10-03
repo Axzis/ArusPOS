@@ -1,6 +1,7 @@
 
 "use client";
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -44,7 +45,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Trash2, KeyRound } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Trash2, KeyRound, Ban } from 'lucide-react';
 import { getAllBusinesses, updateBusiness, deleteBusiness } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -81,6 +82,8 @@ type Business = {
 }
 
 export default function SuperAdminPage() {
+    const { user, loading: authLoading } = useAuth();
+    const router = useRouter();
     const [businesses, setBusinesses] = useState<Business[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -92,8 +95,17 @@ export default function SuperAdminPage() {
     const { toast } = useToast();
     const { sendPasswordReset } = useAuth();
 
+    const isSuperAdmin = user?.email === 'superadmin@gmail.com';
+
+    useEffect(() => {
+        if (!authLoading && !isSuperAdmin) {
+            router.replace('/dashboard');
+        }
+    }, [user, authLoading, isSuperAdmin, router]);
+
 
     const fetchBusinesses = useCallback(async () => {
+        if (!isSuperAdmin) return;
         setLoading(true);
         try {
             const bizData = await getAllBusinesses();
@@ -104,11 +116,15 @@ export default function SuperAdminPage() {
         } finally {
             setLoading(false);
         }
-    }, [toast]);
+    }, [toast, isSuperAdmin]);
 
     useEffect(() => {
-        fetchBusinesses();
-    }, [fetchBusinesses]);
+        if (isSuperAdmin) {
+            fetchBusinesses();
+        } else {
+            setLoading(false);
+        }
+    }, [fetchBusinesses, isSuperAdmin]);
 
     const handleBusinessCreated = () => {
         setIsSheetOpen(false);
@@ -163,6 +179,21 @@ export default function SuperAdminPage() {
         } finally {
             setUserToReset(null);
         }
+    }
+
+    if (authLoading || !isSuperAdmin) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle className='flex items-center gap-2'>
+                        <Ban className='text-destructive' /> Access Denied
+                    </CardTitle>
+                    <CardDescription>
+                        Redirecting... You do not have permission to view this page.
+                    </CardDescription>
+                </CardHeader>
+            </Card>
+        );
     }
 
 
@@ -385,3 +416,5 @@ export default function SuperAdminPage() {
         </div>
     )
 }
+
+    
