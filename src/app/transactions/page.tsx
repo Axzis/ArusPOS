@@ -33,7 +33,7 @@ import {
   Printer,
   MessageSquare,
 } from 'lucide-react';
-import { getProductsForBranch, getCustomers, getTransactionsForBranch, addTransactionAndUpdateStock, getPromosForBranch, addCustomer as addNewCustomer } from '@/lib/firestore';
+import { getProductsForBranch, getCustomers as getCustomersFromDb, getTransactionsForBranch, addTransactionAndUpdateStock, getPromosForBranch, addCustomer as addNewCustomer } from '@/lib/firestore';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -172,7 +172,7 @@ export default function TransactionsPage() {
             const [transactionsData, productsData, customersData, promoData] = await Promise.all([
                 getTransactionsForBranch(branchId),
                 getProductsForBranch(branchId),
-                getCustomers(),
+                getCustomersFromDb(),
                 getPromosForBranch(branchId),
             ]);
             
@@ -273,7 +273,7 @@ export default function TransactionsPage() {
             : item
         );
       }
-      return [...prevItems, { ...product, quantity: 1, price: bestPrice }];
+      return [...prevItems, { ...product, quantity: 1, price: bestPrice, unit: product.unit }];
     });
   }, [getBestPrice]);
 
@@ -814,7 +814,3 @@ export default function TransactionsPage() {
     </div>
   );
 }
-
-    
-
-    
