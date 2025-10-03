@@ -162,9 +162,8 @@ export default function ReportsPage() {
 
     const monthlySalesData = useMemo(() => {
         const now = new Date();
-        // Go back 11 months to get a 12-month interval including the current month
-        const yearStart = startOfMonth(subDays(now, 335)); 
-        const yearEnd = endOfMonth(now);
+        const yearStart = startOfYear(now);
+        const yearEnd = endOfYear(now);
         
         const months = eachMonthOfInterval({
           start: yearStart,
@@ -257,7 +256,7 @@ export default function ReportsPage() {
             t.items.map(item => ({
                 'Transaction ID': t.id,
                 'Customer Name': t.customerName,
-                'Date': format(parseISO(t.date), "yyyy-MM-dd HH:mm:ss"),
+                'Date': format(parseISO(t.date), "dd-MM-yyyy HH:mm:ss"),
                 'Type': t.type,
                 'Status': t.status,
                 'Item Name': item.name,
@@ -456,3 +455,6 @@ export default function ReportsPage() {
     
 
 
+
+
+    
