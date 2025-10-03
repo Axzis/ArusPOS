@@ -98,7 +98,7 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isCameraOpen) {
       setCapturedImage(null);
       const getCameraPermission = async () => {
