@@ -102,7 +102,7 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
   React.useEffect(() => {
     let stream: MediaStream | null = null;
     
-    const getCameraPermission = async () => {
+    const enableCamera = async () => {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setHasCameraPermission(false);
         toast({
@@ -129,17 +129,22 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
       }
     };
 
-    if (isCameraOpen && hasCameraPermission !== true) {
-      setCapturedImage(null);
-      getCameraPermission();
+    if (isCameraOpen) {
+      setCapturedImage(null); // Reset any previously captured image
+      enableCamera();
     }
 
     return () => {
+      // Cleanup: stop all tracks of the stream
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+      setHasCameraPermission(null);
     };
-  }, [isCameraOpen, toast, hasCameraPermission]);
+  }, [isCameraOpen, toast]);
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -162,14 +167,13 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
         const dataUrl = canvasRef.current.toDataURL('image/png');
         setCapturedImage(dataUrl);
 
-        // Stop the camera stream
+        // Stop the camera stream after capturing
         if (videoRef.current.srcObject) {
             const stream = videoRef.current.srcObject as MediaStream;
             stream.getTracks().forEach(track => track.stop());
             videoRef.current.srcObject = null;
         }
-        setHasCameraPermission(null); // Reset permission state
-        setIsCameraOpen(false);
+        setIsCameraOpen(false); // Close camera view, show preview instead
       }
     }
   };
@@ -177,21 +181,20 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
   const handleConfirmCapturedImage = () => {
       if(capturedImage) {
           onImageSelect(capturedImage);
-          setCapturedImage(null);
+          setCapturedImage(null); // Reset for next use
       }
   }
 
   const resetCamera = () => {
     setCapturedImage(null);
     setIsCameraOpen(true);
-    setHasCameraPermission(null);
   }
 
   return (
     <Dialog onOpenChange={(open) => {
         if (!open) {
+          // Ensure camera is turned off when dialog closes
           setIsCameraOpen(false);
-          setHasCameraPermission(null);
         }
     }}>
       <DialogTrigger asChild>
@@ -213,7 +216,6 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
             <div className="bg-muted rounded-md overflow-hidden aspect-video flex items-center justify-center relative">
               <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
               <canvas ref={canvasRef} className="hidden" />
-
               {hasCameraPermission === false && (
                  <div className="absolute inset-0 flex items-center justify-center p-4 bg-black/50">
                     <Alert variant="destructive">
@@ -225,13 +227,13 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
                     </Alert>
                 </div>
               )}
-               {hasCameraPermission === null && (
+               {hasCameraPermission === null && !capturedImage && (
                  <div className="absolute inset-0 flex items-center justify-center p-4 bg-black/50">
                     <p className="text-white">Meminta akses kamera...</p>
                  </div>
               )}
             </div>
-            <Button onClick={handleCapture} className="w-full" disabled={!hasCameraPermission}>
+            <Button onClick={handleCapture} className="w-full" disabled={hasCameraPermission !== true}>
                 <Camera className="mr-2 h-4 w-4" /> Ambil Gambar
             </Button>
             <Button variant="outline" onClick={() => setIsCameraOpen(false)} className="w-full">Kembali</Button>
