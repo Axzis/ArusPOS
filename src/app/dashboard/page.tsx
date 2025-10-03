@@ -1,7 +1,6 @@
 
 "use client";
 import React, { useMemo } from 'react';
-import dynamic from 'next/dynamic';
 import {
   Card,
   CardContent,
@@ -37,16 +36,7 @@ import { useBusiness } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
 import { format, parseISO, isToday } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
-
-
-const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), {
-  ssr: false,
-  loading: () => <Skeleton className="h-64 w-full" />,
-});
-
-const Bar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false });
-
+import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts';
 
 const chartConfig = {
   sales: {
@@ -201,7 +191,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
+       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
         <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
       </div>
 
@@ -386,6 +376,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
-    
