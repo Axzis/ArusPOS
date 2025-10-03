@@ -20,12 +20,12 @@ import {
   ChartContainer,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { getTransactionsForBranch, getProductsForBranch } from '@/lib/firestore';
+import { getTransactionsForBranch } from '@/lib/firestore';
 import { useBusiness } from '@/contexts/business-context';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, subDays, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, parseISO, startOfYear, endOfYear, eachMonthOfInterval, startOfWeek } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, parseISO, startOfYear, endOfYear, eachMonthOfInterval, startOfWeek, endOfWeek } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Download } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -65,7 +65,6 @@ const topProductsConfig = {
 
 export default function ReportsPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -85,12 +84,8 @@ export default function ReportsPage() {
         if (!activeBranchId) return;
         setLoading(true);
         try {
-            const [transactionsData, productsData] = await Promise.all([
-                getTransactionsForBranch(activeBranchId),
-                getProductsForBranch(activeBranchId)
-            ]);
+            const transactionsData = await getTransactionsForBranch(activeBranchId);
             setTransactions(transactionsData as Transaction[]);
-            setProducts(productsData as Product[]);
         } catch (error) {
             console.error("Failed to load report data:", error);
             toast({ title: "Error", description: "Could not fetch report data.", variant: "destructive" });
@@ -170,8 +165,8 @@ export default function ReportsPage() {
     const topProductsData = useMemo(() => {
         const productCounts: { [key: string]: { name: string, sales: number } } = {};
         const today = new Date();
-        const startOfThisWeek = startOfWeek(today, { weekStartsOn: 0 }); // Start of Sunday
-        const endOfThisWeek = endOfDay(today);
+        const startOfThisWeek = startOfWeek(today, { weekStartsOn: 1 }); // Start on Monday
+        const endOfThisWeek = endOfWeek(today, { weekStartsOn: 1 });
 
         const thisWeeksTransactions = salesTransactions.filter(t => isWithinInterval(parseISO(t.date), {start: startOfThisWeek, end: endOfThisWeek}));
 
@@ -179,9 +174,7 @@ export default function ReportsPage() {
             if(t.items) {
                 t.items.forEach(item => {
                     if (!productCounts[item.id]) {
-                        // Find the product name from the full product list for consistency
-                        const productName = products.find(p => p.id === item.id)?.name || item.name;
-                        productCounts[item.id] = { name: productName, sales: 0 };
+                        productCounts[item.id] = { name: item.name, sales: 0 };
                     }
                     productCounts[item.id].sales += item.quantity;
                 });
@@ -192,7 +185,7 @@ export default function ReportsPage() {
             .sort((a, b) => b.sales - a.sales)
             .slice(0, 5);
 
-    }, [salesTransactions, products]);
+    }, [salesTransactions]);
 
     const handleDownloadCsv = () => {
         if (!dateRange || !dateRange.from || !dateRange.to) {

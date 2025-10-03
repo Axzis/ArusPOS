@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -81,7 +81,7 @@ export default function DashboardPage() {
     const [activeBranchId, setActiveBranchId] = React.useState<string | null>(null);
     const { toast } = useToast();
     const { currency, loading: loadingBusiness } = useBusiness();
-    const [showSalesChart, setShowSalesChart] = React.useState(false);
+    const [showSalesChart, setShowSalesChart] = useState(false);
 
 
     React.useEffect(() => {
@@ -115,18 +115,15 @@ export default function DashboardPage() {
         }
     }, [toast]);
 
+  const salesTransactions = useMemo(() => transactions.filter(t => t.type === 'Sale'), [transactions]);
 
-  const totalRevenue = useMemo(() => transactions
-    .filter((t) => t.type === 'Sale')
-    .reduce((sum, t) => sum + t.amount, 0), [transactions]);
+  const totalRevenue = useMemo(() => salesTransactions.reduce((sum, t) => sum + t.amount, 0), [salesTransactions]);
   
-  const salesToday = useMemo(() => transactions
+  const salesToday = useMemo(() => salesTransactions
     .filter(
-      (t) =>
-        isToday(parseISO(t.date)) &&
-        t.type === 'Sale'
+      (t) => isToday(parseISO(t.date))
     )
-    .reduce((sum, t) => sum + t.amount, 0), [transactions]);
+    .reduce((sum, t) => sum + t.amount, 0), [salesTransactions]);
 
     const calculateProfit = (transactionItems: TransactionItem[]) => {
         return transactionItems.reduce((profit, item) => {
@@ -137,13 +134,12 @@ export default function DashboardPage() {
         }, 0);
     };
 
-    const totalProfit = useMemo(() => transactions
-        .filter(t => t.type === 'Sale')
-        .reduce((sum, t) => sum + calculateProfit(t.items), 0), [transactions]);
+    const totalProfit = useMemo(() => salesTransactions
+        .reduce((sum, t) => sum + calculateProfit(t.items), 0), [salesTransactions]);
 
-    const profitToday = useMemo(() => transactions
-        .filter(t => t.type === 'Sale' && isToday(parseISO(t.date)))
-        .reduce((sum, t) => sum + calculateProfit(t.items), 0), [transactions]);
+    const profitToday = useMemo(() => salesTransactions
+        .filter(t => isToday(parseISO(t.date)))
+        .reduce((sum, t) => sum + calculateProfit(t.items), 0), [salesTransactions]);
 
   const newCustomersThisMonth = useMemo(() => customers.filter(c => {
     if (!c.createdAt?.toDate) return false;
@@ -159,20 +155,18 @@ export default function DashboardPage() {
   const monthlySalesData = useMemo(() => {
     const salesByMonth: { [key: string]: number } = {};
 
-    transactions
-        .filter(t => t.type === 'Sale')
-        .forEach(t => {
-            try {
-                const transactionDate = parseISO(t.date);
-                const monthKey = format(transactionDate, 'yyyy-MM');
-                if (!salesByMonth[monthKey]) {
-                    salesByMonth[monthKey] = 0;
-                }
-                salesByMonth[monthKey] += t.amount;
-            } catch(e) {
-                console.error("Invalid date format in transaction:", t);
+    salesTransactions.forEach(t => {
+        try {
+            const transactionDate = parseISO(t.date);
+            const monthKey = format(transactionDate, 'yyyy-MM');
+            if (!salesByMonth[monthKey]) {
+                salesByMonth[monthKey] = 0;
             }
-        });
+            salesByMonth[monthKey] += t.amount;
+        } catch(e) {
+            console.error("Invalid date format in transaction:", t);
+        }
+    });
 
     const data = Array.from({ length: 12 }, (_, i) => {
         const d = new Date();
@@ -186,7 +180,7 @@ export default function DashboardPage() {
     }).reverse();
     
     return data;
-  }, [transactions]);
+  }, [salesTransactions]);
 
 
   return (
