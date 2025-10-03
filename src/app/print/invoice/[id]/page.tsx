@@ -16,6 +16,7 @@ type TransactionItem = {
     price: number;
     quantity: number;
     originalPrice: number;
+    purchasePrice?: number;
 };
 
 type Transaction = {

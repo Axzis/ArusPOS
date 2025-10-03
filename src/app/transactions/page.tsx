@@ -58,6 +58,7 @@ type OrderItem = {
   id: string;
   name: string;
   price: number;
+  purchasePrice: number;
   quantity: number;
   stock: number;
   originalPrice: number;
@@ -67,6 +68,7 @@ type Product = {
   id: string;
   name: string;
   price: number;
+  purchasePrice: number;
   stock: number;
   sku: string;
   imageUrl?: string;
@@ -98,7 +100,7 @@ type Transaction = {
     date: string;
     status: 'Paid' | 'Refunded';
     type: 'Sale' | 'Refund';
-    items: OrderItem[];
+    items: { id: string; name: string; quantity: number; price: number, purchasePrice: number, originalPrice: number }[];
     discount?: number;
 }
 
@@ -277,7 +279,7 @@ export default function TransactionsPage() {
               status: 'Paid' as 'Paid' | 'Refunded',
               type: 'Sale' as 'Sale' | 'Refund',
               currency: currency,
-              items: orderItems.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price, originalPrice: item.originalPrice })),
+              items: orderItems.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price, purchasePrice: item.purchasePrice, originalPrice: item.originalPrice })),
           };
 
           await addTransactionAndUpdateStock(activeBranchId, customerId, transactionData, orderItems);

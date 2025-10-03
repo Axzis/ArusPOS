@@ -22,6 +22,8 @@ import {
   Users,
   CreditCard,
   Activity,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 import {
   ChartContainer,
@@ -34,13 +36,21 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useBusiness } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
-import { format, parseISO, startOfMonth, getMonth, getYear } from 'date-fns';
+import { format, parseISO, startOfMonth, getMonth, getYear, isToday } from 'date-fns';
 
 const chartConfig = {
   sales: {
     label: 'Sales',
     color: 'hsl(var(--primary))',
   },
+};
+
+type TransactionItem = {
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    purchasePrice?: number;
 };
 
 type Transaction = {
@@ -50,6 +60,7 @@ type Transaction = {
     date: string;
     status: 'Paid' | 'Refunded';
     type: 'Sale' | 'Refund';
+    items: TransactionItem[];
 }
 
 type Customer = {
@@ -109,10 +120,27 @@ export default function DashboardPage() {
   const salesToday = transactions
     .filter(
       (t) =>
-        new Date(t.date).toDateString() === new Date().toDateString() &&
+        isToday(parseISO(t.date)) &&
         t.type === 'Sale'
     )
     .reduce((sum, t) => sum + t.amount, 0);
+
+    const calculateProfit = (transactionItems: TransactionItem[]) => {
+        return transactionItems.reduce((profit, item) => {
+            if (typeof item.purchasePrice === 'number' && item.purchasePrice > 0) {
+                return profit + ((item.price - item.purchasePrice) * item.quantity);
+            }
+            return profit;
+        }, 0);
+    };
+
+    const totalProfit = transactions
+        .filter(t => t.type === 'Sale')
+        .reduce((sum, t) => sum + calculateProfit(t.items), 0);
+
+    const profitToday = transactions
+        .filter(t => t.type === 'Sale' && isToday(parseISO(t.date)))
+        .reduce((sum, t) => sum + calculateProfit(t.items), 0);
 
   const newCustomersThisMonth = customers.filter(c => {
     if (!c.createdAt) return false;
@@ -160,7 +188,7 @@ export default function DashboardPage() {
         <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -175,6 +203,18 @@ export default function DashboardPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Profit</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">{formatCurrency(totalProfit, currency)}</div>}
+            <p className="text-xs text-muted-foreground">
+              Total profit for this branch
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Sales Today</CardTitle>
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -182,6 +222,18 @@ export default function DashboardPage() {
             {isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">+{formatCurrency(salesToday, currency)}</div>}
             <p className="text-xs text-muted-foreground">
               Sales today for this branch
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Profit Today</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {isLoading ? <Skeleton className="h-8 w-1/2" /> : <div className="text-2xl font-bold">+{formatCurrency(profitToday, currency)}</div>}
+            <p className="text-xs text-muted-foreground">
+              Profit today for this branch
             </p>
           </CardContent>
         </Card>
