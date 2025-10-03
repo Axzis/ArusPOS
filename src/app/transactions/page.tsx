@@ -102,6 +102,16 @@ type Customer = {
     phone?: string;
 };
 
+type TransactionItem = {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  purchasePrice?: number;
+  originalPrice?: number;
+  unit?: string;
+};
+
 type Transaction = {
     id: string;
     customerName: string;
@@ -109,7 +119,7 @@ type Transaction = {
     date: string;
     status: 'Paid' | 'Refunded';
     type: 'Sale' | 'Refund';
-    items: { id: string; name: string; quantity: number; price: number, purchasePrice: number, originalPrice: number, unit: string }[];
+    items: TransactionItem[];
     discount?: number;
 }
 
@@ -176,13 +186,13 @@ export default function TransactionsPage() {
                 getPromosForBranch(branchId),
             ]);
             
-            setTransactions(transactionsData as Transaction[]);
-            setCustomers(customersData as Customer[]);
-            setAllProducts(productsData as Product[]);
-            setPromos(promoData as Promo[]);
+            setTransactions(transactionsData as Transaction[] || []);
+            setCustomers(customersData as Customer[] || []);
+            setAllProducts(productsData as Product[] || []);
+            setPromos(promoData as Promo[] || []);
 
             const now = new Date();
-            const activePromos = promoData.filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
+            const activePromos = (promoData as Promo[]).filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
 
             const processedProducts = (productsData as Product[]).map(product => {
                 const promo = activePromos.find(p => p.productId === product.id);
@@ -705,10 +715,10 @@ export default function TransactionsPage() {
                 <TableRow key={transaction.id}>
                   <TableCell>
                     <div className="font-medium">
-                      {transaction.customerName}
+                      {transaction.customerName || 'Anonymous'}
                     </div>
                   </TableCell>
-                  <TableCell>{transaction.type}</TableCell>
+                  <TableCell>{transaction.type || 'Sale'}</TableCell>
                   <TableCell>
                     <Badge
                       variant={
@@ -722,18 +732,18 @@ export default function TransactionsPage() {
                           : ''
                       }
                     >
-                      {transaction.status}
+                      {transaction.status || 'Paid'}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {new Date(transaction.date).toLocaleDateString()}
+                    {transaction.date ? new Date(transaction.date).toLocaleDateString() : 'N/A'}
                   </TableCell>
                   <TableCell
                     className={`text-right ${
                       transaction.type === 'Refund' ? 'text-destructive' : ''
                     }`}
                   >
-                    {formatCurrency(Math.abs(transaction.amount), currency)}
+                    {formatCurrency(Math.abs(transaction.amount || 0), currency)}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
