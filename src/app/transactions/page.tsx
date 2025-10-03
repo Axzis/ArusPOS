@@ -138,6 +138,18 @@ export default function TransactionsPage() {
   const [discount, setDiscount] = useState(0);
 
     const getBestPrice = (product: Product, quantity: number): number => {
+        // First check for active promo, as it takes precedence
+        const now = new Date();
+        const activePromo = promos.find(p => 
+            p.productId === product.id && 
+            isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) })
+        );
+
+        if (activePromo) {
+            return activePromo.promoPrice;
+        }
+        
+        // If no promo, check for bundles
         if (!product.bundles || product.bundles.length === 0) {
             return product.price;
         }
@@ -160,10 +172,11 @@ export default function TransactionsPage() {
 
         return allProducts.map(product => {
             const promo = activePromos.find(p => p.productId === product.id);
+            const bestPrice = getBestPrice(product, 1);
             return {
                 ...product,
                 originalPrice: product.price,
-                price: promo ? promo.promoPrice : product.price,
+                price: bestPrice, // Show the best starting price (could be promo or base)
                 hasPromo: !!promo,
             };
         });
@@ -211,8 +224,8 @@ export default function TransactionsPage() {
 
   const addToOrder = useCallback((product: ProductWithPromo) => {
     setOrderItems((prevItems) => {
-      let existingItem = prevItems.find((item) => item.id === product.id);
-      let newQuantity = (existingItem?.quantity || 0) + 1;
+      const existingItem = prevItems.find((item) => item.id === product.id);
+      const newQuantity = (existingItem?.quantity || 0) + 1;
       
       if (newQuantity > product.stock) {
           toast({ title: "Stock limit reached", description: `Cannot add more ${product.name}.`, variant: "destructive" });
@@ -232,9 +245,11 @@ export default function TransactionsPage() {
             : item
         );
       }
-      return [...prevItems, { ...product, quantity: 1, price: bestPrice }];
+      // For a new item, get its base price or promo price for quantity 1
+      const initialPrice = getBestPrice(product, 1);
+      return [...prevItems, { ...product, quantity: 1, price: initialPrice }];
     });
-  }, [toast]);
+  }, [toast, promos, allProducts]);
 
   useEffect(() => {
     if (!scannerEnabled) return;
@@ -762,5 +777,7 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
+    
 
     
