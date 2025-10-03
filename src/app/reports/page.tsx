@@ -30,7 +30,6 @@ import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Download } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { DateRange } from 'react-day-picker';
 import { BarChart, Bar, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 
 
@@ -185,15 +184,15 @@ export default function ReportsPage() {
 
     const topProductsData = useMemo(() => {
         if (salesTransactions.length === 0) return [];
+        
         const productCounts: { [key: string]: { name: string, sales: number } } = {};
         const today = new Date();
-        // Setting weekStartsOn: 1 makes Monday the start of the week. Adjust if your locale is different.
         const startOfThisWeek = startOfWeek(today, { weekStartsOn: 1 }); 
         const endOfThisWeek = endOfWeek(today, { weekStartsOn: 1 });
 
         const thisWeeksTransactions = salesTransactions.filter(t => {
             try {
-                return isWithinInterval(parseISO(t.date), {start: startOfThisWeek, end: endOfThisWeek});
+                return isWithinInterval(parseISO(t.date), { start: startOfThisWeek, end: endOfThisWeek });
             } catch {
                 return false;
             }
@@ -437,5 +436,7 @@ export default function ReportsPage() {
         </div>
     );
 }
+
+    
 
     
