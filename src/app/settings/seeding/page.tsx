@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { seedInitialDataForBranch, resetBranchData } from '@/lib/firestore';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal, TriangleAlert, ShieldAlert } from 'lucide-react';
+import { Terminal, TriangleAlert, ShieldAlert, Ban } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { 
   AlertDialog,
@@ -21,8 +21,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function SeedingPage() {
+    const { user } = useAuth();
     const [seedingLoading, setSeedingLoading] = useState(false);
     const [resettingLoading, setResettingLoading] = useState(false);
     const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
@@ -31,6 +33,8 @@ export default function SeedingPage() {
     const [resetConfirmText, setResetConfirmText] = useState("");
     const { toast } = useToast();
     const router = useRouter();
+
+    const isSuperAdmin = user?.email === 'superadmin@gmail.com';
 
     useEffect(() => {
         const storedBranch = localStorage.getItem('activeBranch');
@@ -110,6 +114,24 @@ export default function SeedingPage() {
             setResettingLoading(false);
         }
     };
+    
+    if (!isSuperAdmin) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle className='flex items-center gap-2'>
+                        <Ban className='text-destructive' /> Access Denied
+                    </CardTitle>
+                    <CardDescription>
+                        This page is restricted to super administrators only.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p className='text-muted-foreground'>You do not have the necessary permissions to view or use the data seeding and reset tools.</p>
+                </CardContent>
+            </Card>
+        )
+    }
 
     return (
         <div className="space-y-8">

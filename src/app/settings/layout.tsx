@@ -5,22 +5,32 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/auth-context';
 
-const settingsNav = [
+const baseSettingsNav = [
   { href: '/settings', label: 'Business' },
   { href: '/settings/profile', label: 'My Profile' },
   { href: '/settings/branches', label: 'Branches' },
   { href: '/settings/users', label: 'Users & Roles' },
   { href: '/settings/units', label: 'Units' },
   { href: '/settings/scanner', label: 'Barcode Scanner' },
-  { href: '/settings/seeding', label: 'Seeding' },
 ];
+
+const superAdminNav = [
+    { href: '/settings/seeding', label: 'Seeding' },
+]
+
 
 export default function SettingsLayout({ children }: { children: ReactNode }) {
     const pathname = usePathname();
+    const { user } = useAuth();
+    
+    const isSuperAdmin = user?.email === 'superadmin@gmail.com';
+    const settingsNav = isSuperAdmin ? [...baseSettingsNav, ...superAdminNav] : baseSettingsNav;
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
+      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
         <h1 className="text-lg font-semibold md:text-2xl">Settings</h1>
       </div>
        <div className="flex flex-col md:flex-row gap-8">
