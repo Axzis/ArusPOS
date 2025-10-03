@@ -463,10 +463,8 @@ export default function ProductsPage() {
                 <span className="hidden sm:inline">Export</span>
             </Button>
             <Button size="sm" variant="outline" className="gap-1" onClick={handleDownloadTemplate}>
+                 <Download className="h-4 w-4" />
                 <span className="hidden sm:inline">Template</span>
-                <span className="sm:hidden">
-                    <Download className="h-4 w-4" />
-                </span>
             </Button>
             <Sheet open={isSheetOpen} onOpenChange={(open) => {
                 if (!open) {

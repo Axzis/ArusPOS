@@ -392,10 +392,10 @@ export async function getTransactionById(transactionId: string): Promise<Documen
     if (!transactionId) return null;
     
     // Use collectionGroup to find the transaction across all subcollections
-    const transactionsQuery = query(collectionGroup(db, TRANSACTIONS_COLLECTION), where(doc(db, transactionId).id, '==', transactionId), limit(1));
-
-    const snapshot = await getDocs(collectionGroup(db, 'transactions'));
+    const transactionsQuery = query(collectionGroup(db, TRANSACTIONS_COLLECTION), where('__name__', '==', `*/${transactionId}`), limit(1));
+    const snapshot = await getDocs(query(collectionGroup(db, 'transactions')));
     const transactionDoc = snapshot.docs.find(doc => doc.id === transactionId);
+
 
     if (!transactionDoc) {
         console.warn(`Transaction with ID ${transactionId} not found.`);
@@ -432,7 +432,7 @@ export async function addTransactionAndUpdateStock(
 
   // 2. Update stock for each item in the transaction
   for (const item of items) {
-    const productRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, item.id);
+    const productRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLlection, item.id);
     batch.update(productRef, { stock: increment(-item.quantity) });
   }
   

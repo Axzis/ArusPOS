@@ -146,7 +146,7 @@ export default function DashboardPage() {
         .reduce((sum, t) => sum + calculateProfit(t.items), 0), [transactions]);
 
   const newCustomersThisMonth = useMemo(() => customers.filter(c => {
-    if (!c.createdAt) return false;
+    if (!c.createdAt?.toDate) return false;
     const createdAt = c.createdAt.toDate();
     const now = new Date();
     return createdAt.getMonth() === now.getMonth() && createdAt.getFullYear() === now.getFullYear();
@@ -191,7 +191,7 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
+      <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
         <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
       </div>
 
