@@ -10,6 +10,8 @@ import {
   Upload,
   Download,
   X,
+  Camera,
+  Image as ImageIcon
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -67,6 +69,8 @@ import ExcelImport from '@/components/excel-import';
 import { utils, writeFile } from 'xlsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type Bundle = {
   quantity: number;
@@ -86,6 +90,144 @@ type Product = {
   bundles?: Bundle[];
 };
 
+function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => void }) {
+  const [isCameraOpen, setIsCameraOpen] = React.useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = React.useState<boolean | null>(null);
+  const [capturedImage, setCapturedImage] = React.useState<string | null>(null);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isCameraOpen) {
+      setCapturedImage(null);
+      const getCameraPermission = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          setHasCameraPermission(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+        }
+      };
+      getCameraPermission();
+    } else {
+      // Stop camera stream when component is not open
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+      }
+    }
+  }, [isCameraOpen]);
+  
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // In a real app, you would upload the file and get a URL.
+        // For now, we'll use the Base64 data URI as a placeholder.
+        onImageSelect(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCapture = () => {
+    if (videoRef.current && canvasRef.current) {
+      const context = canvasRef.current.getContext('2d');
+      if (context) {
+        canvasRef.current.width = videoRef.current.videoWidth;
+        canvasRef.current.height = videoRef.current.videoHeight;
+        context.drawImage(videoRef.current, 0, 0, videoRef.current.videoWidth, videoRef.current.videoHeight);
+        const dataUrl = canvasRef.current.toDataURL('image/png');
+        setCapturedImage(dataUrl);
+        setIsCameraOpen(false); // Close camera view
+      }
+    }
+  };
+  
+  const handleConfirmCapturedImage = () => {
+      if(capturedImage) {
+          onImageSelect(capturedImage);
+          setCapturedImage(null);
+      }
+  }
+
+  return (
+    <Dialog onOpenChange={(open) => !open && setIsCameraOpen(false)}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <Upload className="mr-2 h-4 w-4" />
+          Upload Image
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Pilih Sumber Gambar</DialogTitle>
+          <DialogDescription>
+            Unggah file gambar dari perangkat Anda atau gunakan kamera untuk mengambil foto baru.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isCameraOpen ? (
+          <div className="space-y-4">
+             {hasCameraPermission === false ? (
+                 <Alert variant="destructive">
+                    <Camera className="h-4 w-4" />
+                    <AlertTitle>Izin Kamera Ditolak</AlertTitle>
+                    <AlertDescription>
+                        Mohon izinkan akses kamera di pengaturan browser Anda untuk menggunakan fitur ini.
+                    </AlertDescription>
+                </Alert>
+             ) : (
+                <>
+                    <div className="bg-muted rounded-md overflow-hidden aspect-video flex items-center justify-center">
+                         <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                         <canvas ref={canvasRef} className="hidden" />
+                    </div>
+                    <Button onClick={handleCapture} className="w-full">
+                        <Camera className="mr-2 h-4 w-4" /> Ambil Gambar
+                    </Button>
+                </>
+             )}
+              <Button variant="outline" onClick={() => setIsCameraOpen(false)} className="w-full">Kembali</Button>
+          </div>
+        ) : capturedImage ? (
+             <div className="space-y-4">
+                <p className="text-sm font-medium">Pratinjau Gambar:</p>
+                <div className="bg-muted rounded-md overflow-hidden aspect-video flex items-center justify-center">
+                    <Image src={capturedImage} alt="Captured preview" width={400} height={225} className="object-contain"/>
+                </div>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setCapturedImage(null)} className="w-full">Ambil Ulang</Button>
+                    <Button onClick={handleConfirmCapturedImage} className="w-full">Konfirmasi Gambar</Button>
+                </div>
+            </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+            <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => fileInputRef.current?.click()}>
+              <ImageIcon className="h-8 w-8" />
+              <span>Unggah File</span>
+            </Button>
+            <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setIsCameraOpen(true)}>
+              <Camera className="h-8 w-8" />
+              <span>Gunakan Kamera</span>
+            </Button>
+          </div>
+        )}
+
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
 export default function ProductsPage() {
     const [products, setProducts] = React.useState<Product[]>([]);
     const [loading, setLoading] = React.useState(true);
@@ -99,6 +241,7 @@ export default function ProductsPage() {
     const formRef = React.useRef<HTMLFormElement>(null);
     const { currency, units, loading: loadingBusiness } = useBusiness();
     const [productBundles, setProductBundles] = React.useState<Bundle[]>([]);
+    const [productImageUrl, setProductImageUrl] = React.useState<string>('');
 
 
     React.useEffect(() => {
@@ -150,7 +293,7 @@ export default function ProductsPage() {
             stock: parseInt(formData.get('stock') as string, 10),
             category: formData.get('category') as string,
             unit: formData.get('unit') as string,
-            imageUrl: formData.get('imageUrl') as string,
+            imageUrl: productImageUrl,
             bundles: productBundles.filter(b => b.quantity > 0 && b.price > 0),
         };
 
@@ -244,12 +387,14 @@ export default function ProductsPage() {
     const openSheetForEdit = (product: Product) => {
         setEditingProduct(product);
         setProductBundles(product.bundles || []);
+        setProductImageUrl(product.imageUrl || '');
         setIsSheetOpen(true);
     };
 
     const openSheetForNew = () => {
         setEditingProduct(null);
         setProductBundles([]);
+        setProductImageUrl('');
         setIsSheetOpen(true);
     };
     
@@ -257,6 +402,7 @@ export default function ProductsPage() {
         setIsSheetOpen(false);
         setEditingProduct(null);
         setProductBundles([]);
+        setProductImageUrl('');
     }
 
     const handleBundleChange = (index: number, field: keyof Bundle, value: string) => {
@@ -363,9 +509,18 @@ export default function ProductsPage() {
                                 <Label htmlFor="stock" className="text-right">Stock</Label>
                                 <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock ?? ''} className="col-span-3" required />
                             </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="imageUrl" className="text-right">Image URL</Label>
-                                <Input id="imageUrl" name="imageUrl" defaultValue={editingProduct?.imageUrl ?? ''} className="col-span-3" placeholder="https://example.com/image.png" />
+                             <div className="grid grid-cols-4 items-start gap-4">
+                                <Label className="text-right pt-2">Image</Label>
+                                <div className="col-span-3 space-y-2">
+                                    <div className="aspect-video w-full bg-muted rounded-md overflow-hidden flex items-center justify-center">
+                                      {productImageUrl ? (
+                                        <Image src={productImageUrl} alt="Product preview" width={200} height={112} className="object-cover" />
+                                      ) : (
+                                        <ImageIcon className="text-muted-foreground" size={32} />
+                                      )}
+                                    </div>
+                                    <ImageUploadDialog onImageSelect={setProductImageUrl} />
+                                </div>
                             </div>
 
                             <Separator />
@@ -538,8 +693,4 @@ export default function ProductsPage() {
     </div>
   );
 }
-    
-
-    
-
     
