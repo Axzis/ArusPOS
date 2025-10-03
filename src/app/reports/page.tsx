@@ -30,7 +30,8 @@ import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Download } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { BarChart, Bar, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
+import { Bar, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, LineChart, Line } from 'recharts';
+import { DateRange } from 'react-day-picker';
 
 
 type Transaction = {
