@@ -7,6 +7,8 @@ import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPass
 import { collection, query, where, getDocs, DocumentData } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 
+const USERS_COLLECTION = 'users';
+
 // Extend the User type to include our custom role and photoURL from Firestore
 export type AppUser = User & {
     role?: string;
