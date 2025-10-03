@@ -1,6 +1,7 @@
 
 "use client";
 import React, { useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Card,
   CardContent,
@@ -23,20 +24,29 @@ import {
   CreditCard,
   Activity,
   TrendingUp,
-  TrendingDown,
 } from 'lucide-react';
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 import { getTransactionsForBranch, getCustomers } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useBusiness } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
-import { format, parseISO, startOfMonth, getMonth, getYear, isToday } from 'date-fns';
+import { format, parseISO, isToday } from 'date-fns';
+
+const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), {
+  ssr: false,
+  loading: () => <Skeleton className="h-64 w-full" />,
+});
+const Bar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false });
+const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false });
+const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
+const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false });
+const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false });
+
 
 const chartConfig = {
   sales: {
@@ -109,21 +119,23 @@ export default function DashboardPage() {
                 }
             };
             loadData();
+        } else {
+          setLoading(false);
         }
     }, [toast]);
 
 
-  const totalRevenue = transactions
+  const totalRevenue = useMemo(() => transactions
     .filter((t) => t.type === 'Sale')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + t.amount, 0), [transactions]);
   
-  const salesToday = transactions
+  const salesToday = useMemo(() => transactions
     .filter(
       (t) =>
         isToday(parseISO(t.date)) &&
         t.type === 'Sale'
     )
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + t.amount, 0), [transactions]);
 
     const calculateProfit = (transactionItems: TransactionItem[]) => {
         return transactionItems.reduce((profit, item) => {
@@ -134,20 +146,20 @@ export default function DashboardPage() {
         }, 0);
     };
 
-    const totalProfit = transactions
+    const totalProfit = useMemo(() => transactions
         .filter(t => t.type === 'Sale')
-        .reduce((sum, t) => sum + calculateProfit(t.items), 0);
+        .reduce((sum, t) => sum + calculateProfit(t.items), 0), [transactions]);
 
-    const profitToday = transactions
+    const profitToday = useMemo(() => transactions
         .filter(t => t.type === 'Sale' && isToday(parseISO(t.date)))
-        .reduce((sum, t) => sum + calculateProfit(t.items), 0);
+        .reduce((sum, t) => sum + calculateProfit(t.items), 0), [transactions]);
 
-  const newCustomersThisMonth = customers.filter(c => {
+  const newCustomersThisMonth = useMemo(() => customers.filter(c => {
     if (!c.createdAt) return false;
     const createdAt = c.createdAt.toDate();
     const now = new Date();
     return createdAt.getMonth() === now.getMonth() && createdAt.getFullYear() === now.getFullYear();
-  }).length;
+  }).length, [customers]);
 
   const totalCustomers = customers.length;
   
@@ -159,12 +171,16 @@ export default function DashboardPage() {
     transactions
         .filter(t => t.type === 'Sale')
         .forEach(t => {
-            const transactionDate = parseISO(t.date);
-            const monthKey = format(transactionDate, 'yyyy-MM');
-            if (!salesByMonth[monthKey]) {
-                salesByMonth[monthKey] = 0;
+            try {
+                const transactionDate = parseISO(t.date);
+                const monthKey = format(transactionDate, 'yyyy-MM');
+                if (!salesByMonth[monthKey]) {
+                    salesByMonth[monthKey] = 0;
+                }
+                salesByMonth[monthKey] += t.amount;
+            } catch(e) {
+                console.error("Invalid date format in transaction:", t);
             }
-            salesByMonth[monthKey] += t.amount;
         });
 
     const data = Array.from({ length: 12 }, (_, i) => {
@@ -270,7 +286,7 @@ export default function DashboardPage() {
             <CardDescription>A summary of sales over the past 12 months.</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading ? <Skeleton className="h-64 w-full" /> : (
+            
             <ChartContainer config={chartConfig} className="h-64 w-full">
               <BarChart accessibilityLayer data={monthlySalesData}>
                 <CartesianGrid vertical={false} />
@@ -290,7 +306,7 @@ export default function DashboardPage() {
                 <Bar dataKey="sales" fill="var(--color-sales)" radius={4} />
               </BarChart>
             </ChartContainer>
-            )}
+            
           </CardContent>
         </Card>
 

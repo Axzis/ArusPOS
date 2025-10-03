@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import {
   Card,
@@ -126,6 +126,72 @@ const getBestPrice = (product: Product, quantity: number): { price: number, orig
     return { price: product.price, originalPrice: product.price };
 };
 
+const ProductListItem = React.memo(({ product, onAddToOrder, currency }: { product: ProductWithPromo, onAddToOrder: (product: ProductWithPromo) => void, currency: string }) => {
+  return (
+    <div
+        className="flex items-center justify-between py-2"
+    >
+        <div>
+            <p className="font-medium">{product.name}</p>
+            <div className="text-sm text-muted-foreground">
+                {product.hasPromo ? (
+                    <>
+                        <span className="text-destructive font-semibold">{formatCurrency(product.price, currency)}</span>
+                        <span className="line-through ml-2">{formatCurrency(product.originalPrice, currency)}</span>
+                    </>
+                ) : (
+                    <span>{formatCurrency(product.price, currency)}</span>
+                )}
+            </div>
+        </div>
+        <Button
+        size="icon"
+        variant="ghost"
+        onClick={() => onAddToOrder(product)}
+        disabled={product.stock < 1}
+        >
+        <PlusCircle className="h-5 w-5" />
+        </Button>
+    </div>
+  );
+});
+ProductListItem.displayName = 'ProductListItem';
+
+const ProductGridItem = React.memo(({ product, onAddToOrder, currency }: { product: ProductWithPromo, onAddToOrder: (product: ProductWithPromo) => void, currency: string }) => {
+  return (
+    <Card className={cn("overflow-hidden", product.stock < 1 && "opacity-50")}>
+        <button className="w-full text-left" onClick={() => onAddToOrder(product)} disabled={product.stock < 1}>
+            <div className="relative aspect-square w-full">
+                <Image
+                    src={product.imageUrl || `https://picsum.photos/seed/${product.id}/150/150`}
+                    alt={product.name}
+                    fill
+                    className="object-cover"
+                    data-ai-hint="product image"
+                />
+                    {product.stock < 1 && <Badge variant="destructive" className="absolute top-1 left-1">Out of Stock</Badge>}
+                    {product.hasPromo && <Badge variant="destructive" className="absolute top-1 right-1">Promo</Badge>}
+            </div>
+            <div className="p-2">
+                <h3 className="font-semibold text-sm truncate">{product.name}</h3>
+                <p className="text-sm text-muted-foreground">
+                        {product.hasPromo ? (
+                        <>
+                            <span className="text-destructive font-semibold">{formatCurrency(product.price, currency)}</span>
+                            <span className="line-through ml-2">{formatCurrency(product.originalPrice, currency)}</span>
+                        </>
+                    ) : (
+                        <span>{formatCurrency(product.price, currency)}</span>
+                    )}
+                </p>
+            </div>
+        </button>
+    </Card>
+  );
+});
+ProductGridItem.displayName = 'ProductGridItem';
+
+
 export default function TransactionsPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -216,7 +282,7 @@ export default function TransactionsPage() {
     window.open(`/print/invoice/${transactionId}`, '_blank');
   };
   
-  const updateOrderItemQuantity = (productId: string, newQuantity: number) => {
+  const updateOrderItemQuantity = useCallback((productId: string, newQuantity: number) => {
     setOrderItems(prevItems => {
         return prevItems.map(item => {
             if (item.id === productId) {
@@ -235,7 +301,7 @@ export default function TransactionsPage() {
             return item;
         });
     });
-  };
+  }, [allProducts]);
 
   const addToOrder = useCallback((product: ProductWithPromo) => {
     setOrderItems((prevItems) => {
@@ -310,11 +376,11 @@ export default function TransactionsPage() {
     };
   }, [scannerEnabled, productsWithPromo, addToOrder, toast]);
 
-  const removeFromOrder = (productId: string) => {
+  const removeFromOrder = useCallback((productId: string) => {
     setOrderItems((prevItems) =>
       prevItems.filter((item) => item.id !== productId)
     );
-  };
+  }, []);
 
   const clearOrder = () => {
     setOrderItems([]);
@@ -403,17 +469,17 @@ export default function TransactionsPage() {
     }
   };
 
-  const subtotal = orderItems.reduce(
+  const subtotal = useMemo(() => orderItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
-  );
+  ), [orderItems]);
   
-  const tax = taxEnabled ? subtotal * (taxRate / 100) : 0;
-  const total = subtotal + tax - discount;
+  const tax = useMemo(() => taxEnabled ? subtotal * (taxRate / 100) : 0, [subtotal, taxEnabled, taxRate]);
+  const total = useMemo(() => subtotal + tax - discount, [subtotal, tax, discount]);
 
-  const filteredProducts = productsWithPromo.filter((product) =>
+  const filteredProducts = useMemo(() => productsWithPromo.filter((product) =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  ), [productsWithPromo, searchTerm]);
   
   const isLoading = loading || loadingBusiness;
 
@@ -588,32 +654,7 @@ export default function TransactionsPage() {
                                 </div>
                             ))
                         ) : filteredProducts.map((product) => (
-                        <div
-                            key={product.id}
-                            className="flex items-center justify-between py-2"
-                        >
-                            <div>
-                                <p className="font-medium">{product.name}</p>
-                                <div className="text-sm text-muted-foreground">
-                                    {product.hasPromo ? (
-                                        <>
-                                            <span className="text-destructive font-semibold">{formatCurrency(product.price, currency)}</span>
-                                            <span className="line-through ml-2">{formatCurrency(product.originalPrice, currency)}</span>
-                                        </>
-                                    ) : (
-                                        <span>{formatCurrency(product.price, currency)}</span>
-                                    )}
-                                </div>
-                            </div>
-                            <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => addToOrder(product)}
-                            disabled={product.stock < 1}
-                            >
-                            <PlusCircle className="h-5 w-5" />
-                            </Button>
-                        </div>
+                          <ProductListItem key={product.id} product={product} onAddToOrder={addToOrder} currency={currency} />
                         ))}
                     </div>
                 )}
@@ -630,34 +671,7 @@ export default function TransactionsPage() {
                                 </Card>
                             ))
                         ) : filteredProducts.map((product) => (
-                            <Card key={product.id} className={cn("overflow-hidden", product.stock < 1 && "opacity-50")}>
-                                <button className="w-full text-left" onClick={() => addToOrder(product)} disabled={product.stock < 1}>
-                                    <div className="relative aspect-square w-full">
-                                        <Image
-                                            src={product.imageUrl || `https://picsum.photos/seed/${product.id}/150/150`}
-                                            alt={product.name}
-                                            fill
-                                            className="object-cover"
-                                            data-ai-hint="product image"
-                                        />
-                                         {product.stock < 1 && <Badge variant="destructive" className="absolute top-1 left-1">Out of Stock</Badge>}
-                                         {product.hasPromo && <Badge variant="destructive" className="absolute top-1 right-1">Promo</Badge>}
-                                    </div>
-                                    <div className="p-2">
-                                        <h3 className="font-semibold text-sm truncate">{product.name}</h3>
-                                        <p className="text-sm text-muted-foreground">
-                                             {product.hasPromo ? (
-                                                <>
-                                                    <span className="text-destructive font-semibold">{formatCurrency(product.price, currency)}</span>
-                                                    <span className="line-through ml-2">{formatCurrency(product.originalPrice, currency)}</span>
-                                                </>
-                                            ) : (
-                                                <span>{formatCurrency(product.price, currency)}</span>
-                                            )}
-                                        </p>
-                                    </div>
-                                </button>
-                            </Card>
+                            <ProductGridItem key={product.id} product={product} onAddToOrder={addToOrder} currency={currency} />
                         ))}
                     </div>
                 )}
@@ -790,5 +804,3 @@ export default function TransactionsPage() {
     </div>
   );
 }
-
-    
