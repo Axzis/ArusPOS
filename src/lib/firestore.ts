@@ -394,16 +394,18 @@ export async function getTransactionsForBranch(branchId: string) {
 export async function getTransactionById(transactionId: string): Promise<DocumentData | null> {
     if (!transactionId) return null;
     
-    // Use collectionGroup to find the transaction across all subcollections
+    // This is a simplified approach assuming we can guess the path.
+    // A robust solution needs to know the businessId and branchId.
+    // For the print page, we'll rely on a Collection Group query.
     const q = query(collectionGroup(db, 'transactions'), where('__name__', '==', `*/${transactionId}`), limit(1));
     const snapshot = await getDocs(q);
     
-    // Since document paths in collection group queries are complex, we find the specific doc ID.
-    const transactionDoc = snapshot.docs.find(doc => doc.id === transactionId);
+    // This is tricky because we need the full path to match the doc id.
+    // A more direct way is better if we have business/branch context.
+    const transactionDoc = snapshot.docs.find(d => d.id === transactionId);
 
-
-    if (!transactionDoc) {
-        console.warn(`Transaction with ID ${transactionId} not found.`);
+    if (!transactionDoc || !transactionDoc.exists()) {
+        console.warn(`Transaction with ID ${transactionId} not found in any branch.`);
         return null;
     }
     
@@ -450,6 +452,50 @@ export async function addTransactionAndUpdateStock(
   // 4. Commit all writes at once
   await batch.commit();
 }
+
+
+export async function refundTransaction(branchId: string, originalTransaction: DocumentData) {
+    const businessId = await getBusinessId();
+    if (!businessId || !branchId) throw new Error("Missing business or branch ID");
+    if (originalTransaction.status === 'Refunded') throw new Error("Transaction has already been refunded.");
+
+    const batch = writeBatch(db);
+
+    // 1. Create a new "Refund" transaction
+    const refundTransactionRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION));
+    batch.set(refundTransactionRef, {
+        customerName: originalTransaction.customerName,
+        amount: -originalTransaction.amount, // Negative amount for refund
+        originalTransactionId: originalTransaction.id,
+        status: 'Refunded',
+        type: 'Refund',
+        items: originalTransaction.items,
+        currency: originalTransaction.currency,
+        date: serverTimestamp(),
+    });
+
+    // 2. Restore stock for each refunded item
+    for (const item of originalTransaction.items) {
+        const productRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, item.id);
+        batch.update(productRef, { stock: increment(item.quantity) });
+    }
+
+    // 3. Update the original transaction status to "Refunded"
+    const originalTransactionRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION, originalTransaction.id);
+    batch.update(originalTransactionRef, { status: 'Refunded' });
+
+    // 4. Update the customer's totalSpent
+    const customersQuery = query(collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION), where("name", "==", originalTransaction.customerName), limit(1));
+    const customersSnapshot = await getDocs(customersQuery);
+    if (!customersSnapshot.empty) {
+        const customerDoc = customersSnapshot.docs[0];
+        batch.update(customerDoc.ref, { totalSpent: increment(-originalTransaction.amount) });
+    }
+    
+    // 5. Commit all writes
+    await batch.commit();
+}
+
 
 
 // === Inventory Functions ===
@@ -689,5 +735,3 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
-
-    

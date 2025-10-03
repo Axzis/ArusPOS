@@ -33,8 +33,9 @@ import {
   Barcode,
   Printer,
   MessageSquare,
+  RotateCcw,
 } from 'lucide-react';
-import { getProductsForBranch, getCustomers, getTransactionsForBranch, addTransactionAndUpdateStock, getPromosForBranch, addCustomer as addNewCustomer } from '@/lib/firestore';
+import { getProductsForBranch, getCustomers, getTransactionsForBranch, addTransactionAndUpdateStock, getPromosForBranch, addCustomer as addNewCustomer, refundTransaction } from '@/lib/firestore';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -51,9 +52,18 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { isWithinInterval } from 'date-fns';
+import { format as formatDate, isWithinInterval } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { MoreHorizontal } from 'lucide-react';
 
 type OrderItem = {
   id: string;
@@ -216,6 +226,7 @@ export default function TransactionsPage() {
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const [transactionForRegistration, setTransactionForRegistration] = useState<Transaction | null>(null);
   const [discount, setDiscount] = useState(0);
+  const [transactionToRefund, setTransactionToRefund] = useState<Transaction | null>(null);
 
   const fetchData = useCallback(async (branchId: string) => {
     setLoading(true);
@@ -430,6 +441,30 @@ export default function TransactionsPage() {
       }
   };
 
+  const executeRefund = async () => {
+    if (!transactionToRefund || !activeBranchId) return;
+
+    setIsProcessing(true);
+    try {
+      await refundTransaction(activeBranchId, transactionToRefund);
+      toast({
+        title: "Refund Successful",
+        description: `Transaction for ${transactionToRefund.customerName} has been refunded.`,
+      });
+      if(activeBranchId) fetchData(activeBranchId); // Refresh data
+    } catch (error: any) {
+      console.error("Failed to process refund:", error);
+      toast({
+        title: "Refund Failed",
+        description: error.message || "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+      setTransactionToRefund(null);
+    }
+  };
+
   const generateWhatsAppMessage = (transaction: Transaction, customerPhone: string) => {
     const itemsText = transaction.items.map(item => `${item.quantity}x ${item.name}`).join(', ');
     const message = `Halo! Terima kasih atas pembelian Anda. Berikut adalah detail transaksi Anda:\n\n*Total:* ${formatCurrency(transaction.amount, currency)}\n*Item:* ${itemsText}\n\nTerima kasih telah berbelanja!`;
@@ -486,7 +521,7 @@ export default function TransactionsPage() {
 
   return (
     <div className="flex flex-col gap-6" id="main-content">
-       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6 no-print">
+       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6 no-print">
         <h1 className="text-lg font-semibold md:text-2xl">Transactions</h1>
       </div>
 
@@ -698,7 +733,8 @@ export default function TransactionsPage() {
                     <TableRow>
                     <TableHead>Customer</TableHead>
                     <TableHead className="hidden sm:table-cell">Items</TableHead>
-                    <TableHead className="hidden md:table-cell">Status</TableHead>
+                    <TableHead className="hidden md:table-cell">Date</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead className="w-[100px] text-right">Actions</TableHead>
                     </TableRow>
@@ -709,12 +745,13 @@ export default function TransactionsPage() {
                         <TableRow key={i}>
                             <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                             <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
-                            <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-16" /></TableCell>
+                            <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                            <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                             <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                             <TableCell className="flex gap-2 justify-end"><Skeleton className="h-8 w-8" /><Skeleton className="h-8 w-8" /></TableCell>
                         </TableRow>
                     ))
-                    ) : transactions.slice(0, 5).map((transaction) => {
+                    ) : transactions.map((transaction) => {
                     const itemsSummary = transaction.items?.map(i => `${i.quantity}x ${i.name}`).join(', ') || 'No items';
                     return (
                     <TableRow key={transaction.id}>
@@ -724,12 +761,13 @@ export default function TransactionsPage() {
                         </div>
                         </TableCell>
                         <TableCell className='max-w-[200px] truncate hidden sm:table-cell'>{itemsSummary}</TableCell>
-                        <TableCell className="hidden md:table-cell">
+                        <TableCell className="hidden md:table-cell">{formatDate(new Date(transaction.date), "dd MMM yyyy, HH:mm")}</TableCell>
+                        <TableCell>
                         <Badge
                             variant={
                             transaction.status === 'Paid'
                                 ? 'default'
-                                : 'destructive'
+                                : transaction.status === 'Refunded' ? 'destructive' : 'outline'
                             }
                         >
                             {transaction.status || 'N/A'}
@@ -742,15 +780,41 @@ export default function TransactionsPage() {
                             : ''
                         }`}
                         >
-                        {formatCurrency(Math.abs(transaction.amount || 0), transaction.currency || currency)}
+                        {formatCurrency(transaction.amount || 0, transaction.currency || currency)}
                         </TableCell>
                         <TableCell className='text-right'>
-                            <Button variant="ghost" size="icon" onClick={() => handlePrintInvoice(transaction.id)} title="Print Invoice">
-                                <Printer className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" onClick={() => handleSendWhatsApp(transaction)} title="Send WhatsApp Receipt">
-                                <MessageSquare className="h-4 w-4" />
-                            </Button>
+                             <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                    aria-haspopup="true"
+                                    size="icon"
+                                    variant="ghost"
+                                    >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">Toggle menu</span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                    <DropdownMenuItem onSelect={() => handlePrintInvoice(transaction.id)}>
+                                        <Printer className="mr-2 h-4 w-4" />
+                                        Print
+                                    </DropdownMenuItem>
+                                     <DropdownMenuItem onSelect={() => handleSendWhatsApp(transaction)}>
+                                        <MessageSquare className="mr-2 h-4 w-4" />
+                                        Send WA
+                                    </DropdownMenuItem>
+                                    {transaction.status === 'Paid' && (
+                                        <>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem onSelect={() => setTransactionToRefund(transaction)} className="text-destructive focus:text-destructive">
+                                                <RotateCcw className="mr-2 h-4 w-4" />
+                                                Refund
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </TableCell>
                     </TableRow>
                     )})}
@@ -779,6 +843,36 @@ export default function TransactionsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+        <AlertDialog open={!!transactionToRefund} onOpenChange={() => setTransactionToRefund(null)}>
+            <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Confirm Refund</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Are you sure you want to refund this transaction? This will restore stock and cannot be undone.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            {transactionToRefund && (
+                <div>
+                    <p className="font-medium">Items to be refunded:</p>
+                    <ul className="list-disc list-inside text-sm text-muted-foreground mt-2">
+                        {transactionToRefund.items.map(item => (
+                            <li key={item.id}>{item.quantity}x {item.name}</li>
+                        ))}
+                    </ul>
+                     <p className="font-bold text-right mt-4">
+                        Total Refund: {formatCurrency(transactionToRefund.amount, currency)}
+                    </p>
+                </div>
+            )}
+            <AlertDialogFooter>
+                <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={executeRefund} disabled={isProcessing}>
+                    {isProcessing ? 'Refunding...' : 'Confirm Refund'}
+                </AlertDialogAction>
+            </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       
       <AlertDialog open={isRegistering} onOpenChange={setIsRegistering}>
         <AlertDialogContent>
