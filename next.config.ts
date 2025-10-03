@@ -1,5 +1,7 @@
 import type {NextConfig} from 'next';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 })
@@ -26,4 +28,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withBundleAnalyzer(nextConfig);
+// Don't use bundle analyzer in dev, it conflicts with turbopack
+export default isDev ? nextConfig : withBundleAnalyzer(nextConfig);

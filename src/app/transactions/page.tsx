@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -324,7 +325,7 @@ export default function TransactionsPage() {
             return prevItems;
         }
       const { price, originalPrice } = getBestPrice(product, 1);
-      return [...prevItems, { ...product, quantity: 1, price, originalPrice, unit: product.unit || '' }];
+      return [...prevItems, { ...product, quantity: 1, price, originalPrice, unit: product.unit }];
     });
   }, [toast, allProducts]);
 
