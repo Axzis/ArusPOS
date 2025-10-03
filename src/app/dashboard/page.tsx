@@ -309,7 +309,7 @@ export default function DashboardPage() {
                 <div className="flex h-64 w-full items-center justify-center bg-muted/50 rounded-lg">
                     <Button variant="outline" onClick={() => setShowSalesChart(true)}>
                         <LineChartIcon className="mr-2 h-4 w-4" />
-                        Tampilkan Grafik
+                        Show Chart
                     </Button>
                 </div>
             )}

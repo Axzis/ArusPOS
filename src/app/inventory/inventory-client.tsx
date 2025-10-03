@@ -240,7 +240,7 @@ export default function InventoryClient() {
                     id="stock" 
                     type="number" 
                     value={newStock} 
-                    onChange={(e) => setNewStock(parseInt(e.target.value, 10) || 0)}
+                    onChange={(e) => setNewStock(Math.max(0, parseInt(e.target.value, 10) || 0))}
                     className="col-span-3" 
                 />
                 </div>

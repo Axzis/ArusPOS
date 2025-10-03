@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/tabs';
 import {
   ChartContainer,
-  ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import { getTransactionsForBranch, getProductsForBranch } from '@/lib/firestore';
