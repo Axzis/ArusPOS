@@ -15,6 +15,7 @@ type TransactionItem = {
     name: string;
     price: number;
     quantity: number;
+    unit: string;
     originalPrice: number;
     purchasePrice?: number;
 };
@@ -125,6 +126,7 @@ export default function InvoicePrintPage() {
                                 <TableRow>
                                     <TableHead>Product</TableHead>
                                     <TableHead className="text-center">Qty</TableHead>
+                                    <TableHead className="text-center">Unit</TableHead>
                                     <TableHead className="text-right">Total</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -133,6 +135,7 @@ export default function InvoicePrintPage() {
                                     <TableRow key={item.id}>
                                         <TableCell>{item.name}</TableCell>
                                         <TableCell className="text-center">{item.quantity}</TableCell>
+                                        <TableCell className="text-center">{item.unit}</TableCell>
                                         <TableCell className="text-right">{formatCurrency(item.price * item.quantity, currency)}</TableCell>
                                     </TableRow>
                                 ))}
@@ -172,3 +175,4 @@ export default function InvoicePrintPage() {
         </div>
     );
 }
+

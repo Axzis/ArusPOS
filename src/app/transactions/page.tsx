@@ -67,6 +67,7 @@ type OrderItem = {
   quantity: number;
   stock: number;
   originalPrice: number;
+  unit: string;
   bundles?: Bundle[];
 };
 
@@ -77,6 +78,7 @@ type Product = {
   purchasePrice: number;
   stock: number;
   sku: string;
+  unit: string;
   imageUrl?: string;
   bundles?: Bundle[];
 };
@@ -107,7 +109,7 @@ type Transaction = {
     date: string;
     status: 'Paid' | 'Refunded';
     type: 'Sale' | 'Refund';
-    items: { id: string; name: string; quantity: number; price: number, purchasePrice: number, originalPrice: number }[];
+    items: { id: string; name: string; quantity: number; price: number, purchasePrice: number, originalPrice: number, unit: string }[];
     discount?: number;
 }
 
@@ -123,7 +125,8 @@ export default function TransactionsPage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  
+  const [productsWithPromo, setProductsWithPromo] = useState<ProductWithPromo[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [selectedCustomerId, setSelectedCustomerId] = useState(ANONYMOUS_CUSTOMER_ID);
   const [isConfirming, setIsConfirming] = useState(false);
@@ -137,8 +140,7 @@ export default function TransactionsPage() {
   const [transactionForRegistration, setTransactionForRegistration] = useState<Transaction | null>(null);
   const [discount, setDiscount] = useState(0);
 
-    const getBestPrice = (product: Product, quantity: number): number => {
-        // First check for active promo, as it takes precedence
+    const getBestPrice = useCallback((product: Product, quantity: number): number => {
         const now = new Date();
         const activePromo = promos.find(p => 
             p.productId === product.id && 
@@ -149,61 +151,60 @@ export default function TransactionsPage() {
             return activePromo.promoPrice;
         }
         
-        // If no promo, check for bundles
         if (!product.bundles || product.bundles.length === 0) {
             return product.price;
         }
         
-        // Sort bundles by quantity descending to find the best applicable deal
         const sortedBundles = [...product.bundles].sort((a, b) => b.quantity - a.quantity);
         
         for (const bundle of sortedBundles) {
             if (quantity >= bundle.quantity) {
-                return bundle.price; // This is price per item for the bundle
+                return bundle.price;
             }
         }
         
-        return product.price; // No bundle applies, return base price
-    };
+        return product.price;
+    }, [promos]);
 
-    const productsWithPromo = useMemo((): ProductWithPromo[] => {
-        const now = new Date();
-        const activePromos = promos.filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
+    const fetchData = useCallback(async (branchId: string) => {
+        setLoading(true);
+        try {
+            const [transactionsData, productsData, customersData, promoData] = await Promise.all([
+                getTransactionsForBranch(branchId),
+                getProductsForBranch(branchId),
+                getCustomers(),
+                getPromosForBranch(branchId),
+            ]);
+            
+            const now = new Date();
+            const activePromos = promoData.filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
 
-        return allProducts.map(product => {
-            const promo = activePromos.find(p => p.productId === product.id);
-            const bestPrice = getBestPrice(product, 1);
-            return {
-                ...product,
-                originalPrice: product.price,
-                price: bestPrice, // Show the best starting price (could be promo or base)
-                hasPromo: !!promo,
-            };
-        });
-    }, [allProducts, promos]);
+            const processedProducts = (productsData as Product[]).map(product => {
+                const promo = activePromos.find(p => p.productId === product.id);
+                const bestPrice = getBestPrice(product, 1);
+                return {
+                    ...product,
+                    originalPrice: product.price,
+                    price: bestPrice,
+                    hasPromo: !!promo,
+                };
+            });
+            
+            setTransactions(transactionsData as Transaction[]);
+            setCustomers(customersData as Customer[]);
+            setAllProducts(productsData as Product[]);
+            setPromos(promoData as Promo[]);
+            setProductsWithPromo(processedProducts);
 
 
-  const fetchData = useCallback(async (branchId: string) => {
-    setLoading(true);
-    try {
-        const [transactionsData, productsData, customersData, promoData] = await Promise.all([
-            getTransactionsForBranch(branchId),
-            getProductsForBranch(branchId),
-            getCustomers(),
-            getPromosForBranch(branchId),
-        ]);
-        setTransactions(transactionsData as Transaction[]);
-        setCustomers(customersData as Customer[]);
-        setAllProducts(productsData as Product[]);
-        setPromos(promoData as Promo[]);
+        } catch (error) {
+            console.error("Failed to load transaction page data:", error);
+            toast({ title: "Error", description: "Could not load data for transactions.", variant: "destructive" });
+        } finally {
+            setLoading(false);
+        }
+    }, [toast, getBestPrice]);
 
-    } catch (error) {
-        console.error("Failed to load transaction page data:", error);
-        toast({ title: "Error", description: "Could not load data for transactions.", variant: "destructive" });
-    } finally {
-        setLoading(false);
-    }
-  }, [toast]);
 
   useEffect(() => {
     const storedBranch = localStorage.getItem('activeBranch');
@@ -222,20 +223,47 @@ export default function TransactionsPage() {
     window.open(`/print/invoice/${transactionId}`, '_blank');
   };
 
+  const handleQuantityChange = (productId: string, newQuantity: number) => {
+    setOrderItems((prevItems) => {
+        const itemToUpdate = prevItems.find(item => item.id === productId);
+        if (!itemToUpdate) return prevItems;
+
+        if (newQuantity < 1) {
+            return prevItems.filter(item => item.id !== productId);
+        }
+
+        if (newQuantity > itemToUpdate.stock) {
+            toast({ title: "Stock limit reached", description: `Only ${itemToUpdate.stock} items available.`, variant: "destructive" });
+            newQuantity = itemToUpdate.stock;
+        }
+        
+        const baseProduct = allProducts.find(p => p.id === productId);
+        if(!baseProduct) return prevItems;
+        
+        const bestPrice = getBestPrice(baseProduct, newQuantity);
+
+        return prevItems.map(item =>
+            item.id === productId ? { ...item, quantity: newQuantity, price: bestPrice } : item
+        );
+    });
+  };
+
   const addToOrder = useCallback((product: ProductWithPromo) => {
     setOrderItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
+      
+      if (product.stock < 1 && !existingItem) {
+            toast({ title: "Out of Stock", description: `${product.name} is out of stock.`, variant: "destructive" });
+            return prevItems;
+      }
+
       const newQuantity = (existingItem?.quantity || 0) + 1;
       
       if (newQuantity > product.stock) {
           toast({ title: "Stock limit reached", description: `Cannot add more ${product.name}.`, variant: "destructive" });
           return prevItems;
       }
-       if (product.stock < 1 && !existingItem) {
-            toast({ title: "Out of Stock", description: `${product.name} is out of stock.`, variant: "destructive" });
-            return prevItems;
-      }
-
+      
       const bestPrice = getBestPrice(product, newQuantity);
 
       if (existingItem) {
@@ -245,11 +273,9 @@ export default function TransactionsPage() {
             : item
         );
       }
-      // For a new item, get its base price or promo price for quantity 1
-      const initialPrice = getBestPrice(product, 1);
-      return [...prevItems, { ...product, quantity: 1, price: initialPrice }];
+      return [...prevItems, { ...product, quantity: 1, price: bestPrice }];
     });
-  }, [toast, promos, allProducts]);
+  }, [getBestPrice]);
 
   useEffect(() => {
     if (!scannerEnabled) return;
@@ -327,7 +353,7 @@ export default function TransactionsPage() {
               status: 'Paid' as 'Paid' | 'Refunded',
               type: 'Sale' as 'Sale' | 'Refund',
               currency: currency,
-              items: orderItems.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price, purchasePrice: item.purchasePrice, originalPrice: item.originalPrice })),
+              items: orderItems.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price, purchasePrice: item.purchasePrice, originalPrice: item.originalPrice, unit: item.unit })),
           };
 
           await addTransactionAndUpdateStock(activeBranchId, customerId, transactionData, orderItems);
@@ -433,7 +459,8 @@ export default function TransactionsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Product</TableHead>
-                      <TableHead>Quantity</TableHead>
+                      <TableHead>Unit</TableHead>
+                      <TableHead className="w-[100px]">Quantity</TableHead>
                       <TableHead className="text-right">Price</TableHead>
                       <TableHead className="w-0"></TableHead>
                     </TableRow>
@@ -448,7 +475,17 @@ export default function TransactionsPage() {
                                 <Badge variant="destructive" className="ml-2">Promo</Badge>
                             )}
                           </TableCell>
-                          <TableCell>{item.quantity}</TableCell>
+                          <TableCell>{item.unit}</TableCell>
+                          <TableCell>
+                            <Input
+                                type="number"
+                                value={item.quantity}
+                                onChange={(e) => handleQuantityChange(item.id, parseInt(e.target.value, 10))}
+                                className="h-8 w-20 text-center"
+                                min="1"
+                                max={item.stock}
+                            />
+                          </TableCell>
                           <TableCell className="text-right">
                             {formatCurrency(item.price * item.quantity, currency)}
                           </TableCell>
@@ -466,7 +503,7 @@ export default function TransactionsPage() {
                     ) : (
                       <TableRow>
                         <TableCell
-                          colSpan={4}
+                          colSpan={5}
                           className="py-10 text-center text-muted-foreground"
                         >
                           No items in order
