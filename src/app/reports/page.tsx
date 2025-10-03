@@ -113,7 +113,11 @@ export default function ReportsPage() {
         const start = startOfDay(today);
         const end = endOfDay(today);
         
-        const todaysTransactions = salesTransactions.filter(t => isWithinInterval(parseISO(t.date), { start, end }));
+        const todaysTransactions = salesTransactions.filter(t => {
+            try {
+                return isWithinInterval(parseISO(t.date), { start, end });
+            } catch { return false; }
+        });
 
         const revenue = todaysTransactions.reduce((sum, t) => sum + t.amount, 0);
         const count = todaysTransactions.length;
@@ -194,6 +198,8 @@ export default function ReportsPage() {
                 return false;
             }
         });
+        
+        if (thisWeeksTransactions.length === 0) return [];
 
         thisWeeksTransactions.forEach(t => {
             if(t.items) {
@@ -314,7 +320,7 @@ export default function ReportsPage() {
                         />
                         </PopoverContent>
                     </Popover>
-                    <Button onClick={handleDownloadCsv} disabled={!dateRange || !dateRange.from}>
+                    <Button onClick={handleDownloadCsv} disabled={!dateRange?.from || !dateRange?.to}>
                         <Download className="mr-2 h-4 w-4" />
                         Download Report (CSV)
                     </Button>
@@ -431,3 +437,5 @@ export default function ReportsPage() {
         </div>
     );
 }
+
+    
