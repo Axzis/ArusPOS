@@ -1,6 +1,5 @@
 
 
-
 import { auth, db } from './firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import {
@@ -158,27 +157,35 @@ export async function getBusinessWithBranches() {
 
 // === Super Admin functions ===
 export async function getAllBusinesses() {
+    // 1. Fetch all businesses
     const businessQuery = query(collection(db, BUSINESSES_COLLECTION), orderBy("createdAt", "desc"));
     const businessSnapshot = await getDocs(businessQuery);
+    const businessesData = businessSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Business[];
+    const businessMap = new Map(businessesData.map(b => [b.id, { ...b, branches: [], users: [] }]));
+
+    // 2. Fetch all branches using a collectionGroup query
+    const branchesQuery = query(collectionGroup(db, BRANCHES_COLLECTION));
+    const branchesSnapshot = await getDocs(branchesQuery);
+    branchesSnapshot.forEach(branchDoc => {
+        const branchData = { id: branchDoc.id, ...branchDoc.data() };
+        const businessId = branchDoc.ref.parent.parent?.id;
+        if (businessId && businessMap.has(businessId)) {
+            businessMap.get(businessId)?.branches.push(branchData as any);
+        }
+    });
     
-    const businesses = await Promise.all(businessSnapshot.docs.map(async (businessDoc) => {
-        const business = { id: businessDoc.id, ...businessDoc.data() };
-        
-        // Fetch branches
-        const branchesCollectionRef = collection(db, `businesses/${business.id}/branches`);
-        const branchesSnapshot = await getDocs(branchesCollectionRef);
-        const branches = branchesSnapshot.docs.map(branchDoc => ({ id: branchDoc.id, ...branchDoc.data() }));
+    // 3. Fetch all users
+    const usersQuery = query(collection(db, USERS_COLLECTION));
+    const usersSnapshot = await getDocs(usersQuery);
+    usersSnapshot.forEach(userDoc => {
+        const userData = { id: userDoc.id, ...userDoc.data() };
+        const businessId = userData.businessId;
+        if (businessId && businessMap.has(businessId)) {
+            businessMap.get(businessId)?.users.push(userData as any);
+        }
+    });
 
-        // Fetch users
-        const usersCollectionRef = collection(db, USERS_COLLECTION);
-        const usersQuery = query(usersCollectionRef, where("businessId", "==", business.id));
-        const usersSnapshot = await getDocs(usersQuery);
-        const users = usersSnapshot.docs.map(userDoc => ({ id: userDoc.id, ...userDoc.data() }));
-
-        return { ...business, branches, users };
-    }));
-
-    return businesses;
+    return Array.from(businessMap.values());
 }
 
 
@@ -196,13 +203,13 @@ export async function deleteBusiness(businessId: string) {
 }
 
 
-// === Product Functions (Simplified Structure) ===
+// === Product Functions (Branch Specific) ===
 export async function getProductsForBranch(branchId: string) {
     const businessId = await getBusinessId();
     if (!businessId || !branchId) return [];
 
-    const productsCollectionRef = collection(db, PRODUCTS_COLLECTION);
-    const q = query(productsCollectionRef, where("businessId", "==", businessId), where("branchId", "==", branchId));
+    const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
+    const q = query(productsCollectionRef);
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
@@ -211,11 +218,9 @@ export async function addProductToBranch(branchId: string, productData: Omit<Doc
     const businessId = await getBusinessId();
     if (!businessId) throw new Error("No business ID found");
     
-    const productsCollectionRef = collection(db, PRODUCTS_COLLECTION);
+    const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
     return await addDoc(productsCollectionRef, {
         ...productData,
-        businessId: businessId,
-        branchId: branchId,
         createdAt: serverTimestamp()
     });
 }
@@ -224,8 +229,7 @@ export async function updateProductInBranch(branchId: string, productId: string,
     const businessId = await getBusinessId();
     if (!businessId) throw new Error("No business ID found");
 
-    const productDocRef = doc(db, PRODUCTS_COLLECTION, productId);
-    // Optional: You could add a check here to ensure the product belongs to the business/branch before updating.
+    const productDocRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, productId);
     return await updateDoc(productDocRef, {
         ...productData,
         updatedAt: serverTimestamp()
@@ -236,8 +240,7 @@ export async function deleteProductFromBranch(branchId: string, productId: strin
     const businessId = await getBusinessId();
     if (!businessId) throw new Error("No business ID found");
 
-    const productDocRef = doc(db, PRODUCTS_COLLECTION, productId);
-    // Optional: Add a check for ownership before deleting.
+    const productDocRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, productId);
     return await deleteDoc(productDocRef);
 }
 
@@ -245,8 +248,8 @@ export async function upsertProductsBySku(branchId: string, productsData: any[])
     const businessId = await getBusinessId();
     if (!businessId) throw new Error("No business ID found");
 
-    const productsRef = collection(db, PRODUCTS_COLLECTION);
-    const q = query(productsRef, where('businessId', '==', businessId), where('branchId', '==', branchId));
+    const productsRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
+    const q = query(productsRef);
     const querySnapshot = await getDocs(q);
     const existingProducts = new Map(querySnapshot.docs.map(doc => [doc.data().sku, { id: doc.id, ...doc.data() }]));
 
@@ -266,19 +269,14 @@ export async function upsertProductsBySku(branchId: string, productsData: any[])
         }
 
         const existing = existingProducts.get(product.sku);
-        const productPayload = {
-            ...product,
-            businessId,
-            branchId,
-        };
 
         if (existing) {
-            const docRef = doc(db, PRODUCTS_COLLECTION, existing.id);
-            batch.set(docRef, { ...productPayload, updatedAt: serverTimestamp() });
+            const docRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, existing.id);
+            batch.set(docRef, product, { merge: true });
             updated++;
         } else {
-            const docRef = doc(collection(db, PRODUCTS_COLLECTION));
-            batch.set(docRef, { ...productPayload, createdAt: serverTimestamp() });
+            const docRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION));
+            batch.set(docRef, { ...product, createdAt: serverTimestamp() });
             inserted++;
         }
     }
@@ -394,28 +392,20 @@ export async function getTransactionById(transactionId: string): Promise<Documen
     if (!transactionId) return null;
     
     // Use collectionGroup to find the transaction across all subcollections
-    const transactionsQuery = query(collectionGroup(db, TRANSACTIONS_COLLECTION), where('__name__', '==', `*/${transactionId}`), limit(1));
-    const allTransactionsSnapshot = await getDocs(transactionsQuery);
+    const transactionsQuery = query(collectionGroup(db, TRANSACTIONS_COLLECTION), where(doc(db, transactionId).id, '==', transactionId), limit(1));
 
-    let foundDoc: DocumentData | null = null;
-    if (!allTransactionsSnapshot.empty) {
-        foundDoc = allTransactionsSnapshot.docs[0];
-    } else {
-        // Fallback for document ID only query if direct path fails
-        const snapshot = await getDocs(collectionGroup(db, TRANSACTIONS_COLLECTION));
-        const doc = snapshot.docs.find(d => d.id === transactionId);
-        if(doc) foundDoc = doc;
-    }
+    const snapshot = await getDocs(collectionGroup(db, 'transactions'));
+    const transactionDoc = snapshot.docs.find(doc => doc.id === transactionId);
 
-    if (!foundDoc) {
+    if (!transactionDoc) {
         console.warn(`Transaction with ID ${transactionId} not found.`);
         return null;
     }
     
-    const data = foundDoc.data();
+    const data = transactionDoc.data();
     const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
     return {
-        id: foundDoc.id,
+        id: transactionDoc.id,
         ...data,
         date: date
     };
@@ -442,7 +432,7 @@ export async function addTransactionAndUpdateStock(
 
   // 2. Update stock for each item in the transaction
   for (const item of items) {
-    const productRef = doc(db, PRODUCTS_COLLECTION, item.id);
+    const productRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, item.id);
     batch.update(productRef, { stock: increment(-item.quantity) });
   }
   
@@ -558,8 +548,8 @@ export async function getPromosForBranch(branchId: string) {
     const businessId = await getBusinessId();
     if (!businessId || !branchId) return [];
     
-    const promosCollectionRef = collection(db, PROMOS_COLLECTION);
-    const q = query(promosCollectionRef, where("businessId", "==", businessId), where("branchId", "==", branchId));
+    const promosCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PROMOS_COLLECTION);
+    const q = query(promosCollectionRef);
 
     const querySnapshot = await getDocs(q);
 
@@ -580,11 +570,9 @@ export async function getPromosForBranch(branchId: string) {
 export async function addPromoToBranch(branchId: string, promoData: Omit<DocumentData, 'id'>) {
     const businessId = await getBusinessId();
     if (!businessId) throw new Error("No business ID found");
-    const promosCollectionRef = collection(db, PROMOS_COLLECTION);
+    const promosCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PROMOS_COLLECTION);
     return await addDoc(promosCollectionRef, {
         ...promoData,
-        businessId: businessId,
-        branchId: branchId,
         startDate: Timestamp.fromDate(new Date(promoData.startDate)),
         endDate: Timestamp.fromDate(new Date(promoData.endDate)),
         createdAt: serverTimestamp()
@@ -594,14 +582,14 @@ export async function addPromoToBranch(branchId: string, promoData: Omit<Documen
 export async function deletePromoFromBranch(branchId: string, promoId: string) {
     const businessId = await getBusinessId();
     if (!businessId) throw new Error("No business ID found");
-    const promoDocRef = doc(db, PROMOS_COLLECTION, promoId);
-    // Optional: Add check to ensure promo belongs to the business/branch
+    const promoDocRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PROMOS_COLLECTION, promoId);
     return await deleteDoc(promoDocRef);
 }
 
 // === Seeding & Reset Functions ===
 
-async function deleteCollection(collectionRef: any) {
+async function deleteCollection(collectionPath: string) {
+    const collectionRef = collection(db, collectionPath);
     const q = query(collectionRef);
     const snapshot = await getDocs(q);
 
@@ -624,18 +612,15 @@ export async function resetBranchData(branchId: string): Promise<void> {
         throw new Error("Missing Business ID or Branch ID for reset.");
     }
     
-    // Define queries for collections to be deleted
-    const productsQuery = query(collection(db, PRODUCTS_COLLECTION), where("businessId", "==", businessId), where("branchId", "==", branchId));
+    const productsPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PRODUCTS_COLLECTION}`;
     const transactionsPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${TRANSACTIONS_COLLECTION}`;
-    const promosQuery = query(collection(db, PROMOS_COLLECTION), where("businessId", "==", businessId), where("branchId", "==", branchId));
-
-    // Note: Customers are global to the business, so we do not delete them when resetting a branch.
-
+    const promosPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PROMOS_COLLECTION}`;
+    
     // Execute deletions in parallel
     await Promise.all([
-        deleteCollection(productsQuery),
-        deleteCollection(collection(db, transactionsPath)),
-        deleteCollection(promosQuery),
+        deleteCollection(productsPath),
+        deleteCollection(transactionsPath),
+        deleteCollection(promosPath),
     ]);
 }
 
@@ -646,11 +631,11 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
         throw new Error("Missing Business ID or Branch ID for seeding.");
     }
 
-    const productsCollectionRef = collection(db, PRODUCTS_COLLECTION);
+    const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
     const customersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION);
 
     // Check if products already exist to prevent re-seeding
-    const existingProductsQuery = query(productsCollectionRef, where("businessId", "==", businessId), where("branchId", "==", branchId), limit(1));
+    const existingProductsQuery = query(productsCollectionRef, limit(1));
     const existingProducts = await getDocs(existingProductsQuery);
     if (!existingProducts.empty) {
         console.log("Branch already has products. Seeding aborted.");
@@ -672,8 +657,6 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
         const docRef = doc(productsCollectionRef);
         batch.set(docRef, { 
             ...product, 
-            businessId: businessId, 
-            branchId: branchId, 
             createdAt: serverTimestamp() 
         });
     });
@@ -696,5 +679,3 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
-
-    
