@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -11,6 +12,7 @@ type Business = {
     currency: string;
     taxEnabled: boolean;
     taxRate: number;
+    units: string[];
     branches: any[];
 }
 
@@ -20,6 +22,7 @@ type BusinessContextType = {
     currency: string;
     taxEnabled: boolean;
     taxRate: number;
+    units: string[];
 };
 
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
@@ -47,8 +50,9 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     const currency = business?.currency || 'USD';
     const taxEnabled = business?.taxEnabled !== false; // default to true
     const taxRate = business?.taxRate || 0;
+    const units = business?.units || ['pcs'];
 
-    const value = { business, loading, currency, taxEnabled, taxRate };
+    const value = { business, loading, currency, taxEnabled, taxRate, units };
 
     if (loading) {
          return (
@@ -75,3 +79,5 @@ export function useBusiness() {
     }
     return context;
 }
+
+    

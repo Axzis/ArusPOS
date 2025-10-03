@@ -64,6 +64,7 @@ import { useBusiness } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
 import ExcelImport from '@/components/excel-import';
 import { utils, writeFile } from 'xlsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type Product = {
   id: string;
@@ -88,7 +89,7 @@ export default function ProductsPage() {
     const [activeBranchId, setActiveBranchId] = React.useState<string | null>(null);
     const [isSaveConfirmOpen, setIsSaveConfirmOpen] = React.useState(false);
     const formRef = React.useRef<HTMLFormElement>(null);
-    const { currency, loading: loadingBusiness } = useBusiness();
+    const { currency, units, loading: loadingBusiness } = useBusiness();
 
 
     React.useEffect(() => {
@@ -309,9 +310,18 @@ export default function ProductsPage() {
                             <Label htmlFor="category" className="text-right">Category</Label>
                             <Input id="category" name="category" defaultValue={editingProduct?.category ?? ''} className="col-span-3" required />
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
+                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="unit" className="text-right">Unit</Label>
-                            <Input id="unit" name="unit" defaultValue={editingProduct?.unit ?? 'pcs'} className="col-span-3" required />
+                            <Select name="unit" defaultValue={editingProduct?.unit ?? units[0]}>
+                                <SelectTrigger className="col-span-3">
+                                    <SelectValue placeholder="Select a unit" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {units.map((unit, i) => (
+                                        <SelectItem key={i} value={unit}>{unit}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="price" className="text-right">Sale Price</Label>
@@ -465,5 +475,7 @@ export default function ProductsPage() {
     </div>
   );
 }
+
+    
 
     

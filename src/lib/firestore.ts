@@ -1,5 +1,6 @@
 
 
+
 import { auth, db } from './firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import {
@@ -42,6 +43,7 @@ type BusinessData = {
     taxEnabled?: boolean;
     taxRate?: number;
     isActive?: boolean;
+    units?: string[];
     branches: {
         name: string;
         address: string;
@@ -92,6 +94,7 @@ export async function addUserAndBusiness(data: BusinessData) {
         currency: 'USD', // Default currency
         taxEnabled: true,
         taxRate: 8,
+        units: ['pcs', 'kg', 'liter'], // Default units
         isActive: true,
         createdAt: serverTimestamp(),
         adminUid: user.uid,
@@ -693,3 +696,5 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
+
+    

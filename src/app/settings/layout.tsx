@@ -11,6 +11,7 @@ const settingsNav = [
   { href: '/settings/profile', label: 'My Profile' },
   { href: '/settings/branches', label: 'Branches' },
   { href: '/settings/users', label: 'Users & Roles' },
+  { href: '/settings/units', label: 'Units' },
   { href: '/settings/scanner', label: 'Barcode Scanner' },
   { href: '/settings/seeding', label: 'Seeding' },
 ];
@@ -48,3 +49,5 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+    
