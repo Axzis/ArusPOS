@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef, ReactNode, Suspense } from 'react';
+import React, { useState, useRef, ReactNode } from 'react';
 import dynamic from 'next/dynamic';
 import { read, utils } from 'xlsx';
 import { Button } from '@/components/ui/button';

@@ -77,11 +77,16 @@ export default function ReportsPage() {
         if (storedBranch) {
             const branch = JSON.parse(storedBranch);
             setActiveBranchId(branch.id);
+        } else {
+            setLoading(false);
         }
     }, []);
 
     const fetchData = useCallback(async () => {
-        if (!activeBranchId) return;
+        if (!activeBranchId) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
             const transactionsData = await getTransactionsForBranch(activeBranchId);
@@ -97,14 +102,13 @@ export default function ReportsPage() {
     useEffect(() => {
         if (activeBranchId) {
             fetchData();
-        } else {
-            setLoading(false);
         }
     }, [activeBranchId, fetchData]);
 
     const salesTransactions = useMemo(() => transactions.filter(t => t.type === 'Sale'), [transactions]);
 
     const dailyStats = useMemo(() => {
+        if (salesTransactions.length === 0) return { revenue: 0, count: 0 };
         const today = new Date();
         const start = startOfDay(today);
         const end = endOfDay(today);
@@ -126,7 +130,13 @@ export default function ReportsPage() {
             const end = endOfDay(day);
 
             const dailyTotal = salesTransactions
-                .filter(t => isWithinInterval(parseISO(t.date), { start, end }))
+                .filter(t => {
+                    try {
+                        return isWithinInterval(parseISO(t.date), { start, end });
+                    } catch {
+                        return false;
+                    }
+                })
                 .reduce((sum, t) => sum + t.amount, 0);
             
             data.push({
@@ -139,8 +149,9 @@ export default function ReportsPage() {
 
     const monthlySalesData = useMemo(() => {
         const now = new Date();
-        const yearStart = startOfYear(subDays(now, 365)); // start from 12 months ago
-        const yearEnd = endOfYear(now);
+        // Go back 11 months to get a 12-month interval including the current month
+        const yearStart = startOfMonth(subDays(now, 335)); 
+        const yearEnd = endOfMonth(now);
         
         const months = eachMonthOfInterval({
           start: yearStart,
@@ -150,7 +161,13 @@ export default function ReportsPage() {
         const monthlyTotals = months.map(monthStart => {
             const monthEnd = endOfMonth(monthStart);
             const monthTotal = salesTransactions
-                .filter(t => isWithinInterval(parseISO(t.date), { start: monthStart, end: monthEnd }))
+                .filter(t => {
+                     try {
+                        return isWithinInterval(parseISO(t.date), { start: monthStart, end: monthEnd });
+                    } catch {
+                        return false;
+                    }
+                })
                 .reduce((sum, t) => sum + t.amount, 0);
             
             return {
@@ -159,16 +176,24 @@ export default function ReportsPage() {
             };
         });
 
-        return monthlyTotals.slice(-12);
+        return monthlyTotals;
     }, [salesTransactions]);
 
     const topProductsData = useMemo(() => {
+        if (salesTransactions.length === 0) return [];
         const productCounts: { [key: string]: { name: string, sales: number } } = {};
         const today = new Date();
-        const startOfThisWeek = startOfWeek(today, { weekStartsOn: 1 }); // Start on Monday
+        // Setting weekStartsOn: 1 makes Monday the start of the week. Adjust if your locale is different.
+        const startOfThisWeek = startOfWeek(today, { weekStartsOn: 1 }); 
         const endOfThisWeek = endOfWeek(today, { weekStartsOn: 1 });
 
-        const thisWeeksTransactions = salesTransactions.filter(t => isWithinInterval(parseISO(t.date), {start: startOfThisWeek, end: endOfThisWeek}));
+        const thisWeeksTransactions = salesTransactions.filter(t => {
+            try {
+                return isWithinInterval(parseISO(t.date), {start: startOfThisWeek, end: endOfThisWeek});
+            } catch {
+                return false;
+            }
+        });
 
         thisWeeksTransactions.forEach(t => {
             if(t.items) {
@@ -197,7 +222,13 @@ export default function ReportsPage() {
             return;
         }
 
-        const filtered = transactions.filter(t => isWithinInterval(parseISO(t.date), { start: dateRange.from!, end: dateRange.to! }));
+        const filtered = transactions.filter(t => {
+            try {
+                return isWithinInterval(parseISO(t.date), { start: dateRange.from!, end: dateRange.to! })
+            } catch {
+                return false;
+            }
+        });
         
         if (filtered.length === 0) {
             toast({
