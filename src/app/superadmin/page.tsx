@@ -140,7 +140,7 @@ export default function SuperAdminPage() {
         if (!businessToDeactivate) return;
         
         try {
-            const newStatus = !(businessToDeactivate.isActive !== false);
+            const newStatus = !businessToDeactivate.isActive;
             await updateBusiness(businessToDeactivate.id, { isActive: newStatus });
             toast({ title: "Success", description: `Business ${businessToDeactivate.name} has been ${newStatus ? 'activated' : 'deactivated'}.` });
             fetchBusinesses(); // Refresh list
@@ -254,8 +254,8 @@ export default function SuperAdminPage() {
                                 <TableRow key={business.id}>
                                     <TableCell className="font-medium">{business.name}</TableCell>
                                     <TableCell>
-                                        <Badge variant={business.isActive !== false ? 'default' : 'outline'}>
-                                            {business.isActive !== false ? 'Active' : 'Inactive'}
+                                        <Badge variant={business.isActive ? 'default' : 'outline'}>
+                                            {business.isActive ? 'Active' : 'Inactive'}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>{business.type}</TableCell>
@@ -274,7 +274,7 @@ export default function SuperAdminPage() {
                                                 <DropdownMenuItem 
                                                     onSelect={() => setBusinessToDeactivate(business)}
                                                 >
-                                                    {business.isActive !== false ? 'Deactivate' : 'Activate'}
+                                                    {business.isActive ? 'Deactivate' : 'Activate'}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
                                                 <DropdownMenuItem 
@@ -369,7 +369,7 @@ export default function SuperAdminPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will {businessToDeactivate?.isActive !== false ? 'deactivate' : 'activate'} the business "{businessToDeactivate?.name}". They may lose access temporarily.
+                        This will {businessToDeactivate?.isActive ? 'deactivate' : 'activate'} the business "{businessToDeactivate?.name}". They may lose access temporarily.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -416,5 +416,3 @@ export default function SuperAdminPage() {
         </div>
     )
 }
-
-    
