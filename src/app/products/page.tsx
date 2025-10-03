@@ -101,7 +101,17 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
 
   React.useEffect(() => {
     let stream: MediaStream | null = null;
+    
     const getCameraPermission = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Kamera Tidak Didukung',
+          description: 'Browser Anda tidak mendukung akses kamera.',
+        });
+        return;
+      }
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
         setHasCameraPermission(true);
@@ -113,13 +123,13 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
         setHasCameraPermission(false);
         toast({
           variant: 'destructive',
-          title: 'Camera Access Denied',
-          description: 'Please enable camera permissions in your browser settings.',
+          title: 'Izin Kamera Ditolak',
+          description: 'Mohon aktifkan izin kamera di pengaturan browser Anda.',
         });
       }
     };
 
-    if (isCameraOpen) {
+    if (isCameraOpen && hasCameraPermission !== true) {
       setCapturedImage(null);
       getCameraPermission();
     }
@@ -129,7 +139,7 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [isCameraOpen, toast]);
+  }, [isCameraOpen, toast, hasCameraPermission]);
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -158,6 +168,7 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
             stream.getTracks().forEach(track => track.stop());
             videoRef.current.srcObject = null;
         }
+        setHasCameraPermission(null); // Reset permission state
         setIsCameraOpen(false);
       }
     }
@@ -170,8 +181,19 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
       }
   }
 
+  const resetCamera = () => {
+    setCapturedImage(null);
+    setIsCameraOpen(true);
+    setHasCameraPermission(null);
+  }
+
   return (
-    <Dialog onOpenChange={(open) => !open && setIsCameraOpen(false)}>
+    <Dialog onOpenChange={(open) => {
+        if (!open) {
+          setIsCameraOpen(false);
+          setHasCameraPermission(null);
+        }
+    }}>
       <DialogTrigger asChild>
         <Button variant="outline">
           <Upload className="mr-2 h-4 w-4" />
@@ -188,31 +210,31 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
 
         {isCameraOpen ? (
           <div className="space-y-4">
-             {hasCameraPermission === null && (
-                 <div className="bg-muted rounded-md aspect-video flex items-center justify-center">
-                     <p>Requesting camera access...</p>
+            <div className="bg-muted rounded-md overflow-hidden aspect-video flex items-center justify-center relative">
+              <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+              <canvas ref={canvasRef} className="hidden" />
+
+              {hasCameraPermission === false && (
+                 <div className="absolute inset-0 flex items-center justify-center p-4 bg-black/50">
+                    <Alert variant="destructive">
+                        <Camera className="h-4 w-4" />
+                        <AlertTitle>Izin Kamera Ditolak</AlertTitle>
+                        <AlertDescription>
+                            Mohon izinkan akses kamera di pengaturan browser Anda untuk menggunakan fitur ini.
+                        </AlertDescription>
+                    </Alert>
+                </div>
+              )}
+               {hasCameraPermission === null && (
+                 <div className="absolute inset-0 flex items-center justify-center p-4 bg-black/50">
+                    <p className="text-white">Meminta akses kamera...</p>
                  </div>
-             )}
-             {hasCameraPermission === false ? (
-                 <Alert variant="destructive">
-                    <Camera className="h-4 w-4" />
-                    <AlertTitle>Izin Kamera Ditolak</AlertTitle>
-                    <AlertDescription>
-                        Mohon izinkan akses kamera di pengaturan browser Anda untuk menggunakan fitur ini.
-                    </AlertDescription>
-                </Alert>
-             ) : hasCameraPermission === true ? (
-                <>
-                    <div className="bg-muted rounded-md overflow-hidden aspect-video flex items-center justify-center">
-                         <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                         <canvas ref={canvasRef} className="hidden" />
-                    </div>
-                    <Button onClick={handleCapture} className="w-full">
-                        <Camera className="mr-2 h-4 w-4" /> Ambil Gambar
-                    </Button>
-                </>
-             ) : null}
-              <Button variant="outline" onClick={() => setIsCameraOpen(false)} className="w-full">Kembali</Button>
+              )}
+            </div>
+            <Button onClick={handleCapture} className="w-full" disabled={!hasCameraPermission}>
+                <Camera className="mr-2 h-4 w-4" /> Ambil Gambar
+            </Button>
+            <Button variant="outline" onClick={() => setIsCameraOpen(false)} className="w-full">Kembali</Button>
           </div>
         ) : capturedImage ? (
              <div className="space-y-4">
@@ -221,7 +243,7 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
                     <Image src={capturedImage} alt="Captured preview" width={400} height={225} className="object-contain"/>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setCapturedImage(null)} className="w-full">Ambil Ulang</Button>
+                    <Button variant="outline" onClick={resetCamera} className="w-full">Ambil Ulang</Button>
                     <Button onClick={handleConfirmCapturedImage} className="w-full">Konfirmasi Gambar</Button>
                 </div>
             </div>
