@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -60,15 +61,20 @@ type OrderItem = {
   quantity: number;
   stock: number;
   originalPrice: number;
+  unit: string;
+  purchasePrice?: number;
 };
 
 type Product = {
   id: string;
   name: string;
   price: number;
+  purchasePrice: number;
   stock: number;
   sku: string;
   imageUrl?: string;
+  unit: string;
+  bundles?: { quantity: number; price: number }[];
 };
 
 type ProductWithPromo = Product & {
@@ -99,10 +105,26 @@ type Transaction = {
     type: 'Sale' | 'Refund';
     items: OrderItem[];
     discount?: number;
+    currency: string;
 }
 
 const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
 
+const getBestPrice = (product: Product, quantity: number): { price: number, originalPrice: number} => {
+    if (!product.bundles || product.bundles.length === 0) {
+        return { price: product.price, originalPrice: product.price };
+    }
+
+    const sortedBundles = [...product.bundles].sort((a, b) => b.quantity - a.quantity);
+    
+    for (const bundle of sortedBundles) {
+        if (quantity >= bundle.quantity) {
+            return { price: bundle.price, originalPrice: product.price };
+        }
+    }
+
+    return { price: product.price, originalPrice: product.price };
+};
 
 export default function TransactionsPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
@@ -110,6 +132,8 @@ export default function TransactionsPage() {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [promos, setPromos] = useState<Promo[]>([]);
   const [productsWithPromo, setProductsWithPromo] = useState<ProductWithPromo[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   
@@ -135,23 +159,32 @@ export default function TransactionsPage() {
             getCustomers(),
             getPromosForBranch(branchId),
         ]);
-        setTransactions(transactionsData as Transaction[]);
-        setCustomers(customersData as Customer[]);
+        
+        setTransactions(transactionsData as Transaction[] || []);
+        const fetchedCustomers = customersData as Customer[] || [];
+        setCustomers(fetchedCustomers);
+        const fetchedProducts = productsData as Product[] || [];
+        setAllProducts(fetchedProducts);
+        const fetchedPromos = promoData as Promo[] || [];
+        setPromos(fetchedPromos);
 
         const now = new Date();
-        const activePromos = (promoData as Promo[]).filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
+        const activePromos = fetchedPromos.filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
 
-        const processedProducts = (productsData as Product[]).map(product => {
+        const processedProducts = fetchedProducts.map(product => {
             const promo = activePromos.find(p => p.productId === product.id);
+            const { price: bestPrice, originalPrice } = getBestPrice(product, 1);
+            const finalPrice = promo ? promo.promoPrice : bestPrice;
+            
             return {
                 ...product,
-                originalPrice: product.price,
-                price: promo ? promo.promoPrice : product.price,
+                originalPrice: originalPrice,
+                price: finalPrice,
                 hasPromo: !!promo,
             };
         });
-
         setProductsWithPromo(processedProducts);
+
 
     } catch (error) {
         console.error("Failed to load transaction page data:", error);
@@ -182,6 +215,27 @@ export default function TransactionsPage() {
   const handlePrintInvoice = (transactionId: string) => {
     window.open(`/print/invoice/${transactionId}`, '_blank');
   };
+  
+  const updateOrderItemQuantity = (productId: string, newQuantity: number) => {
+    setOrderItems(prevItems => {
+        return prevItems.map(item => {
+            if (item.id === productId) {
+                const product = allProducts.find(p => p.id === productId);
+                if (!product) return item;
+
+                const cappedQuantity = Math.max(1, Math.min(newQuantity, item.stock));
+                const { price } = getBestPrice(product, cappedQuantity);
+
+                return {
+                    ...item,
+                    quantity: cappedQuantity,
+                    price: price,
+                };
+            }
+            return item;
+        });
+    });
+  };
 
   const addToOrder = useCallback((product: ProductWithPromo) => {
     setOrderItems((prevItems) => {
@@ -191,9 +245,11 @@ export default function TransactionsPage() {
               toast({ title: "Stock limit reached", description: `Cannot add more ${product.name}.`, variant: "destructive" });
               return prevItems;
           }
+        const newQuantity = existingItem.quantity + 1;
+        const { price } = getBestPrice(product, newQuantity);
         return prevItems.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: newQuantity, price: price }
             : item
         );
       }
@@ -201,9 +257,10 @@ export default function TransactionsPage() {
             toast({ title: "Out of Stock", description: `${product.name} is out of stock.`, variant: "destructive" });
             return prevItems;
         }
-      return [...prevItems, { ...product, quantity: 1 }];
+      const { price, originalPrice } = getBestPrice(product, 1);
+      return [...prevItems, { ...product, quantity: 1, price, originalPrice, unit: product.unit || '' }];
     });
-  }, [toast]);
+  }, [toast, allProducts]);
 
   useEffect(() => {
     if (!scannerEnabled) return;
@@ -281,7 +338,15 @@ export default function TransactionsPage() {
               status: 'Paid' as 'Paid' | 'Refunded',
               type: 'Sale' as 'Sale' | 'Refund',
               currency: currency,
-              items: orderItems.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price, originalPrice: item.originalPrice })),
+              items: orderItems.map(item => ({ 
+                  id: item.id, 
+                  name: item.name, 
+                  quantity: item.quantity, 
+                  price: item.price, 
+                  originalPrice: item.originalPrice, 
+                  unit: item.unit || '',
+                  purchasePrice: item.purchasePrice,
+                })),
           };
 
           await addTransactionAndUpdateStock(activeBranchId, customerId, transactionData, orderItems);
@@ -352,7 +417,6 @@ export default function TransactionsPage() {
   
   const isLoading = loading || loadingBusiness;
 
-
   return (
     <div className="flex flex-col gap-6" id="main-content">
        <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm md:-mx-6 md:p-6 no-print">
@@ -387,7 +451,8 @@ export default function TransactionsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Product</TableHead>
-                      <TableHead>Quantity</TableHead>
+                      <TableHead className="w-[100px]">Quantity</TableHead>
+                      <TableHead>Unit</TableHead>
                       <TableHead className="text-right">Price</TableHead>
                       <TableHead className="w-0"></TableHead>
                     </TableRow>
@@ -402,7 +467,17 @@ export default function TransactionsPage() {
                                 <Badge variant="destructive" className="ml-2">Promo</Badge>
                             )}
                           </TableCell>
-                          <TableCell>{item.quantity}</TableCell>
+                          <TableCell>
+                            <Input
+                                type="number"
+                                value={item.quantity}
+                                onChange={(e) => updateOrderItemQuantity(item.id, parseInt(e.target.value, 10))}
+                                min="1"
+                                max={item.stock}
+                                className="h-8 w-16 text-center"
+                            />
+                          </TableCell>
+                          <TableCell>{item.unit}</TableCell>
                           <TableCell className="text-right">
                             {formatCurrency(item.price * item.quantity, currency)}
                           </TableCell>
@@ -420,7 +495,7 @@ export default function TransactionsPage() {
                     ) : (
                       <TableRow>
                         <TableCell
-                          colSpan={4}
+                          colSpan={5}
                           className="py-10 text-center text-muted-foreground"
                         >
                           No items in order
@@ -566,4 +641,154 @@ export default function TransactionsPage() {
                                             data-ai-hint="product image"
                                         />
                                          {product.stock < 1 && <Badge variant="destructive" className="absolute top-1 left-1">Out of Stock</Badge>}
-                                         {product.hasPromo
+                                         {product.hasPromo && <Badge variant="destructive" className="absolute top-1 right-1">Promo</Badge>}
+                                    </div>
+                                    <div className="p-2">
+                                        <h3 className="font-semibold text-sm truncate">{product.name}</h3>
+                                        <p className="text-sm text-muted-foreground">
+                                             {product.hasPromo ? (
+                                                <>
+                                                    <span className="text-destructive font-semibold">{formatCurrency(product.price, currency)}</span>
+                                                    <span className="line-through ml-2">{formatCurrency(product.originalPrice, currency)}</span>
+                                                </>
+                                            ) : (
+                                                <span>{formatCurrency(product.price, currency)}</span>
+                                            )}
+                                        </p>
+                                    </div>
+                                </button>
+                            </Card>
+                        ))}
+                    </div>
+                )}
+                 { !isLoading && filteredProducts.length === 0 && (
+                    <div className="text-center p-10 text-muted-foreground">
+                        No products found.
+                    </div>
+                )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+            <CardTitle>Recent Transactions</CardTitle>
+            <CardDescription>A list of the most recent sales for this branch.</CardDescription>
+        </CardHeader>
+        <CardContent>
+             <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Items</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="w-[100px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                        <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-16" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
+                        <TableCell className="flex gap-2 justify-end"><Skeleton className="h-8 w-8" /><Skeleton className="h-8 w-8" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : transactions.slice(0, 5).map((transaction) => {
+                  const itemsSummary = transaction.items?.map(i => `${i.quantity}x ${i.name}`).join(', ') || 'No items';
+                  return (
+                  <TableRow key={transaction.id}>
+                    <TableCell>
+                      <div className="font-medium">
+                        {transaction.customerName || 'Anonymous'}
+                      </div>
+                    </TableCell>
+                    <TableCell className='max-w-[300px] truncate'>{itemsSummary}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          transaction.status === 'Paid'
+                            ? 'default'
+                            : 'destructive'
+                        }
+                      >
+                        {transaction.status || 'N/A'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell
+                      className={`text-right ${
+                        transaction.type === 'Refund'
+                          ? 'text-destructive'
+                          : ''
+                      }`}
+                    >
+                      {formatCurrency(Math.abs(transaction.amount || 0), transaction.currency || currency)}
+                    </TableCell>
+                    <TableCell className='text-right'>
+                        <Button variant="ghost" size="icon" onClick={() => handlePrintInvoice(transaction.id)} title="Print Invoice">
+                            <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleSendWhatsApp(transaction)} title="Send WhatsApp Receipt">
+                            <MessageSquare className="h-4 w-4" />
+                        </Button>
+                    </TableCell>
+                  </TableRow>
+                )})}
+              </TableBody>
+            </Table>
+             { !isLoading && transactions.length === 0 && (
+                <div className="text-center p-10 text-muted-foreground">
+                    No transactions found for this branch yet.
+                </div>
+            )}
+        </CardContent>
+      </Card>
+      
+      <AlertDialog open={isConfirming} onOpenChange={setIsConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to charge {formatCurrency(total, currency)}? This will complete the transaction.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleChargePayment}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <AlertDialog open={isRegistering} onOpenChange={setIsRegistering}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Daftarkan Pelanggan Baru</AlertDialogTitle>
+            <AlertDialogDescription>
+              Masukkan detail pelanggan untuk mendaftar dan mengirim struk via WhatsApp.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">Nama</Label>
+              <Input id="name" value={newCustomer.name} onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})} className="col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="phone" className="text-right">No. WhatsApp</Label>
+              <Input id="phone" value={newCustomer.phone} onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})} className="col-span-3" placeholder="628123456789" />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRegisterAndSend}>Daftar & Kirim</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+    
