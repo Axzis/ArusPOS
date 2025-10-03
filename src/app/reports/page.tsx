@@ -25,21 +25,13 @@ import { useBusiness } from '@/contexts/business-context';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, subDays, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, parseISO, startOfYear, endOfYear, eachMonthOfInterval } from 'date-fns';
+import { format, subDays, startOfDay, endOfDay, isWithinInterval, startOfMonth, endOfMonth, parseISO, startOfYear, endOfYear, eachMonthOfInterval, startOfWeek } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Download } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
-
-const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), { ssr: false, loading: () => <Skeleton className="h-72 w-full" /> });
-const Bar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false });
-const LineChart = dynamic(() => import('recharts').then(mod => mod.LineChart), { ssr: false, loading: () => <Skeleton className="h-72 w-full" /> });
-const Line = dynamic(() => import('recharts').then(mod => mod.Line), { ssr: false });
-const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false });
-const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
-const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false });
-const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false });
+import { BarChart, Bar, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 
 
 type Transaction = {
@@ -178,7 +170,7 @@ export default function ReportsPage() {
     const topProductsData = useMemo(() => {
         const productCounts: { [key: string]: { name: string, sales: number } } = {};
         const today = new Date();
-        const startOfThisWeek = startOfDay(subDays(today, today.getDay())); // Start of Sunday
+        const startOfThisWeek = startOfWeek(today, { weekStartsOn: 0 }); // Start of Sunday
         const endOfThisWeek = endOfDay(today);
 
         const thisWeeksTransactions = salesTransactions.filter(t => isWithinInterval(parseISO(t.date), {start: startOfThisWeek, end: endOfThisWeek}));
@@ -371,7 +363,7 @@ export default function ReportsPage() {
                                     <BarChart accessibilityLayer data={topProductsData} layout="vertical" margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                                         <CartesianGrid horizontal={false} />
                                         <XAxis type="number" hide />
-                                        <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} width={80} tick={{fontSize: 12}} />
+                                        <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} width={100} tick={{fontSize: 12}} />
                                         <Tooltip content={<ChartTooltipContent indicator="dot" />} />
                                         <Bar dataKey="sales" fill="var(--color-sales)" radius={4} layout="vertical" />
                                     </BarChart>
