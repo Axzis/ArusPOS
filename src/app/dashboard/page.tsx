@@ -28,7 +28,6 @@ import {
 } from 'lucide-react';
 import {
   ChartContainer,
-  ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import { getTransactionsForBranch, getCustomers } from '@/lib/firestore';
@@ -37,18 +36,14 @@ import { useToast } from '@/hooks/use-toast';
 import { useBusiness } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
 import { format, parseISO, isToday } from 'date-fns';
-import { Tooltip as RechartsTooltip } from 'recharts';
 import { Button } from '@/components/ui/button';
+import { Bar, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
 
 
 const BarChart = dynamic(() => import('recharts').then(mod => mod.BarChart), {
   ssr: false,
   loading: () => <Skeleton className="h-64 w-full" />,
 });
-const Bar = dynamic(() => import('recharts').then(mod => mod.Bar), { ssr: false });
-const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false });
-const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
-const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false });
 
 
 const chartConfig = {
@@ -303,9 +298,9 @@ export default function DashboardPage() {
                     <YAxis 
                         tickFormatter={(value) => formatCurrency(value as number, currency, 'compact')}
                     />
-                    <RechartsTooltip
-                    cursor={false}
-                    content={<ChartTooltipContent indicator="dot" formatter={(value) => formatCurrency(value as number, currency)} />}
+                    <Tooltip
+                        cursor={false}
+                        content={<ChartTooltipContent indicator="dot" formatter={(value) => formatCurrency(value as number, currency)} />}
                     />
                     <Bar dataKey="sales" fill="var(--color-sales)" radius={4} />
                 </BarChart>
