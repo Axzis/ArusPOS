@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/auth-context';
-import { AuthError } from 'firebase/auth';
 
 export default function ProfilePage() {
     const { updateUserPassword } = useAuth();
@@ -55,11 +54,12 @@ export default function ProfilePage() {
             setCurrentPassword('');
             setNewPassword('');
             setConfirmPassword('');
-        } catch (error) {
+        } catch (error: any) {
             console.error("Password change failed:", error);
             let description = "An unexpected error occurred.";
-            if (error instanceof AuthError) {
-                if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            if (error && typeof error === 'object' && 'code' in error) {
+                const firebaseError = error as { code: string };
+                if (firebaseError.code === 'auth/wrong-password' || firebaseError.code === 'auth/invalid-credential') {
                     description = "The current password you entered is incorrect.";
                 }
             }
