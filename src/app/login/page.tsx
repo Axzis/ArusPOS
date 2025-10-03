@@ -18,10 +18,11 @@ import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { FirebaseError } from 'firebase/app';
 import Link from 'next/link';
+import { sendEmailVerification } from 'firebase/auth';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -32,9 +33,18 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(email, password);
-      // The redirect is now handled by the AppShell's useEffect hook
-      // which waits for the auth state to be confirmed.
+      const loggedInUser = await login(email, password);
+      // The redirect is handled by the AppShell's useEffect hook.
+      // But we check for email verification here to provide immediate feedback.
+      if (loggedInUser && !loggedInUser.emailVerified) {
+          toast({
+              title: "Verifikasi Email Diperlukan",
+              description: "Akun Anda belum aktif. Silakan periksa email Anda untuk tautan verifikasi.",
+              variant: "destructive",
+              duration: 10000,
+          });
+          // Do not proceed with redirect logic, let the user stay on login page
+      }
     } catch (error) {
       console.error("Login failed:", error);
       let description = "An unexpected error occurred. Please try again.";
@@ -63,6 +73,35 @@ export default function LoginPage() {
     }
   };
   
+  const handleResendVerification = async () => {
+      setLoading(true);
+      try {
+        if(user) {
+            await sendEmailVerification(user);
+            toast({
+                title: "Email Verifikasi Terkirim",
+                description: "Tautan verifikasi baru telah dikirimkan ke email Anda.",
+            });
+        } else {
+             toast({
+                title: "Error",
+                description: "Tidak dapat mengirim ulang email. Silakan coba login terlebih dahulu.",
+                variant: "destructive"
+            });
+_
+        }
+      } catch (error) {
+          console.error("Resend verification failed:", error);
+           toast({
+                title: "Error",
+                description: "Gagal mengirim ulang email verifikasi. Silakan coba lagi nanti.",
+                variant: "destructive"
+            });
+      } finally {
+          setLoading(false);
+      }
+  }
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
@@ -88,7 +127,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
+                disabled={loading || authLoading}
               />
             </div>
             <div className="grid gap-2">
@@ -101,13 +140,27 @@ export default function LoginPage() {
                 required 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
+                disabled={loading || authLoading}
                />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || authLoading}>
               {loading ? 'Logging in...' : 'Login'}
             </Button>
           </form>
+           <div className="mt-4 text-center text-sm space-y-2">
+            <p>
+                Don't have an account?{' '}
+                <Link href="/quick-assessment" className="underline">
+                Register
+                </Link>
+            </p>
+             <p>
+                Didn't receive verification email?{' '}
+                <Button variant="link" className="p-0 h-auto" onClick={handleResendVerification} disabled={loading || authLoading}>
+                    Resend
+                </Button>
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

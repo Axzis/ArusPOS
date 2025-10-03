@@ -120,7 +120,7 @@ export default function UsersPage() {
 
         try {
             await addUserToBusiness(newUser);
-            toast({ title: "Success", description: `User ${newUser.name} has been added.` });
+            toast({ title: "Success", description: `User ${newUser.name} has been added. They will need to verify their email.` });
             setIsSheetOpen(false);
             setNewUser(initialFormState);
             fetchUsers(); // Refresh the list
@@ -172,7 +172,7 @@ export default function UsersPage() {
                             <SheetHeader>
                             <SheetTitle>Add New User</SheetTitle>
                             <SheetDescription>
-                                Create a new user account and assign them a role. They will be able to log in with the credentials you provide.
+                                Create a new user account and assign them a role. They will receive an email to verify their account.
                             </SheetDescription>
                             </SheetHeader>
                             <div className="grid gap-4 py-4">

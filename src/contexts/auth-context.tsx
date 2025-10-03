@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { auth, db } from '@/lib/firebase';
-import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, AuthError } from 'firebase/auth';
+import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { collection, query, where, getDocs, DocumentData } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 
@@ -16,7 +16,7 @@ export type AppUser = User & {
 type AuthContextType = {
     user: AppUser | null;
     loading: boolean;
-    login: (email: string, password: string) => Promise<void>;
+    login: (email: string, password: string) => Promise<AppUser | null>;
     logout: () => Promise<void>;
     sendPasswordReset: (email: string) => Promise<void>;
     updateUserPassword: (currentPass: string, newPass: string) => Promise<void>;
@@ -43,19 +43,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const refreshUser = async () => {
         const currentUserAuth = auth.currentUser;
         if (currentUserAuth) {
-             const userDoc = await getUserData(currentUserAuth);
-             setUser({
-                ...currentUserAuth,
-                role: userDoc?.role,
-                photoURL: userDoc?.photoURL || currentUserAuth.photoURL,
-            });
+            // Force refresh of the token and user profile
+            await currentUserAuth.reload();
+            const refreshedUserAuth = auth.currentUser; // get the refreshed user object
+            if (refreshedUserAuth) {
+                const userDoc = await getUserData(refreshedUserAuth);
+                setUser({
+                    ...refreshedUserAuth,
+                    role: userDoc?.role,
+                    photoURL: userDoc?.photoURL || refreshedUserAuth.photoURL,
+                });
+            }
         }
     }
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
-            if (userAuth) {
-                // User is signed in, let's get their custom data from Firestore.
+            if (userAuth && userAuth.emailVerified) {
+                // User is signed in AND verified, let's get their custom data from Firestore.
                 const userDoc = await getUserData(userAuth);
                 setUser({
                     ...userAuth,
@@ -63,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     photoURL: userDoc?.photoURL || userAuth.photoURL, // Prefer Firestore URL
                 });
             } else {
-                // User is signed out
+                // User is signed out or not verified
                 setUser(null);
             }
             setLoading(false);
@@ -73,9 +78,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => unsubscribe();
     }, []);
 
-    const login = async (email: string, password: string) => {
+    const login = async (email: string, password: string): Promise<AppUser | null> => {
         try {
-            await signInWithEmailAndPassword(auth, email, password);
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            if (!userCredential.user.emailVerified) {
+                // Return the unverified user object for the UI to handle
+                return userCredential.user as AppUser;
+            }
+            // If verified, the onAuthStateChanged listener will handle setting the user state.
+            // We can return the user object here as well for immediate use.
+            const userDoc = await getUserData(userCredential.user);
+            const appUser = {
+                ...userCredential.user,
+                role: userDoc?.role,
+                photoURL: userDoc?.photoURL || userCredential.user.photoURL,
+            };
+            return appUser;
         } catch (error) {
             // Re-throw the error so the calling component can handle it
             throw error;

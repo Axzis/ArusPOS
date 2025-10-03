@@ -1,7 +1,7 @@
 
 
 import { auth, db } from './firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import {
   collection,
   getDocs,
@@ -83,9 +83,12 @@ export async function addUserAndBusiness(data: BusinessData) {
     const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
     const user = userCredential.user;
 
+    // 2. Send verification email
+    await sendEmailVerification(user);
+
     const batch = writeBatch(db);
 
-    // 2. Create the Business document
+    // 3. Create the Business document
     const businessRef = doc(collection(db, BUSINESSES_COLLECTION));
     batch.set(businessRef, {
         name: data.businessName,
@@ -99,7 +102,7 @@ export async function addUserAndBusiness(data: BusinessData) {
         adminUid: user.uid,
     });
 
-    // 3. Create Branch documents 
+    // 4. Create Branch documents 
     data.branches.forEach(branchData => {
         const branchRef = doc(collection(db, `businesses/${businessRef.id}/branches`));
         batch.set(branchRef, {
@@ -109,7 +112,7 @@ export async function addUserAndBusiness(data: BusinessData) {
         });
     });
 
-    // 4. Create the User document in Firestore
+    // 5. Create the User document in Firestore
     const userRef = doc(collection(db, USERS_COLLECTION));
     batch.set(userRef, {
         uid: user.uid,
@@ -490,7 +493,7 @@ export async function refundTransaction(
             ...originalTransaction.items.find((i: any) => i.id === item.id), // Get original item details
             quantity: item.quantity, // Overwrite with refunded quantity
         })),
-        currency: currency, // Use the business's current currency
+        currency: currency,
         date: serverTimestamp(),
     });
 
@@ -587,24 +590,10 @@ export async function addUserToBusiness(userData: NewUser) {
         throw new Error("Email and password are required to create a new user.");
     }
 
-    // First, check if a user with this email already exists in the Firebase Authentication
-    // This is a more reliable way to check for existing users system-wide.
-    // However, for simplicity and to avoid admin SDK, we'll rely on createUserWithEmailAndPassword's error.
-    
-    // Firestore check (optional, but good for specific error messages)
-    const usersCollectionRef = collection(db, USERS_COLLECTION);
-    const existingUserQuery = query(usersCollectionRef, where("email", "==", userData.email), limit(1));
-    const existingUserSnapshot = await getDocs(existingUserQuery);
-
-    if (!existingUserSnapshot.empty) {
-        const error = new Error("Email address is already in use by another account in the system.") as any;
-        error.code = "auth/email-already-in-use";
-        throw error;
-    }
-    
-    // If no user in Firestore, proceed to create in Auth and then Firestore
     const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
     const user = userCredential.user;
+    
+    await sendEmailVerification(user);
     
     const batch = writeBatch(db);
     const userRef = doc(collection(db, USERS_COLLECTION));

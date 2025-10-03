@@ -61,7 +61,8 @@ export default function QuickAssessmentPage() {
 
         toast({
             title: "Registration Successful",
-            description: "Your business has been created. Please log in.",
+            description: "Your business has been created. Please check your email to verify your account and then log in.",
+            duration: 10000,
         });
 
         router.push('/login');
