@@ -176,6 +176,11 @@ export default function TransactionsPage() {
                 getPromosForBranch(branchId),
             ]);
             
+            setTransactions(transactionsData as Transaction[]);
+            setCustomers(customersData as Customer[]);
+            setAllProducts(productsData as Product[]);
+            setPromos(promoData as Promo[]);
+
             const now = new Date();
             const activePromos = promoData.filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
 
@@ -189,11 +194,6 @@ export default function TransactionsPage() {
                     hasPromo: !!promo,
                 };
             });
-            
-            setTransactions(transactionsData as Transaction[]);
-            setCustomers(customersData as Customer[]);
-            setAllProducts(productsData as Product[]);
-            setPromos(promoData as Promo[]);
             setProductsWithPromo(processedProducts);
 
 
@@ -275,7 +275,7 @@ export default function TransactionsPage() {
       }
       return [...prevItems, { ...product, quantity: 1, price: bestPrice, unit: product.unit }];
     });
-  }, [getBestPrice]);
+  }, [getBestPrice, toast]);
 
   useEffect(() => {
     if (!scannerEnabled) return;
