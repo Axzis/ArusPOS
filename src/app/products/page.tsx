@@ -9,6 +9,7 @@ import {
   Trash2,
   Upload,
   Download,
+  X,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -65,6 +66,12 @@ import { formatCurrency } from '@/lib/utils';
 import ExcelImport from '@/components/excel-import';
 import { utils, writeFile } from 'xlsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+
+type Bundle = {
+  quantity: number;
+  price: number;
+};
 
 type Product = {
   id: string;
@@ -76,6 +83,7 @@ type Product = {
   category: string;
   unit: string;
   imageUrl?: string;
+  bundles?: Bundle[];
 };
 
 export default function ProductsPage() {
@@ -90,6 +98,7 @@ export default function ProductsPage() {
     const [isSaveConfirmOpen, setIsSaveConfirmOpen] = React.useState(false);
     const formRef = React.useRef<HTMLFormElement>(null);
     const { currency, units, loading: loadingBusiness } = useBusiness();
+    const [productBundles, setProductBundles] = React.useState<Bundle[]>([]);
 
 
     React.useEffect(() => {
@@ -142,6 +151,7 @@ export default function ProductsPage() {
             category: formData.get('category') as string,
             unit: formData.get('unit') as string,
             imageUrl: formData.get('imageUrl') as string,
+            bundles: productBundles.filter(b => b.quantity > 0 && b.price > 0),
         };
 
         try {
@@ -233,18 +243,36 @@ export default function ProductsPage() {
 
     const openSheetForEdit = (product: Product) => {
         setEditingProduct(product);
+        setProductBundles(product.bundles || []);
         setIsSheetOpen(true);
     };
 
     const openSheetForNew = () => {
         setEditingProduct(null);
+        setProductBundles([]);
         setIsSheetOpen(true);
     };
     
     const closeSheet = () => {
         setIsSheetOpen(false);
         setEditingProduct(null);
+        setProductBundles([]);
     }
+
+    const handleBundleChange = (index: number, field: keyof Bundle, value: string) => {
+        const newBundles = [...productBundles];
+        newBundles[index] = { ...newBundles[index], [field]: parseFloat(value) || 0 };
+        setProductBundles(newBundles);
+    };
+
+    const addBundle = () => {
+        setProductBundles([...productBundles, { quantity: 0, price: 0 }]);
+    };
+
+    const removeBundle = (index: number) => {
+        const newBundles = productBundles.filter((_, i) => i !== index);
+        setProductBundles(newBundles);
+    };
 
     const filteredProducts = products.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -297,49 +325,84 @@ export default function ProductsPage() {
                 </SheetHeader>
                 <form ref={formRef} onSubmit={handleFormSubmit} id="product-form" className="flex flex-col flex-grow overflow-hidden">
                     <ScrollArea className="flex-grow pr-6">
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="name" className="text-right">Name</Label>
-                            <Input id="name" name="name" defaultValue={editingProduct?.name ?? ''} className="col-span-3" required />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="sku" className="text-right">SKU</Label>
-                            <Input id="sku" name="sku" defaultValue={editingProduct?.sku ?? ''} className="col-span-3" required />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="category" className="text-right">Category</Label>
-                            <Input id="category" name="category" defaultValue={editingProduct?.category ?? ''} className="col-span-3" required />
-                        </div>
-                         <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="unit" className="text-right">Unit</Label>
-                            <Select name="unit" defaultValue={editingProduct?.unit ?? units[0]}>
-                                <SelectTrigger className="col-span-3">
-                                    <SelectValue placeholder="Select a unit" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {units.map((unit, i) => (
-                                        <SelectItem key={i} value={unit}>{unit}</SelectItem>
+                        <div className="space-y-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="name" className="text-right">Name</Label>
+                                <Input id="name" name="name" defaultValue={editingProduct?.name ?? ''} className="col-span-3" required />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="sku" className="text-right">SKU</Label>
+                                <Input id="sku" name="sku" defaultValue={editingProduct?.sku ?? ''} className="col-span-3" required />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="category" className="text-right">Category</Label>
+                                <Input id="category" name="category" defaultValue={editingProduct?.category ?? ''} className="col-span-3" required />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="unit" className="text-right">Unit</Label>
+                                <Select name="unit" defaultValue={editingProduct?.unit ?? units[0]}>
+                                    <SelectTrigger className="col-span-3">
+                                        <SelectValue placeholder="Select a unit" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {units.map((unit, i) => (
+                                            <SelectItem key={i} value={unit}>{unit}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="price" className="text-right">Sale Price</Label>
+                                <Input id="price" name="price" type="number" step="0.01" defaultValue={editingProduct?.price ?? ''} className="col-span-3" required />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="purchasePrice" className="text-right">Purchase Price</Label>
+                                <Input id="purchasePrice" name="purchasePrice" type="number" step="0.01" defaultValue={editingProduct?.purchasePrice ?? ''} className=" col-span-3" required />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="stock" className="text-right">Stock</Label>
+                                <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock ?? ''} className="col-span-3" required />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="imageUrl" className="text-right">Image URL</Label>
+                                <Input id="imageUrl" name="imageUrl" defaultValue={editingProduct?.imageUrl ?? ''} className="col-span-3" placeholder="https://example.com/image.png" />
+                            </div>
+
+                            <Separator />
+                            
+                            <div>
+                                <Label>Harga Bundel</Label>
+                                <p className="text-sm text-muted-foreground mb-2">
+                                    Tawarkan harga khusus untuk pembelian dalam jumlah tertentu.
+                                </p>
+                                <div className="space-y-4">
+                                    {productBundles.map((bundle, index) => (
+                                        <div key={index} className="flex items-center gap-2">
+                                            <Input
+                                                type="number"
+                                                placeholder="Kuantitas"
+                                                value={bundle.quantity || ''}
+                                                onChange={(e) => handleBundleChange(index, 'quantity', e.target.value)}
+                                            />
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                placeholder="Harga per item"
+                                                value={bundle.price || ''}
+                                                onChange={(e) => handleBundleChange(index, 'price', e.target.value)}
+                                            />
+                                            <Button type="button" variant="ghost" size="icon" onClick={() => removeBundle(index)}>
+                                                <X className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </div>
                                     ))}
-                                </SelectContent>
-                            </Select>
+                                    <Button type="button" variant="outline" size="sm" onClick={addBundle}>
+                                        <PlusCircle className="mr-2 h-4 w-4" />
+                                        Tambah Harga Bundel
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="price" className="text-right">Sale Price</Label>
-                            <Input id="price" name="price" type="number" step="0.01" defaultValue={editingProduct?.price ?? ''} className="col-span-3" required />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="purchasePrice" className="text-right">Purchase Price</Label>
-                            <Input id="purchasePrice" name="purchasePrice" type="number" step="0.01" defaultValue={editingProduct?.purchasePrice ?? ''} className=" col-span-3" required />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="stock" className="text-right">Stock</Label>
-                            <Input id="stock" name="stock" type="number" defaultValue={editingProduct?.stock ?? ''} className="col-span-3" required />
-                        </div>
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="imageUrl" className="text-right">Image URL</Label>
-                            <Input id="imageUrl" name="imageUrl" defaultValue={editingProduct?.imageUrl ?? ''} className="col-span-3" placeholder="https://example.com/image.png" />
-                        </div>
-                    </div>
                     </ScrollArea>
                     <SheetFooter className="pt-4 mt-auto">
                         <Button type="button" variant="outline" onClick={closeSheet}>Cancel</Button>
@@ -475,6 +538,7 @@ export default function ProductsPage() {
     </div>
   );
 }
+    
 
     
 

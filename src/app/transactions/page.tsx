@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import {
   Card,
@@ -54,6 +54,11 @@ import { isWithinInterval } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 
+type Bundle = {
+  quantity: number;
+  price: number;
+};
+
 type OrderItem = {
   id: string;
   name: string;
@@ -62,6 +67,7 @@ type OrderItem = {
   quantity: number;
   stock: number;
   originalPrice: number;
+  bundles?: Bundle[];
 };
 
 type Product = {
@@ -72,6 +78,7 @@ type Product = {
   stock: number;
   sku: string;
   imageUrl?: string;
+  bundles?: Bundle[];
 };
 
 type ProductWithPromo = Product & {
@@ -113,7 +120,8 @@ export default function TransactionsPage() {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [productsWithPromo, setProductsWithPromo] = useState<ProductWithPromo[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [promos, setPromos] = useState<Promo[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   
   const [loading, setLoading] = useState(true);
@@ -129,6 +137,39 @@ export default function TransactionsPage() {
   const [transactionForRegistration, setTransactionForRegistration] = useState<Transaction | null>(null);
   const [discount, setDiscount] = useState(0);
 
+    const getBestPrice = (product: Product, quantity: number): number => {
+        if (!product.bundles || product.bundles.length === 0) {
+            return product.price;
+        }
+        
+        // Sort bundles by quantity descending to find the best applicable deal
+        const sortedBundles = [...product.bundles].sort((a, b) => b.quantity - a.quantity);
+        
+        for (const bundle of sortedBundles) {
+            if (quantity >= bundle.quantity) {
+                return bundle.price; // This is price per item for the bundle
+            }
+        }
+        
+        return product.price; // No bundle applies, return base price
+    };
+
+    const productsWithPromo = useMemo((): ProductWithPromo[] => {
+        const now = new Date();
+        const activePromos = promos.filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
+
+        return allProducts.map(product => {
+            const promo = activePromos.find(p => p.productId === product.id);
+            return {
+                ...product,
+                originalPrice: product.price,
+                price: promo ? promo.promoPrice : product.price,
+                hasPromo: !!promo,
+            };
+        });
+    }, [allProducts, promos]);
+
+
   const fetchData = useCallback(async (branchId: string) => {
     setLoading(true);
     try {
@@ -140,21 +181,8 @@ export default function TransactionsPage() {
         ]);
         setTransactions(transactionsData as Transaction[]);
         setCustomers(customersData as Customer[]);
-
-        const now = new Date();
-        const activePromos = (promoData as Promo[]).filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
-
-        const processedProducts = (productsData as Product[]).map(product => {
-            const promo = activePromos.find(p => p.productId === product.id);
-            return {
-                ...product,
-                originalPrice: product.price,
-                price: promo ? promo.promoPrice : product.price,
-                hasPromo: !!promo,
-            };
-        });
-
-        setProductsWithPromo(processedProducts);
+        setAllProducts(productsData as Product[]);
+        setPromos(promoData as Promo[]);
 
     } catch (error) {
         console.error("Failed to load transaction page data:", error);
@@ -183,23 +211,28 @@ export default function TransactionsPage() {
 
   const addToOrder = useCallback((product: ProductWithPromo) => {
     setOrderItems((prevItems) => {
-      const existingItem = prevItems.find((item) => item.id === product.id);
+      let existingItem = prevItems.find((item) => item.id === product.id);
+      let newQuantity = (existingItem?.quantity || 0) + 1;
+      
+      if (newQuantity > product.stock) {
+          toast({ title: "Stock limit reached", description: `Cannot add more ${product.name}.`, variant: "destructive" });
+          return prevItems;
+      }
+       if (product.stock < 1 && !existingItem) {
+            toast({ title: "Out of Stock", description: `${product.name} is out of stock.`, variant: "destructive" });
+            return prevItems;
+      }
+
+      const bestPrice = getBestPrice(product, newQuantity);
+
       if (existingItem) {
-          if (existingItem.quantity >= existingItem.stock) {
-              toast({ title: "Stock limit reached", description: `Cannot add more ${product.name}.`, variant: "destructive" });
-              return prevItems;
-          }
         return prevItems.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: newQuantity, price: bestPrice }
             : item
         );
       }
-       if (product.stock < 1) {
-            toast({ title: "Out of Stock", description: `${product.name} is out of stock.`, variant: "destructive" });
-            return prevItems;
-        }
-      return [...prevItems, { ...product, quantity: 1 }];
+      return [...prevItems, { ...product, quantity: 1, price: bestPrice }];
     });
   }, [toast]);
 
@@ -396,7 +429,7 @@ export default function TransactionsPage() {
                         <TableRow key={item.id}>
                           <TableCell className="font-medium">
                             {item.name}
-                            {item.price < item.originalPrice && (
+                            {(item.price < item.originalPrice) && (
                                 <Badge variant="destructive" className="ml-2">Promo</Badge>
                             )}
                           </TableCell>
@@ -729,3 +762,5 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
+    
