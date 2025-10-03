@@ -4,12 +4,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, AuthError } from 'firebase/auth';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, DocumentData } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 
-// Extend the User type to include our custom role
+// Extend the User type to include our custom role and photoURL from Firestore
 export type AppUser = User & {
     role?: string;
+    photoURL?: string; // Allow overriding from Firestore
 };
 
 type AuthContextType = {
@@ -19,34 +20,48 @@ type AuthContextType = {
     logout: () => Promise<void>;
     sendPasswordReset: (email: string) => Promise<void>;
     updateUserPassword: (currentPass: string, newPass: string) => Promise<void>;
+    refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+async function getUserData(userAuth: User): Promise<DocumentData | null> {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("uid", "==", userAuth.uid));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+        return querySnapshot.docs[0].data();
+    }
+    return null;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<AppUser | null>(null);
     const [loading, setLoading] = useState(true);
 
+    const refreshUser = async () => {
+        const currentUserAuth = auth.currentUser;
+        if (currentUserAuth) {
+             const userDoc = await getUserData(currentUserAuth);
+             setUser({
+                ...currentUserAuth,
+                role: userDoc?.role,
+                photoURL: userDoc?.photoURL || currentUserAuth.photoURL,
+            });
+        }
+    }
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
             if (userAuth) {
-                // User is signed in, let's get their custom role from Firestore.
-                const usersRef = collection(db, "users");
-                const q = query(usersRef, where("uid", "==", userAuth.uid));
-                const querySnapshot = await getDocs(q);
-
-                if (!querySnapshot.empty) {
-                    const userDoc = querySnapshot.docs[0].data();
-                    setUser({
-                        ...userAuth,
-                        role: userDoc.role, // Add role to the user object
-                    });
-                } else {
-                    // No user document found, but they are authenticated.
-                    // This could be a superadmin or an edge case.
-                    // For now, treat them as a user without a specific role.
-                    setUser(userAuth);
-                }
+                // User is signed in, let's get their custom data from Firestore.
+                const userDoc = await getUserData(userAuth);
+                setUser({
+                    ...userAuth,
+                    role: userDoc?.role,
+                    photoURL: userDoc?.photoURL || userAuth.photoURL, // Prefer Firestore URL
+                });
             } else {
                 // User is signed out
                 setUser(null);
@@ -95,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
 
-    const value = { user, loading, login, logout, sendPasswordReset, updateUserPassword };
+    const value = { user, loading, login, logout, sendPasswordReset, updateUserPassword, refreshUser };
 
     // While checking user state, show a loader
     if (loading) {

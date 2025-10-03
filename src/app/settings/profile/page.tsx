@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,16 +14,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/contexts/auth-context';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { ImageUploadDialog } from '@/components/image-upload-dialog';
+import { updateUserProfile } from '@/lib/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ProfilePage() {
-    const { updateUserPassword } = useAuth();
+    const { user, loading: authLoading, updateUserPassword, refreshUser } = useAuth();
     const { toast } = useToast();
+    
+    // State for password change
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [passwordLoading, setPasswordLoading] = useState(false);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    // State for profile picture change
+    const [newPhotoUrl, setNewPhotoUrl] = useState<string | null>(null);
+    const [photoLoading, setPhotoLoading] = useState(false);
+
+    const handlePasswordSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (newPassword !== confirmPassword) {
@@ -44,7 +55,7 @@ export default function ProfilePage() {
             return;
         }
 
-        setLoading(true);
+        setPasswordLoading(true);
         try {
             await updateUserPassword(currentPassword, newPassword);
             toast({
@@ -69,56 +80,121 @@ export default function ProfilePage() {
                 variant: "destructive"
             });
         } finally {
-            setLoading(false);
+            setPasswordLoading(false);
         }
     };
+    
+    const handlePhotoSave = async () => {
+        if (!newPhotoUrl || !user) return;
+        setPhotoLoading(true);
+        try {
+            await updateUserProfile(user.uid, { photoURL: newPhotoUrl });
+            await refreshUser(); // Refresh user data from context to update UI everywhere
+            toast({
+                title: "Success",
+                description: "Your profile picture has been updated."
+            });
+            setNewPhotoUrl(null);
+        } catch(error) {
+            console.error("Failed to update photo:", error);
+            toast({
+                title: "Update Failed",
+                description: "Could not save your new profile picture.",
+                variant: "destructive"
+            });
+        } finally {
+            setPhotoLoading(false);
+        }
+    };
+    
+    const isLoading = authLoading;
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Change Password</CardTitle>
-                <CardDescription>Update your account password here.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6 max-w-md">
-                    <div className="space-y-2">
-                        <Label htmlFor="current-password">Current Password</Label>
-                        <Input
-                            id="current-password"
-                            type="password"
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            required
-                            disabled={loading}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="new-password">New Password</Label>
-                        <Input
-                            id="new-password"
-                            type="password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            required
-                            disabled={loading}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="confirm-password">Confirm New Password</Label>
-                        <Input
-                            id="confirm-password"
-                            type="password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            required
-                            disabled={loading}
-                        />
-                    </div>
-                    <Button type="submit" disabled={loading}>
-                        {loading ? 'Updating...' : 'Update Password'}
-                    </Button>
-                </form>
-            </CardContent>
-        </Card>
+        <div className="grid gap-8">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Foto Profil</CardTitle>
+                    <CardDescription>Perbarui foto profil Anda.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                     {isLoading ? (
+                        <div className="flex items-center space-x-4">
+                            <Skeleton className="h-24 w-24 rounded-full" />
+                            <div className="space-y-2">
+                                <Skeleton className="h-10 w-40" />
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col sm:flex-row items-center gap-6">
+                            <Avatar className="h-24 w-24">
+                                <AvatarImage src={newPhotoUrl || user?.photoURL || `https://picsum.photos/seed/${user?.uid}/96/96`} alt={user?.email || 'User'} />
+                                <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                             <div className="flex flex-col gap-2 items-center sm:items-start">
+                                <ImageUploadDialog onImageSelect={setNewPhotoUrl}>
+                                    <Button variant="outline">Ubah Foto</Button>
+                                </ImageUploadDialog>
+                                {newPhotoUrl && (
+                                    <div className="flex gap-2">
+                                        <Button onClick={handlePhotoSave} disabled={photoLoading}>
+                                            {photoLoading ? 'Menyimpan...' : 'Simpan Foto'}
+                                        </Button>
+                                        <Button variant="ghost" onClick={() => setNewPhotoUrl(null)}>Batal</Button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Ganti Password</CardTitle>
+                    <CardDescription>Perbarui password akun Anda di sini.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handlePasswordSubmit} className="space-y-6 max-w-md">
+                        <div className="space-y-2">
+                            <Label htmlFor="current-password">Password Saat Ini</Label>
+                            <Input
+                                id="current-password"
+                                type="password"
+                                value={currentPassword}
+                                onChange={(e) => setCurrentPassword(e.target.value)}
+                                required
+                                disabled={passwordLoading}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="new-password">Password Baru</Label>
+                            <Input
+                                id="new-password"
+                                type="password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                required
+                                disabled={passwordLoading}
+                                placeholder="Minimal 6 karakter"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="confirm-password">Konfirmasi Password Baru</Label>
+                            <Input
+                                id="confirm-password"
+                                type="password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                required
+                                disabled={passwordLoading}
+                            />
+                        </div>
+                        <Button type="submit" disabled={passwordLoading}>
+                            {passwordLoading ? 'Memperbarui...' : 'Perbarui Password'}
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
+        </div>
     );
 }

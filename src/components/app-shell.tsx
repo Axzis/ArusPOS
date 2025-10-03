@@ -319,7 +319,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
                 <Avatar>
-                    <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/40/40`} alt={user?.email || 'User'} />
+                    <AvatarImage src={user?.photoURL || `https://picsum.photos/seed/${user?.uid}/40/40`} alt={user?.email || 'User'} />
                     <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 </Button>
@@ -346,5 +346,3 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
-    

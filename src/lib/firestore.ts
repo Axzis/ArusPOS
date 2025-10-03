@@ -641,6 +641,23 @@ export async function deleteUserFromBusiness(userId: string): Promise<void> {
     await deleteDoc(userDocRef);
 }
 
+export async function updateUserProfile(uid: string, data: { photoURL: string }) {
+    if (!uid) throw new Error("User ID is required to update profile.");
+    
+    const usersQuery = query(collection(db, USERS_COLLECTION), where("uid", "==", uid), limit(1));
+    const usersSnapshot = await getDocs(usersQuery);
+    
+    if (usersSnapshot.empty) {
+        throw new Error("User document not found.");
+    }
+    
+    const userDocRef = usersSnapshot.docs[0].ref;
+    
+    return await updateDoc(userDocRef, {
+        ...data,
+        updatedAt: serverTimestamp()
+    });
+}
 
 
 // === Promotion Functions (Branch Specific) ===
