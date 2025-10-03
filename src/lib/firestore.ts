@@ -1,4 +1,5 @@
 
+
 import { auth, db } from './firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import {
@@ -483,7 +484,7 @@ export async function refundTransaction(branchId: string, originalTransaction: D
             ...originalTransaction.items.find((i: any) => i.id === item.id), // Get original item details
             quantity: item.quantity, // Overwrite with refunded quantity
         })),
-        currency: originalTransaction.currency,
+        currency: originalTransaction.currency || 'USD',
         date: serverTimestamp(),
     });
 
@@ -769,3 +770,4 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
+

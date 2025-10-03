@@ -431,7 +431,7 @@ export default function TransactionsPage() {
               discount: discount,
               status: 'Paid' as TransactionStatus,
               type: 'Sale' as 'Sale' | 'Refund',
-              currency: currency,
+              currency: currency || 'USD',
               items: orderItems.map(item => ({ 
                   id: item.id, 
                   name: item.name, 
@@ -966,3 +966,4 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
