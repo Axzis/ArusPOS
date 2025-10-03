@@ -32,7 +32,16 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Bar, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, LineChart, Line } from 'recharts';
 import { DateRange } from 'react-day-picker';
+import { utils, writeFile } from 'xlsx';
 
+
+type TransactionItem = {
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    unit: string;
+};
 
 type Transaction = {
     id: string;
@@ -41,7 +50,7 @@ type Transaction = {
     date: string;
     status: 'Paid' | 'Refunded';
     type: 'Sale' | 'Refund';
-    items: { id: string; quantity: number; name: string, price: number }[];
+    items: TransactionItem[];
 };
 
 type Product = {
@@ -218,7 +227,7 @@ export default function ReportsPage() {
 
     }, [salesTransactions]);
 
-    const handleDownloadCsv = () => {
+    const handleDownloadExcel = () => {
         if (!dateRange || !dateRange.from || !dateRange.to) {
             toast({
                 title: "Date Range Required",
@@ -244,33 +253,37 @@ export default function ReportsPage() {
             return;
         }
 
-        const headers = ["Transaction ID", "Customer Name", "Date", "Type", "Status", "Amount", "Items"];
-        const csvContent = [
-            headers.join(','),
-            ...filtered.map(t => [
-                t.id,
-                `"${t.customerName}"`,
-                format(parseISO(t.date), "yyyy-MM-dd HH:mm:ss"),
-                t.type,
-                t.status,
-                t.amount,
-                `"${t.items.map(item => `${item.quantity}x ${item.name} @ ${formatCurrency(item.price, currency)}`).join('; ')}"`
-            ].join(','))
-        ].join('\n');
+        const reportData = filtered.flatMap(t => 
+            t.items.map(item => ({
+                'Transaction ID': t.id,
+                'Customer Name': t.customerName,
+                'Date': format(parseISO(t.date), "yyyy-MM-dd HH:mm:ss"),
+                'Type': t.type,
+                'Status': t.status,
+                'Item Name': item.name,
+                'Quantity': item.quantity,
+                'Unit': item.unit,
+                'Price per Item': item.price,
+                'Row Total': item.price * item.quantity,
+            }))
+        );
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        if (link.download !== undefined) {
-            const url = URL.createObjectURL(blob);
-            const from = format(dateRange.from, 'yyyy-MM-dd');
-            const to = format(dateRange.to, 'yyyy-MM-dd');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `report-${from}_to_${to}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
+        const ws = utils.json_to_sheet(reportData);
+        
+        // Auto-fit columns
+        const colWidths = Object.keys(reportData[0]).map(key => {
+            const maxLength = Math.max(...reportData.map(row => String(row[key as keyof typeof row]).length), key.length);
+            return { wch: maxLength + 2 };
+        });
+        ws['!cols'] = colWidths;
+        
+        const wb = utils.book_new();
+        utils.book_append_sheet(wb, ws, "Report");
+        
+        const from = format(dateRange.from, 'yyyy-MM-dd');
+        const to = format(dateRange.to, 'yyyy-MM-dd');
+
+        writeFile(wb, `report-${from}_to_${to}.xlsx`);
     };
 
 
@@ -320,9 +333,9 @@ export default function ReportsPage() {
                         />
                         </PopoverContent>
                     </Popover>
-                    <Button onClick={handleDownloadCsv} disabled={!dateRange?.from || !dateRange?.to}>
+                    <Button onClick={handleDownloadExcel} disabled={!dateRange?.from || !dateRange?.to}>
                         <Download className="mr-2 h-4 w-4" />
-                        Download Report (CSV)
+                        Download Excel
                     </Button>
                 </div>
             </div>
@@ -441,3 +454,4 @@ export default function ReportsPage() {
     
 
     
+
