@@ -99,29 +99,36 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
+    let stream: MediaStream | null = null;
+    const getCameraPermission = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setHasCameraPermission(true);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+      }
+    };
+
     if (isCameraOpen) {
       setCapturedImage(null);
-      const getCameraPermission = async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        } catch (error) {
-          console.error('Error accessing camera:', error);
-          setHasCameraPermission(false);
-        }
-      };
       getCameraPermission();
-    } else {
-      // Stop camera stream when component is not open
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
-      }
     }
+
+    return () => {
+      // Cleanup function to stop the stream
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+       if (videoRef.current && videoRef.current.srcObject) {
+            const currentStream = videoRef.current.srcObject as MediaStream;
+            currentStream.getTracks().forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        }
+    };
   }, [isCameraOpen]);
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,7 +153,7 @@ function ImageUploadDialog({ onImageSelect }: { onImageSelect: (url: string) => 
         context.drawImage(videoRef.current, 0, 0, videoRef.current.videoWidth, videoRef.current.videoHeight);
         const dataUrl = canvasRef.current.toDataURL('image/png');
         setCapturedImage(dataUrl);
-        setIsCameraOpen(false); // Close camera view
+        setIsCameraOpen(false); // This will trigger the useEffect cleanup
       }
     }
   };
@@ -693,4 +700,6 @@ export default function ProductsPage() {
     </div>
   );
 }
+    
+
     
