@@ -107,16 +107,29 @@ type Customer = {
     phone?: string;
 };
 
+type TransactionStatus = 'Paid' | 'Refunded' | 'Partially Refunded';
+
 type Transaction = {
     id: string;
     customerName: string;
     amount: number;
     date: string;
-    status: 'Paid' | 'Refunded';
+    status: TransactionStatus;
     type: 'Sale' | 'Refund';
     items: OrderItem[];
     discount?: number;
     currency: string;
+}
+
+type RefundItem = {
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+    originalPrice: number;
+    purchasePrice?: number;
+    unit: string;
+    maxQuantity: number;
 }
 
 const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
@@ -226,7 +239,10 @@ export default function TransactionsPage() {
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const [transactionForRegistration, setTransactionForRegistration] = useState<Transaction | null>(null);
   const [discount, setDiscount] = useState(0);
+
+  // Refund state
   const [transactionToRefund, setTransactionToRefund] = useState<Transaction | null>(null);
+  const [refundItems, setRefundItems] = useState<RefundItem[]>([]);
 
   const fetchData = useCallback(async (branchId: string) => {
     setLoading(true);
@@ -413,7 +429,7 @@ export default function TransactionsPage() {
               customerName: selectedCustomer?.name || 'Anonymous',
               amount: total,
               discount: discount,
-              status: 'Paid' as 'Paid' | 'Refunded',
+              status: 'Paid' as TransactionStatus,
               type: 'Sale' as 'Sale' | 'Refund',
               currency: currency,
               items: orderItems.map(item => ({ 
@@ -441,15 +457,41 @@ export default function TransactionsPage() {
       }
   };
 
+  const handleOpenRefundDialog = (transaction: Transaction) => {
+    setTransactionToRefund(transaction);
+    const refundableItems: RefundItem[] = transaction.items.map(item => ({
+        ...item,
+        quantity: 0, // Start with 0 quantity to refund
+        maxQuantity: item.quantity
+    }));
+    setRefundItems(refundableItems);
+  }
+
+  const handleRefundQuantityChange = (itemId: string, quantity: number) => {
+    setRefundItems(prev => prev.map(item => 
+        item.id === itemId ? { ...item, quantity: Math.max(0, Math.min(quantity, item.maxQuantity)) } : item
+    ));
+  };
+  
+  const totalRefundAmount = useMemo(() => {
+    return refundItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  }, [refundItems]);
+
   const executeRefund = async () => {
     if (!transactionToRefund || !activeBranchId) return;
 
+    const itemsToRefund = refundItems.filter(item => item.quantity > 0);
+    if (itemsToRefund.length === 0) {
+        toast({ title: "No Items Selected", description: "Please select a quantity to refund.", variant: "destructive" });
+        return;
+    }
+
     setIsProcessing(true);
     try {
-      await refundTransaction(activeBranchId, transactionToRefund);
+      await refundTransaction(activeBranchId, transactionToRefund, itemsToRefund, totalRefundAmount);
       toast({
         title: "Refund Successful",
-        description: `Transaction for ${transactionToRefund.customerName} has been refunded.`,
+        description: `Refund of ${formatCurrency(totalRefundAmount, currency)} processed.`,
       });
       if(activeBranchId) fetchData(activeBranchId); // Refresh data
     } catch (error: any) {
@@ -462,6 +504,7 @@ export default function TransactionsPage() {
     } finally {
       setIsProcessing(false);
       setTransactionToRefund(null);
+      setRefundItems([]);
     }
   };
 
@@ -764,10 +807,10 @@ export default function TransactionsPage() {
                         <TableCell className="hidden md:table-cell">{formatDate(new Date(transaction.date), "dd MMM yyyy, HH:mm")}</TableCell>
                         <TableCell>
                         <Badge
-                            variant={
-                            transaction.status === 'Paid'
-                                ? 'default'
-                                : transaction.status === 'Refunded' ? 'destructive' : 'outline'
+                             variant={
+                                transaction.status === 'Paid' ? 'default'
+                                : transaction.status === 'Refunded' ? 'destructive'
+                                : 'secondary'
                             }
                         >
                             {transaction.status || 'N/A'}
@@ -804,10 +847,10 @@ export default function TransactionsPage() {
                                         <MessageSquare className="mr-2 h-4 w-4" />
                                         Send WA
                                     </DropdownMenuItem>
-                                    {transaction.status === 'Paid' && (
+                                    {(transaction.status === 'Paid' || transaction.status === 'Partially Refunded') && (
                                         <>
                                             <DropdownMenuSeparator />
-                                            <DropdownMenuItem onSelect={() => setTransactionToRefund(transaction)} className="text-destructive focus:text-destructive">
+                                            <DropdownMenuItem onSelect={() => handleOpenRefundDialog(transaction)} className="text-destructive focus:text-destructive">
                                                 <RotateCcw className="mr-2 h-4 w-4" />
                                                 Refund
                                             </DropdownMenuItem>
@@ -845,32 +888,54 @@ export default function TransactionsPage() {
       </AlertDialog>
 
         <AlertDialog open={!!transactionToRefund} onOpenChange={() => setTransactionToRefund(null)}>
-            <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Confirm Refund</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Are you sure you want to refund this transaction? This will restore stock and cannot be undone.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            {transactionToRefund && (
-                <div>
-                    <p className="font-medium">Items to be refunded:</p>
-                    <ul className="list-disc list-inside text-sm text-muted-foreground mt-2">
-                        {transactionToRefund.items.map(item => (
-                            <li key={item.id}>{item.quantity}x {item.name}</li>
-                        ))}
-                    </ul>
-                     <p className="font-bold text-right mt-4">
-                        Total Refund: {formatCurrency(transactionToRefund.amount, currency)}
-                    </p>
-                </div>
-            )}
-            <AlertDialogFooter>
-                <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={executeRefund} disabled={isProcessing}>
-                    {isProcessing ? 'Refunding...' : 'Confirm Refund'}
-                </AlertDialogAction>
-            </AlertDialogFooter>
+            <AlertDialogContent className="sm:max-w-lg">
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Process Refund</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Select the quantity of each item to refund. Stock will be restored accordingly.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                {transactionToRefund && (
+                    <div className="space-y-4">
+                       <ScrollArea className="h-64 pr-4">
+                            <div className="space-y-4">
+                                {refundItems.map(item => (
+                                    <div key={item.id} className="flex items-center justify-between gap-4 p-2 border rounded-md">
+                                        <div className="flex-1">
+                                            <p className="font-medium">{item.name}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                Purchased: {item.maxQuantity} @ {formatCurrency(item.price, currency)}
+                                            </p>
+                                        </div>
+                                        <div className="w-24">
+                                            <Label htmlFor={`refund-${item.id}`} className="sr-only">Quantity</Label>
+                                            <Input
+                                                id={`refund-${item.id}`}
+                                                type="number"
+                                                min={0}
+                                                max={item.maxQuantity}
+                                                value={item.quantity}
+                                                onChange={(e) => handleRefundQuantityChange(item.id, parseInt(e.target.value, 10))}
+                                                className="h-8 text-center"
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                        <Separator />
+                        <div className="flex justify-between font-bold text-lg">
+                            <span>Total Refund:</span>
+                            <span>{formatCurrency(totalRefundAmount, currency)}</span>
+                        </div>
+                    </div>
+                )}
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={executeRefund} disabled={isProcessing || totalRefundAmount <= 0}>
+                        {isProcessing ? 'Refunding...' : 'Confirm Refund'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
       

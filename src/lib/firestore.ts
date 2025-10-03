@@ -392,25 +392,35 @@ export async function getTransactionsForBranch(branchId: string) {
 
 export async function getTransactionById(transactionId: string): Promise<DocumentData | null> {
     if (!transactionId) return null;
-    
-    // Use a Collection Group query to find the transaction across all branches
-    const transactionQuery = query(collectionGroup(db, 'transactions'), where('__name__', '==', `*/${transactionId}`), limit(1));
-    const snapshot = await getDocs(transactionQuery);
+    const businessId = await getBusinessId();
+    if (!businessId) {
+        // This could be a superadmin, so we need to search across all businesses
+        const transactionQuery = query(collectionGroup(db, TRANSACTIONS_COLLECTION));
+        const snapshot = await getDocs(transactionQuery);
+        const transactionDoc = snapshot.docs.find(d => d.id === transactionId);
+        
+        if (transactionDoc && transactionDoc.exists()) {
+            const data = transactionDoc.data();
+            const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
+            return { id: transactionDoc.id, ...data, date: date };
+        }
 
-    const transactionDoc = snapshot.docs.find(d => d.id === transactionId);
+    } else {
+        // Find in the user's specific business
+        const transactionQuery = query(collectionGroup(db, TRANSACTIONS_COLLECTION), where('__name__', '>=', `businesses/${businessId}/`), where('__name__', '<', `businesses/${businessId}~`));
+        const snapshot = await getDocs(transactionQuery);
+        const transactionDoc = snapshot.docs.find(d => d.id === transactionId);
 
-    if (!transactionDoc || !transactionDoc.exists()) {
-        console.warn(`Transaction with ID ${transactionId} not found in any branch.`);
-        return null;
+        if (transactionDoc && transactionDoc.exists()) {
+             const data = transactionDoc.data();
+            const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
+            return { id: transactionDoc.id, ...data, date: date };
+        }
     }
-    
-    const data = transactionDoc.data();
-    const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
-    return {
-        id: transactionDoc.id,
-        ...data,
-        date: date
-    };
+
+
+    console.warn(`Transaction with ID ${transactionId} not found.`);
+    return null;
 }
 
 
@@ -448,11 +458,16 @@ export async function addTransactionAndUpdateStock(
   await batch.commit();
 }
 
+type RefundItem = {
+    id: string;
+    quantity: number;
+    price: number;
+}
 
-export async function refundTransaction(branchId: string, originalTransaction: DocumentData) {
+export async function refundTransaction(branchId: string, originalTransaction: DocumentData, itemsToRefund: RefundItem[], totalRefundAmount: number) {
     const businessId = await getBusinessId();
     if (!businessId || !branchId) throw new Error("Missing business or branch ID");
-    if (originalTransaction.status === 'Refunded') throw new Error("Transaction has already been refunded.");
+    if (originalTransaction.status === 'Refunded') throw new Error("Transaction has already been fully refunded.");
 
     const batch = writeBatch(db);
 
@@ -460,36 +475,60 @@ export async function refundTransaction(branchId: string, originalTransaction: D
     const refundTransactionRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION));
     batch.set(refundTransactionRef, {
         customerName: originalTransaction.customerName,
-        amount: -originalTransaction.amount, // Negative amount for refund
+        amount: -totalRefundAmount, // Negative amount for refund
         originalTransactionId: originalTransaction.id,
         status: 'Refunded',
         type: 'Refund',
-        items: originalTransaction.items,
+        items: itemsToRefund.map(item => ({
+            ...originalTransaction.items.find((i: any) => i.id === item.id), // Get original item details
+            quantity: item.quantity, // Overwrite with refunded quantity
+        })),
         currency: originalTransaction.currency,
         date: serverTimestamp(),
     });
 
     // 2. Restore stock for each refunded item
-    for (const item of originalTransaction.items) {
+    for (const item of itemsToRefund) {
         const productRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, item.id);
         batch.update(productRef, { stock: increment(item.quantity) });
     }
 
-    // 3. Update the original transaction status to "Refunded"
-    const originalTransactionRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION, originalTransaction.id);
-    batch.update(originalTransactionRef, { status: 'Refunded' });
+    // 3. Check if all items were refunded to update the original transaction status
+    const allItemsRefunded = originalTransaction.items.every((origItem: any) => {
+        const refundedItem = itemsToRefund.find(refItem => refItem.id === origItem.id);
+        const previouslyRefunded = (originalTransaction.refundedItems || {})[origItem.id] || 0;
+        return (refundedItem ? refundedItem.quantity : 0) + previouslyRefunded >= origItem.quantity;
+    });
 
-    // 4. Update the customer's totalSpent
-    const customersQuery = query(collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION), where("name", "==", originalTransaction.customerName), limit(1));
-    const customersSnapshot = await getDocs(customersQuery);
-    if (!customersSnapshot.empty) {
-        const customerDoc = customersSnapshot.docs[0];
-        batch.update(customerDoc.ref, { totalSpent: increment(-originalTransaction.amount) });
+    const newStatus = allItemsRefunded ? 'Refunded' : 'Partially Refunded';
+
+    // 4. Update the original transaction status and refunded items
+    const originalTransactionRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION, originalTransaction.id);
+    const updatedRefundedItems = { ...(originalTransaction.refundedItems || {}) };
+    for (const item of itemsToRefund) {
+        updatedRefundedItems[item.id] = (updatedRefundedItems[item.id] || 0) + item.quantity;
     }
     
-    // 5. Commit all writes
+    batch.update(originalTransactionRef, { 
+        status: newStatus,
+        refundedItems: updatedRefundedItems,
+        amount: increment(-totalRefundAmount) // Decrease the original transaction amount
+    });
+
+    // 5. Update the customer's totalSpent
+    if (originalTransaction.customerName !== 'Anonymous') {
+        const customersQuery = query(collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION), where("name", "==", originalTransaction.customerName), limit(1));
+        const customersSnapshot = await getDocs(customersQuery);
+        if (!customersSnapshot.empty) {
+            const customerDoc = customersSnapshot.docs[0];
+            batch.update(customerDoc.ref, { totalSpent: increment(-totalRefundAmount) });
+        }
+    }
+    
+    // 6. Commit all writes
     await batch.commit();
 }
+
 
 
 
@@ -730,5 +769,3 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
-
-    
