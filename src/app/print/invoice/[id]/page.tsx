@@ -119,7 +119,7 @@ export default function InvoicePrintPage() {
     return (
         <div className={cn("p-4 bg-white font-mono text-xs mx-auto", getPaperWidthClass())}>
             <Card className="shadow-none border-0">
-                <CardHeader className='text-center p-2'>
+                <CardHeader className='text-center p-1'>
                     <CardTitle className="text-base">Invoice</CardTitle>
                     <CardDescription>#{transaction.id.substring(0, 8)}</CardDescription>
                 </CardHeader>
@@ -143,19 +143,19 @@ export default function InvoicePrintPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead className="p-1 h-auto">Product</TableHead>
-                                    <TableHead className="text-center p-1 h-auto">Qty</TableHead>
-                                    <TableHead className="text-center p-1 h-auto">Unit</TableHead>
-                                    <TableHead className="text-right p-1 h-auto">Total</TableHead>
+                                    <TableHead className="px-1 py-0 h-auto">Product</TableHead>
+                                    <TableHead className="text-center px-1 py-0 h-auto">Qty</TableHead>
+                                    <TableHead className="text-center px-1 py-0 h-auto">Unit</TableHead>
+                                    <TableHead className="text-right px-1 py-0 h-auto">Total</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {transaction.items.map(item => (
                                     <TableRow key={item.id} className="break-inside-avoid">
-                                        <TableCell className="p-1 align-top break-words whitespace-normal text-left">{item.name}</TableCell>
-                                        <TableCell className="text-center p-1 align-top">{item.quantity}</TableCell>
-                                        <TableCell className="text-center p-1 align-top">{item.unit || ''}</TableCell>
-                                        <TableCell className="text-right p-1 align-top">{formatCurrency(item.price * item.quantity, currency)}</TableCell>
+                                        <TableCell className="px-1 py-0 align-top break-words whitespace-normal text-left">{item.name}</TableCell>
+                                        <TableCell className="text-center px-1 py-0 align-top">{item.quantity}</TableCell>
+                                        <TableCell className="text-center px-1 py-0 align-top">{item.unit || ''}</TableCell>
+                                        <TableCell className="text-right px-1 py-0 align-top">{formatCurrency(item.price * item.quantity, currency)}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -186,7 +186,7 @@ export default function InvoicePrintPage() {
                         </div>
                     </div>
                 </CardContent>
-                 <CardFooter className="flex-col gap-2 text-center text-muted-foreground p-2 mt-4">
+                 <CardFooter className="flex-col gap-2 text-center text-muted-foreground p-1 mt-4">
                     <p>Thank you for your business!</p>
                     <p>Arus POS</p>
                 </CardFooter>
