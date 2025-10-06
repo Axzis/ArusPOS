@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -41,31 +40,36 @@ export default function InvoicePrintPage() {
     const [transaction, setTransaction] = useState<Transaction | null>(null);
     const [loading, setLoading] = useState(true);
     const { paperSize } = useBusiness();
-    const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
 
     useEffect(() => {
-        const storedBranch = localStorage.getItem('activeBranch');
-        if (storedBranch) {
-            const branch = JSON.parse(storedBranch);
-            setActiveBranchId(branch.id);
-        }
-    }, []);
-
-    useEffect(() => {
-        if (typeof transactionId === 'string' && activeBranchId) {
-            getTransactionById(activeBranchId, transactionId)
-                .then(data => {
-                    if(data){
-                        setTransaction(data as Transaction);
+        const fetchTransaction = async () => {
+            const storedBranch = localStorage.getItem('activeBranch');
+            if (storedBranch && typeof transactionId === 'string') {
+                const branch = JSON.parse(storedBranch);
+                const activeBranchId = branch.id;
+                
+                if (activeBranchId) {
+                    try {
+                        const data = await getTransactionById(activeBranchId, transactionId);
+                        if (data) {
+                            setTransaction(data as Transaction);
+                        }
+                    } catch (error) {
+                        console.error("Failed to fetch transaction:", error);
+                    } finally {
+                        setLoading(false);
                     }
-                })
-                .catch(console.error)
-                .finally(() => setLoading(false));
-        } else if (activeBranchId === null) {
-            // Handle case where branch isn't set yet or at all
-            setLoading(false);
-        }
-    }, [transactionId, activeBranchId]);
+                } else {
+                    setLoading(false);
+                }
+            } else {
+                setLoading(false);
+            }
+        };
+        
+        fetchTransaction();
+    }, [transactionId]);
+
 
     useEffect(() => {
         if (!loading && transaction) {
