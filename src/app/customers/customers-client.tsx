@@ -78,7 +78,7 @@ const initialCustomerState = {
 
 export default function CustomersClient({ initialCustomers }: { initialCustomers: Customer[] }) {
   const [customers, setCustomers] = React.useState<Customer[]>(initialCustomers);
-  const [loading, setLoading] = React.useState(false);
+  const [loading, setLoading] = React.useState(false); // Start with false, as we have initial data
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
   const [newCustomer, setNewCustomer] = React.useState(initialCustomerState);
