@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -43,8 +42,6 @@ export default function InvoicePrintPage() {
             const storedTransaction = localStorage.getItem('transactionToPrint');
             if (storedTransaction) {
                 setTransaction(JSON.parse(storedTransaction));
-                // Optional: remove the item after reading to keep localStorage clean
-                localStorage.removeItem('transactionToPrint');
             }
         } catch (error) {
             console.error("Could not parse transaction from localStorage", error);
@@ -56,16 +53,18 @@ export default function InvoicePrintPage() {
 
     useEffect(() => {
         if (!loading && transaction) {
-            // Give a very small delay to ensure DOM is fully painted
+            // Give a very small delay to ensure DOM is fully painted before printing
             setTimeout(() => {
                 window.print();
             }, 100);
         }
     }, [loading, transaction]);
     
-    // Add an event listener for after printing to close the window
+    // Add an event listener for after printing to clean up and close the window
     useEffect(() => {
         const handleAfterPrint = () => {
+             // Now it's safe to remove the item
+             localStorage.removeItem('transactionToPrint');
              window.close();
         };
 
