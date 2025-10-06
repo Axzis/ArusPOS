@@ -117,15 +117,14 @@ export default function DashboardPage() {
     }, [toast]);
 
   const salesTransactions = useMemo(() => transactions.filter(t => t.type === 'Sale'), [transactions]);
-  const allTransactions = useMemo(() => transactions, [transactions]);
-
-  const totalRevenue = useMemo(() => allTransactions.reduce((sum, t) => sum + t.amount, 0), [allTransactions]);
   
-  const salesToday = useMemo(() => allTransactions
+  const totalRevenue = useMemo(() => transactions.reduce((sum, t) => sum + t.amount, 0), [transactions]);
+  
+  const salesToday = useMemo(() => transactions
     .filter(
       (t) => t.type === 'Sale' && isToday(parseISO(t.date))
     )
-    .reduce((sum, t) => sum + t.amount, 0), [allTransactions]);
+    .reduce((sum, t) => sum + t.amount, 0), [transactions]);
 
     const calculateProfit = (transactionItems: TransactionItem[]) => {
         return transactionItems.reduce((profit, item) => {
@@ -331,7 +330,7 @@ export default function DashboardPage() {
                         <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                     </TableRow>
                   ))
-                ) : allTransactions.slice(0, 5).map((transaction) => (
+                ) : transactions.slice(0, 5).map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell>
                       <div className="font-medium">
