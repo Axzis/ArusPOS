@@ -85,6 +85,10 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
   const [customerToDelete, setCustomerToDelete] = React.useState<Customer | null>(null);
   const { toast } = useToast();
 
+  React.useEffect(() => {
+    setCustomers(initialCustomers);
+  }, [initialCustomers]);
+
   const fetchCustomers = React.useCallback(async () => {
     setLoading(true);
     try {
