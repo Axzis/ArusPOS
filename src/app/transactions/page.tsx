@@ -106,7 +106,14 @@ type RefundItem = {
 
 const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
 
-const getBestPrice = (product: Product, quantity: number): { price: number, originalPrice: number} => {
+const getBestPrice = (product: Product | ProductWithPromo, quantity: number): { price: number, originalPrice: number} => {
+    // If it's a product with a promo, its price is already the promo price.
+    // The originalPrice would be the standard price before promo.
+    if ('hasPromo' in product && product.hasPromo) {
+        return { price: product.price, originalPrice: product.originalPrice };
+    }
+
+    // If there's no promo, check for bundle pricing
     if (!product.bundles || product.bundles.length === 0) {
         return { price: product.price, originalPrice: product.price };
     }
@@ -129,7 +136,6 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
-  const [productsWithPromo, setProductsWithPromo] = useState<ProductWithPromo[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   
   const [loading, setLoading] = useState(true);
@@ -168,24 +174,6 @@ export default function TransactionsPage() {
         const fetchedPromos = promoData as Promo[] || [];
         setPromos(fetchedPromos);
 
-        const now = new Date();
-        const activePromos = fetchedPromos.filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
-
-        const processedProducts = fetchedProducts.map(product => {
-            const promo = activePromos.find(p => p.productId === product.id);
-            const { price: bestPrice, originalPrice } = getBestPrice(product, 1);
-            const finalPrice = promo ? promo.promoPrice : bestPrice;
-            
-            return {
-                ...product,
-                originalPrice: originalPrice,
-                price: finalPrice,
-                hasPromo: !!promo,
-            };
-        });
-        setProductsWithPromo(processedProducts);
-
-
     } catch (error) {
         console.error("Failed to load transaction page data:", error);
         toast({ title: "Error", description: "Could not load data for transactions.", variant: "destructive" });
@@ -193,6 +181,27 @@ export default function TransactionsPage() {
         setLoading(false);
     }
   }, [toast]);
+  
+  const productsWithPromo = useMemo(() => {
+    if (loading) return [];
+    
+    const now = new Date();
+    const activePromos = promos.filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
+
+    return allProducts.map(product => {
+        const promo = activePromos.find(p => p.productId === product.id);
+        const { price: bestPrice, originalPrice } = getBestPrice(product, 1);
+        const finalPrice = promo ? promo.promoPrice : bestPrice;
+        
+        return {
+            ...product,
+            originalPrice: originalPrice,
+            price: finalPrice,
+            hasPromo: !!promo || finalPrice < originalPrice,
+        };
+    });
+  }, [allProducts, promos, loading]);
+
 
   useEffect(() => {
     const storedBranch = localStorage.getItem('activeBranch');
@@ -218,24 +227,27 @@ export default function TransactionsPage() {
   
   const updateOrderItemQuantity = useCallback((productId: string, newQuantity: number) => {
     setOrderItems(prevItems => {
-        return prevItems.map(item => {
-            if (item.id === productId) {
-                const product = allProducts.find(p => p.id === productId);
-                if (!product) return item;
+        const itemToUpdate = prevItems.find(item => item.id === productId);
+        const productInfo = allProducts.find(p => p.id === productId);
+        if (!itemToUpdate || !productInfo) return prevItems;
 
-                const cappedQuantity = Math.max(1, Math.min(newQuantity, item.stock));
-                const { price } = getBestPrice(product, cappedQuantity);
+        const cappedQuantity = Math.max(1, Math.min(newQuantity, itemToUpdate.stock));
+        // Recalculate price based on the new quantity (for bundle pricing)
+        const { price, originalPrice } = getBestPrice(productInfo, cappedQuantity);
 
-                return {
-                    ...item,
-                    quantity: cappedQuantity,
-                    price: price,
-                };
-            }
-            return item;
-        });
+        // Check if there is an active promo for this product
+        const now = new Date();
+        const activePromo = promos.find(p => p.productId === productId && isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
+        const finalPrice = activePromo ? activePromo.promoPrice : price;
+
+        return prevItems.map(item => 
+            item.id === productId 
+                ? { ...item, quantity: cappedQuantity, price: finalPrice, originalPrice: originalPrice }
+                : item
+        );
     });
-  }, [allProducts]);
+  }, [allProducts, promos]);
+
 
   const addToOrder = useCallback((product: ProductWithPromo) => {
     setOrderItems((prevItems) => {
@@ -246,10 +258,15 @@ export default function TransactionsPage() {
               return prevItems;
           }
         const newQuantity = existingItem.quantity + 1;
-        const { price } = getBestPrice(product, newQuantity);
+        // Recalculate price to check for bundle price changes
+        const { price: newPrice } = getBestPrice(product, newQuantity);
+        
+        // A promo price overrides any bundle price
+        const finalPrice = product.hasPromo ? product.price : newPrice;
+
         return prevItems.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: newQuantity, price: price }
+            ? { ...item, quantity: newQuantity, price: finalPrice }
             : item
         );
       }
@@ -257,10 +274,11 @@ export default function TransactionsPage() {
             toast({ title: "Out of Stock", description: `${product.name} is out of stock.`, variant: "destructive" });
             return prevItems;
         }
-      const { price, originalPrice } = getBestPrice(product, 1);
-      return [...prevItems, { ...product, quantity: 1, price, originalPrice, unit: product.unit }];
+      // For a new item, getBestPrice is already reflected in product.price from productsWithPromo
+      return [...prevItems, { ...product, quantity: 1, price: product.price, originalPrice: product.originalPrice, unit: product.unit }];
     });
-  }, [toast, allProducts]);
+  }, [toast]);
+
 
   useEffect(() => {
     if (!scannerEnabled) return;
@@ -462,7 +480,7 @@ export default function TransactionsPage() {
   const tax = useMemo(() => taxEnabled ? subtotal * (taxRate / 100) : 0, [subtotal, taxEnabled, taxRate]);
   const total = useMemo(() => subtotal + tax - discount, [subtotal, tax, discount]);
   
-  const isLoading = loading || loadingBusiness;
+  const isLoadingData = loading || loadingBusiness;
 
   return (
     <div className="flex flex-col gap-6" id="main-content">
@@ -495,7 +513,7 @@ export default function TransactionsPage() {
         <ProductSelection
           productsWithPromo={productsWithPromo}
           onAddToOrder={addToOrder}
-          isLoading={isLoading}
+          isLoading={isLoadingData}
           currency={currency}
           scannerEnabled={scannerEnabled}
         />
@@ -503,7 +521,7 @@ export default function TransactionsPage() {
 
       <RecentTransactions
         transactions={transactions}
-        isLoading={isLoading}
+        isLoading={isLoadingData}
         currency={currency}
         onPrint={handlePrintInvoice}
         onSendWhatsApp={handleSendWhatsApp}

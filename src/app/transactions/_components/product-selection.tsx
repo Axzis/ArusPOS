@@ -34,9 +34,10 @@ type ProductWithPromo = Product & {
 }
 
 const ProductListItem = React.memo(({ product, onAddToOrder, currency }: { product: ProductWithPromo, onAddToOrder: (product: ProductWithPromo) => void, currency: string }) => {
+  const isOutOfStock = product.stock < 1;
   return (
     <div
-        className="flex items-center justify-between py-2"
+        className={cn("flex items-center justify-between py-2", isOutOfStock && "opacity-50")}
     >
         <div>
             <p className="font-medium">{product.name}</p>
@@ -51,12 +52,13 @@ const ProductListItem = React.memo(({ product, onAddToOrder, currency }: { produ
                     <span>{formatCurrency(product.price, currency)} / {product.unit}</span>
                 )}
             </div>
+             {isOutOfStock && <Badge variant="outline" className="text-xs text-destructive border-destructive">Out of Stock</Badge>}
         </div>
         <Button
         size="icon"
         variant="ghost"
         onClick={() => onAddToOrder(product)}
-        disabled={product.stock < 1}
+        disabled={isOutOfStock}
         >
         <PlusCircle className="h-5 w-5" />
         </Button>
