@@ -78,8 +78,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
+            setLoading(true);
             if (userAuth) {
-                // Explicitly handle superadmin case first
+                // If user is a superadmin, set their role immediately.
                 if (userAuth.email && isSuperAdminUser(userAuth.email)) {
                     setUser({
                         ...userAuth,
@@ -87,33 +88,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         displayName: 'Super Admin',
                     });
                 } else {
-                    // Handle regular users
+                    // For regular users, fetch their data from Firestore.
                     const userDoc = await getUserData(userAuth);
                     if (userDoc) {
                         setUser({
                             ...userAuth,
-                            role: userDoc?.role,
-                            photoURL: userDoc?.photoURL || userAuth.photoURL,
-                            displayName: userDoc?.name || userAuth.displayName,
+                            role: userDoc.role,
+                            photoURL: userDoc.photoURL || userAuth.photoURL,
+                            displayName: userDoc.name || userAuth.displayName,
                         });
                     } else {
-                        // This case can happen for a newly registered superadmin or an error.
-                        // We already handle the superadmin case above, so if we're here, it's likely an issue.
+                        // This case handles users who are authenticated but have no Firestore record
+                        // and are not superadmins. This could be an error state.
                         console.warn(`User with UID ${userAuth.uid} is authenticated but has no Firestore document and is not a superadmin. Logging out.`);
                         setUser(null);
-                        await signOut(auth); // Force sign out
+                        await signOut(auth);
                     }
                 }
             } else {
-                // User is signed out
                 setUser(null);
             }
             setLoading(false);
         });
 
-        // Cleanup subscription on unmount
         return () => unsubscribe();
     }, [auth]);
+
 
     const login = async (email: string, password: string): Promise<AppUser | null> => {
         try {
@@ -132,7 +132,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             };
             return appUser;
         } catch (error) {
-            // Re-throw the error so the calling component can handle it
             throw error;
         }
     };
@@ -154,12 +153,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const credential = EmailAuthProvider.credential(user.email, currentPass);
         
         try {
-            // Re-authenticate user to confirm their identity
             await reauthenticateWithCredential(user, credential);
-            // If re-authentication is successful, update the password
             await updatePassword(user, newPass);
         } catch (error) {
-            // Re-throw the error to be handled by the UI
             throw error;
         }
     };
@@ -167,7 +163,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const value = { user, loading, login, logout, sendPasswordReset, updateUserPassword, refreshUser };
 
-    // While checking user state, show a loader
     if (loading) {
          return (
             <div className="flex h-screen items-center justify-center bg-background">
@@ -190,3 +185,5 @@ export function useAuth() {
     }
     return context;
 }
+
+    
