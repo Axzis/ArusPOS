@@ -78,7 +78,7 @@ const initialCustomerState = {
 
 export default function CustomersClient({ initialCustomers }: { initialCustomers: Customer[] }) {
   const [customers, setCustomers] = React.useState<Customer[]>(initialCustomers);
-  const [loading, setLoading] = React.useState(false); // Start with false, as we have initial data
+  const [loading, setLoading] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
   const [newCustomer, setNewCustomer] = React.useState(initialCustomerState);
@@ -114,7 +114,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
         toast({ title: "Success", description: "New customer has been added." });
         setIsSheetOpen(false);
         setNewCustomer(initialCustomerState);
-        fetchCustomers(); // Refresh the list
+        fetchCustomers();
     } catch (error) {
         console.error("Failed to save customer:", error);
         toast({ title: "Error", description: "Could not save the new customer.", variant: "destructive"});
@@ -127,12 +127,12 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
     try {
       await deleteCustomer(customerToDelete.id);
       toast({ title: "Success", description: `Customer ${customerToDelete.name} has been deleted.` });
-      setCustomerToDelete(null); // Close the dialog first
-      fetchCustomers(); // Then refresh the list
+      setCustomerToDelete(null);
+      fetchCustomers();
     } catch (error) {
        console.error("Failed to delete customer:", error);
        toast({ title: "Error", description: "Could not delete the customer.", variant: "destructive"});
-       setCustomerToDelete(null); // Also close dialog on error
+       setCustomerToDelete(null);
     }
   };
 
