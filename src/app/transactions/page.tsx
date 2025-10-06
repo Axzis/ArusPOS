@@ -140,14 +140,22 @@ export default function TransactionsPage() {
   const { user, businessId } = useAuth();
 
 
-  const fetchData = useCallback(async (busId: string, branchId: string) => {
+  const fetchData = useCallback(async () => {
+    const storedBranch = localStorage.getItem('activeBranch');
+    const branch = storedBranch ? JSON.parse(storedBranch) : null;
+    if (!branch?.id || !businessId) {
+        setLoading(false);
+        return;
+    }
+    
+    setActiveBranchId(branch.id);
     setLoading(true);
     try {
         const [transactionsData, productsData, customersData, promoData] = await Promise.all([
-            getTransactionsForBranch(busId, branchId),
-            getProductsForBranch(busId, branchId),
-            getCustomers(busId),
-            getPromosForBranch(busId, branchId),
+            getTransactionsForBranch(businessId, branch.id),
+            getProductsForBranch(businessId, branch.id),
+            getCustomers(businessId),
+            getPromosForBranch(businessId, branch.id),
         ]);
         
         setTransactions((transactionsData as Transaction[] || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
@@ -161,7 +169,7 @@ export default function TransactionsPage() {
     } finally {
         setLoading(false);
     }
-  }, [toast]);
+  }, [toast, businessId]);
   
     const generateInvoiceHtml = (transaction: Transaction) => {
         const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -291,22 +299,11 @@ export default function TransactionsPage() {
 
 
   useEffect(() => {
-    const storedBranch = localStorage.getItem('activeBranch');
-    const branch = storedBranch ? JSON.parse(storedBranch) : null;
-    if (branch?.id) {
-        setActiveBranchId(branch.id);
-    }
     const scannerPref = localStorage.getItem('barcodeScannerEnabled');
     setScannerEnabled(scannerPref === 'true');
-  }, []);
+    fetchData();
+  }, [fetchData]);
 
-  useEffect(() => {
-    if (activeBranchId && businessId) {
-        fetchData(businessId, activeBranchId);
-    } else {
-        setLoading(false);
-    }
-  }, [activeBranchId, businessId, fetchData]);
 
   const updateOrderItemQuantity = useCallback((productId: string, newQuantity: number) => {
     setOrderItems(prevItems => {
@@ -457,7 +454,7 @@ export default function TransactionsPage() {
           
           toast({ title: "Transaction Successful", description: `Payment of ${formatCurrency(total, currency)} charged.` });
           clearOrder();
-          if(activeBranchId && businessId) fetchData(businessId, activeBranchId);
+          fetchData();
       } catch (error) {
           console.error("Failed to charge payment:", error);
           toast({ title: "Error", description: "Could not process the payment.", variant: "destructive" });
@@ -522,7 +519,7 @@ export default function TransactionsPage() {
         title: "Refund Successful",
         description: `Refund of ${formatCurrency(totalRefundAmount, currency)} processed.`,
       });
-      if(activeBranchId && businessId) fetchData(businessId, activeBranchId);
+      fetchData();
     } catch (error: any) {
       console.error("Failed to process refund:", error);
       toast({
@@ -567,7 +564,7 @@ export default function TransactionsPage() {
     try {
       await addCustomer(businessId, { name: newCustomer.name, email: '', phone: newCustomer.phone });
       toast({ title: "Pelanggan Terdaftar", description: `${newCustomer.name} telah berhasil ditambahkan.` });
-      if (activeBranchId && businessId) fetchData(businessId, activeBranchId); 
+      fetchData(); 
       generateWhatsAppMessage(transactionForRegistration, newCustomer.phone);
       setIsRegistering(false);
       setTransactionForRegistration(null);
@@ -656,3 +653,5 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
+    

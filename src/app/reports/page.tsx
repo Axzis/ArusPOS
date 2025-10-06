@@ -83,24 +83,18 @@ export default function ReportsPage() {
     const { currency, loading: loadingBusiness } = useBusiness();
     const { toast } = useToast();
 
-    useEffect(() => {
-        const storedBranch = localStorage.getItem('activeBranch');
-        if (storedBranch) {
-            const branch = JSON.parse(storedBranch);
-            setActiveBranchId(branch.id);
-        } else {
-            setLoading(false);
-        }
-    }, []);
-
     const fetchData = useCallback(async () => {
-        if (!activeBranchId || !businessId) {
+        const storedBranch = localStorage.getItem('activeBranch');
+        const branch = storedBranch ? JSON.parse(storedBranch) : null;
+        if (!branch?.id || !businessId) {
             setLoading(false);
             return;
         }
+        
+        setActiveBranchId(branch.id);
         setLoading(true);
         try {
-            const transactionsData = await getTransactionsForBranch(businessId, activeBranchId);
+            const transactionsData = await getTransactionsForBranch(businessId, branch.id);
             setTransactions(transactionsData as Transaction[]);
         } catch (error) {
             console.error("Failed to load report data:", error);
@@ -108,13 +102,11 @@ export default function ReportsPage() {
         } finally {
             setLoading(false);
         }
-    }, [activeBranchId, businessId, toast]);
+    }, [businessId, toast]);
 
     useEffect(() => {
-        if (activeBranchId && businessId) {
-            fetchData();
-        }
-    }, [activeBranchId, businessId, fetchData]);
+        fetchData();
+    }, [fetchData]);
 
     const salesTransactions = useMemo(() => transactions.filter(t => t.type === 'Sale'), [transactions]);
 
@@ -455,3 +447,5 @@ export default function ReportsPage() {
         </div>
     );
 }
+
+    

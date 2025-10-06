@@ -87,40 +87,38 @@ export default function DashboardPage() {
     const [showSalesChart, setShowSalesChart] = useState(false);
 
 
-    React.useEffect(() => {
+    const loadData = React.useCallback(async () => {
         const storedBranch = localStorage.getItem('activeBranch');
         const branch = storedBranch ? JSON.parse(storedBranch) : null;
-        if (branch?.id) {
-            setActiveBranchId(branch.id);
-            if (!businessId) {
-                setLoading(false);
-                return;
-            };
-            const loadData = async () => {
-                setLoading(true);
-                try {
-                    const [transactionsData, customersData] = await Promise.all([
-                        getTransactionsForBranch(businessId, branch.id),
-                        getCustomers(businessId)
-                    ]);
-                    setTransactions(transactionsData as Transaction[]);
-                    setCustomers(customersData as Customer[]);
-                } catch (error) {
-                    console.error("Failed to load dashboard data:", error);
-                    toast({
-                        title: "Error",
-                        description: "Could not fetch dashboard data.",
-                        variant: "destructive"
-                    });
-                } finally {
-                    setLoading(false);
-                }
-            };
-            loadData();
-        } else {
-          setLoading(false);
+        if (!branch?.id || !businessId) {
+            setLoading(false);
+            return;
+        };
+
+        setActiveBranchId(branch.id);
+        setLoading(true);
+        try {
+            const [transactionsData, customersData] = await Promise.all([
+                getTransactionsForBranch(businessId, branch.id),
+                getCustomers(businessId)
+            ]);
+            setTransactions(transactionsData as Transaction[]);
+            setCustomers(customersData as Customer[]);
+        } catch (error) {
+            console.error("Failed to load dashboard data:", error);
+            toast({
+                title: "Error",
+                description: "Could not fetch dashboard data.",
+                variant: "destructive"
+            });
+        } finally {
+            setLoading(false);
         }
     }, [toast, businessId]);
+
+    React.useEffect(() => {
+        loadData();
+    }, [loadData]);
 
   const salesTransactions = useMemo(() => transactions.filter(t => t.type === 'Sale'), [transactions]);
   
@@ -377,3 +375,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
