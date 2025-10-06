@@ -61,12 +61,13 @@ async function getBusinessId(): Promise<string | null> {
         return null;
     }
 
-    // If user is a superadmin, they don't have a businessId.
+    // If user is a superadmin, they don't have a businessId. Return null immediately.
     if (user.email && isSuperAdminUser(user.email)) {
         return null;
     }
 
-    const usersQuery = query(collection(db, USERS_COLLECTION), where("uid", "==", user.uid), limit(1));
+    // Use collectionGroup to find the user across all businesses
+    const usersQuery = query(collectionGroup(db, USERS_COLLECTION), where("uid", "==", user.uid), limit(1));
     const usersSnapshot = await getDocs(usersQuery);
 
     if (usersSnapshot.empty) {
@@ -75,6 +76,7 @@ async function getBusinessId(): Promise<string | null> {
     }
 
     const userData = usersSnapshot.docs[0].data();
+    // The businessId is part of the user document itself in this new structure
     return userData.businessId || null;
 }
 
@@ -127,8 +129,8 @@ export async function addUserAndBusiness(data: BusinessData) {
         });
     });
 
-    // 4. Create the User document in Firestore
-    const userRef = doc(collection(db, USERS_COLLECTION));
+    // 4. Create the User document in a sub-collection of the business
+    const userRef = doc(collection(db, `businesses/${businessRef.id}/${USERS_COLLECTION}`));
     batch.set(userRef, {
         uid: user.uid,
         name: data.adminName,
@@ -194,8 +196,8 @@ export async function getAllBusinesses() {
         }
     });
     
-    // 3. Fetch all users
-    const usersQuery = query(collection(db, USERS_COLLECTION));
+    // 3. Fetch all users using a collectionGroup query
+    const usersQuery = query(collectionGroup(db, USERS_COLLECTION));
     const usersSnapshot = await getDocs(usersQuery);
     usersSnapshot.forEach(userDoc => {
         const userData = { id: userDoc.id, ...userDoc.data() };
@@ -598,8 +600,8 @@ export async function getUsers() {
     try {
         const businessId = await getBusinessId();
         if (!businessId) return [];
-        const usersCollectionRef = collection(db, USERS_COLLECTION);
-        const q = query(usersCollectionRef, where("businessId", "==", businessId));
+        const usersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, USERS_COLLECTION);
+        const q = query(usersCollectionRef);
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
@@ -629,7 +631,7 @@ export async function addUserToBusiness(userData: NewUser) {
     const user = userCredential.user;
     
     const batch = writeBatch(db);
-    const userRef = doc(collection(db, USERS_COLLECTION));
+    const userRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, USERS_COLLECTION));
 
     batch.set(userRef, {
         uid: user.uid,
@@ -651,7 +653,7 @@ export async function deleteUserFromBusiness(userId: string): Promise<void> {
     const businessId = await getBusinessId();
     if (!businessId) throw new Error("Current user is not associated with a business.");
 
-    const userDocRef = doc(db, USERS_COLLECTION, userId);
+    const userDocRef = doc(db, BUSINESSES_COLLECTION, businessId, USERS_COLLECTION, userId);
     const userDoc = await getDoc(userDocRef);
     const userData = userDoc.data();
 
@@ -668,10 +670,15 @@ export async function updateUserProfile(uid: string, data: { photoURL: string })
     const { db } = initializeFirebase();
     if (!uid) throw new Error("User ID is required to update profile.");
     
-    const usersQuery = query(collection(db, USERS_COLLECTION), where("uid", "==", uid), limit(1));
+    const usersQuery = query(collectionGroup(db, USERS_COLLECTION), where("uid", "==", uid), limit(1));
     const usersSnapshot = await getDocs(usersQuery);
     
     if (usersSnapshot.empty) {
+        // If it's a superadmin, they won't have a user doc, so we can ignore this.
+        if (isSuperAdminUser((getAuth().currentUser?.email || ''))) {
+            console.log("Superadmin profile picture updated in Auth, no Firestore doc to update.");
+            return;
+        }
         throw new Error("User document not found.");
     }
     
@@ -780,7 +787,7 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     }
 
     const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
-    const customersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLlection);
+    const customersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION);
 
     // Check if products already exist to prevent re-seeding
     const existingProductsQuery = query(productsCollectionRef, limit(1));

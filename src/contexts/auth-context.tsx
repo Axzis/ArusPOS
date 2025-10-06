@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { getAuth, onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { getFirestore, collection, query, where, getDocs, DocumentData } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, DocumentData, collectionGroup } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 import { isSuperAdminUser } from '@/lib/config';
 import { initializeFirebase } from '@/firebase';
@@ -36,8 +36,9 @@ async function getUserData(userAuth: User): Promise<DocumentData | null> {
         return { role: 'Super Admin', name: 'Super Admin' };
     }
 
-    const usersRef = collection(firestore, USERS_COLLECTION);
-    const q = query(usersRef, where("uid", "==", userAuth.uid));
+    // Use a collectionGroup query to find the user document across all businesses
+    const usersRef = collectionGroup(firestore, USERS_COLLECTION);
+    const q = query(usersRef, where("uid", "==", userAuth.uid), limit(1));
     const querySnapshot = await getDocs(q);
 
     if (!querySnapshot.empty) {
@@ -55,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const currentUserAuth = auth.currentUser;
         if (currentUserAuth) {
             await currentUserAuth.reload();
-            const refreshedUserAuth = auth.currentUser; 
+            const refreshedUserAuth = auth.currentUser;
             if (refreshedUserAuth) {
                  if (refreshedUserAuth.email && isSuperAdminUser(refreshedUserAuth.email)) {
                     setUser({
@@ -80,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
             setLoading(true);
             if (userAuth) {
-                // If user is a superadmin, set their role immediately.
+                // Explicitly handle superadmin case first
                 if (userAuth.email && isSuperAdminUser(userAuth.email)) {
                     setUser({
                         ...userAuth,
@@ -99,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         });
                     } else {
                         // This case handles users who are authenticated but have no Firestore record
-                        // and are not superadmins. This could be an error state.
+                        // and are not superadmins. This is an error state, log them out.
                         console.warn(`User with UID ${userAuth.uid} is authenticated but has no Firestore document and is not a superadmin. Logging out.`);
                         setUser(null);
                         await signOut(auth);
@@ -185,5 +186,3 @@ export function useAuth() {
     }
     return context;
 }
-
-    
