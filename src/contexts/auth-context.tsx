@@ -30,11 +30,6 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 async function getUserData(userAuth: User): Promise<DocumentData | null> {
-    // For superadmins, we don't need to fetch from Firestore as they might not have a user document
-    if (userAuth.email && isSuperAdminUser(userAuth.email)) {
-        return { role: 'Super Admin', name: 'Super Admin' };
-    }
-
     const usersRef = collection(db, USERS_COLLECTION);
     const q = query(usersRef, where("uid", "==", userAuth.uid));
     const querySnapshot = await getDocs(q);
@@ -52,17 +47,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const refreshUser = async () => {
         const currentUserAuth = auth.currentUser;
         if (currentUserAuth) {
-            // Force refresh of the token and user profile
             await currentUserAuth.reload();
-            const refreshedUserAuth = auth.currentUser; // get the refreshed user object
+            const refreshedUserAuth = auth.currentUser; 
             if (refreshedUserAuth) {
-                const userDoc = await getUserData(refreshedUserAuth);
-                setUser({
-                    ...refreshedUserAuth,
-                    role: userDoc?.role,
-                    photoURL: userDoc?.photoURL || refreshedUserAuth.photoURL,
-                    displayName: userDoc?.name || refreshedUserAuth.displayName,
-                });
+                 if (refreshedUserAuth.email && isSuperAdminUser(refreshedUserAuth.email)) {
+                    setUser({
+                        ...refreshedUserAuth,
+                        role: 'Super Admin',
+                        displayName: 'Super Admin',
+                    });
+                } else {
+                    const userDoc = await getUserData(refreshedUserAuth);
+                    setUser({
+                        ...refreshedUserAuth,
+                        role: userDoc?.role,
+                        photoURL: userDoc?.photoURL || refreshedUserAuth.photoURL,
+                        displayName: userDoc?.name || refreshedUserAuth.displayName,
+                    });
+                }
             }
         }
     }
@@ -70,21 +72,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
             if (userAuth) {
-                // User is signed in, let's get their custom data.
-                const userDoc = await getUserData(userAuth);
-                // If userDoc is null and it's not a superadmin, it means there's no corresponding Firestore user.
-                // This can happen if a superadmin was just created via Auth but not registered for a business.
-                // We let them through, but they won't have a business context. AppShell handles redirection.
-                if (!userDoc && userAuth.email && !isSuperAdminUser(userAuth.email)) {
-                     console.warn(`User with UID ${userAuth.uid} is authenticated but has no Firestore document.`);
-                     setUser(null);
-                } else {
+                // Explicitly handle superadmin case first
+                if (userAuth.email && isSuperAdminUser(userAuth.email)) {
                     setUser({
                         ...userAuth,
-                        role: userDoc?.role,
-                        photoURL: userDoc?.photoURL || userAuth.photoURL, // Prefer Firestore URL
-                        displayName: userDoc?.name || userAuth.displayName,
+                        role: 'Super Admin',
+                        displayName: 'Super Admin',
                     });
+                } else {
+                    // Handle regular users
+                    const userDoc = await getUserData(userAuth);
+                    if (userDoc) {
+                        setUser({
+                            ...userAuth,
+                            role: userDoc?.role,
+                            photoURL: userDoc?.photoURL || userAuth.photoURL,
+                            displayName: userDoc?.name || userAuth.displayName,
+                        });
+                    } else {
+                        // User is authenticated with Firebase but has no doc in 'users' collection
+                        console.warn(`User with UID ${userAuth.uid} is authenticated but has no Firestore document. Logging out.`);
+                        // Set user to null to prevent access
+                        setUser(null);
+                        await signOut(auth); // Force sign out
+                    }
                 }
             } else {
                 // User is signed out
@@ -101,6 +112,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             // The onAuthStateChanged listener will handle setting the global user state.
+            // We just return the user object on successful login for immediate feedback if needed.
+            if (isSuperAdminUser(email)) {
+                return { ...userCredential.user, role: 'Super Admin', displayName: 'Super Admin' };
+            }
             const userDoc = await getUserData(userCredential.user);
             const appUser = {
                 ...userCredential.user,
