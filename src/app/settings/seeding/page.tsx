@@ -22,6 +22,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
+import { isSuperAdminUser } from '@/lib/config';
 
 export default function SeedingPage() {
     const { user, loading: authLoading } = useAuth();
@@ -35,7 +36,7 @@ export default function SeedingPage() {
     const [resetConfirmText, setResetConfirmText] = useState("");
     const { toast } = useToast();
 
-    const isSuperAdmin = user?.email === 'superadmin@gmail.com';
+    const isSuperAdmin = user?.email ? isSuperAdminUser(user.email) : false;
 
     useEffect(() => {
         if (!authLoading && !isSuperAdmin) {

@@ -6,6 +6,7 @@ import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { collection, query, where, getDocs, DocumentData } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
+import { isSuperAdminUser } from '@/lib/config';
 
 const USERS_COLLECTION = 'users';
 
@@ -29,6 +30,11 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 async function getUserData(userAuth: User): Promise<DocumentData | null> {
+    // For superadmins, we don't need to fetch from Firestore as they might not have a user document
+    if (userAuth.email && isSuperAdminUser(userAuth.email)) {
+        return { role: 'Super Admin', name: 'Super Admin' };
+    }
+
     const usersRef = collection(db, USERS_COLLECTION);
     const q = query(usersRef, where("uid", "==", userAuth.uid));
     const querySnapshot = await getDocs(q);
@@ -64,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
             if (userAuth) { // MODIFIED: Check for user existence only, not verification status
-                // User is signed in, let's get their custom data from Firestore.
+                // User is signed in, let's get their custom data.
                 const userDoc = await getUserData(userAuth);
                 setUser({
                     ...userAuth,
@@ -87,7 +93,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             // The onAuthStateChanged listener will handle setting the global user state.
-            // We just return the user object here for immediate use, e.g., checking emailVerified on the login page.
             const userDoc = await getUserData(userCredential.user);
             const appUser = {
                 ...userCredential.user,

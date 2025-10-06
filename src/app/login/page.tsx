@@ -19,32 +19,35 @@ import { useToast } from '@/hooks/use-toast';
 import { FirebaseError } from 'firebase/app';
 import Link from 'next/link';
 import { sendEmailVerification } from 'firebase/auth';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, user, loading: authLoading } = useAuth();
+  const { login, sendPasswordReset, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = React.useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = React.useState('');
 
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const loggedInUser = await login(email, password);
-      // The redirect is handled by the AppShell's useEffect hook.
-      // But we check for email verification here to provide immediate feedback.
-      if (loggedInUser && !loggedInUser.emailVerified) {
-          toast({
-              title: "Verifikasi Email Diperlukan",
-              description: "Akun Anda belum aktif. Silakan periksa email Anda untuk tautan verifikasi.",
-              variant: "destructive",
-              duration: 10000,
-          });
-          // Do not proceed with redirect logic, let the user stay on login page
-      }
+      await login(email, password);
+      // Redirect is handled by AppShell after successful login
     } catch (error) {
       console.error("Login failed:", error);
       let description = "An unexpected error occurred. Please try again.";
@@ -102,6 +105,32 @@ _
       }
   }
 
+  const handleForgotPassword = async () => {
+    if (!forgotPasswordEmail) {
+      toast({ title: "Error", description: "Please enter your email address.", variant: "destructive" });
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordReset(forgotPasswordEmail);
+      toast({
+        title: "Password Reset Email Sent",
+        description: "If an account exists for this email, a password reset link has been sent.",
+      });
+      setIsForgotPasswordOpen(false);
+      setForgotPasswordEmail('');
+    } catch (error) {
+      console.error("Forgot password failed:", error);
+      toast({
+        title: "Error",
+        description: "Could not send password reset email. Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
@@ -143,6 +172,11 @@ _
                 disabled={loading || authLoading}
                />
             </div>
+             <div className="text-right text-sm">
+                <Button type="button" variant="link" className="p-0 h-auto" onClick={() => setIsForgotPasswordOpen(true)}>
+                  Forgot Password?
+                </Button>
+            </div>
             <Button type="submit" className="w-full" disabled={loading || authLoading}>
               {loading ? 'Logging in...' : 'Login'}
             </Button>
@@ -154,15 +188,42 @@ _
                 Register
                 </Link>
             </p>
-             <p>
-                Didn't receive verification email?{' '}
-                <Button variant="link" className="p-0 h-auto" onClick={handleResendVerification} disabled={loading || authLoading}>
-                    Resend
-                </Button>
-            </p>
           </div>
         </CardContent>
       </Card>
+
+      <AlertDialog open={isForgotPasswordOpen} onOpenChange={setIsForgotPasswordOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Forgot Your Password?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Enter your email address below and we'll send you a link to reset your password.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="forgot-email" className="text-right">
+                Email
+              </Label>
+              <Input
+                id="forgot-email"
+                type="email"
+                placeholder="your.email@example.com"
+                value={forgotPasswordEmail}
+                onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleForgotPassword} disabled={loading}>
+              {loading ? 'Sending...' : 'Send Reset Link'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }

@@ -50,6 +50,7 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from './ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
+import { isSuperAdminUser } from '@/lib/config';
 
 
 const allNavItems = [
@@ -138,7 +139,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [activeBranch, setActiveBranch] = React.useState<ActiveBranch | null>(null);
   const [loadingBranch, setLoadingBranch] = React.useState(true);
   
-  const isSuperAdmin = user?.email === 'superadmin@gmail.com';
+  const isSuperAdmin = user?.email ? isSuperAdminUser(user.email) : false;
   const isAdmin = user?.role === 'Admin';
   const navItems = isAdmin || isSuperAdmin ? allNavItems : staffNavItems;
   const showBottomNav = isAdmin || isSuperAdmin;

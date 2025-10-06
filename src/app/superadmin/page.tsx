@@ -54,6 +54,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/auth-context';
+import { isSuperAdminUser } from '@/lib/config';
 
 type Branch = {
     id: string;
@@ -95,7 +96,7 @@ export default function SuperAdminPage() {
     const { toast } = useToast();
     const { sendPasswordReset } = useAuth();
 
-    const isSuperAdmin = user?.email === 'superadmin@gmail.com';
+    const isSuperAdmin = user?.email ? isSuperAdminUser(user.email) : false;
 
     useEffect(() => {
         if (!authLoading && !isSuperAdmin) {

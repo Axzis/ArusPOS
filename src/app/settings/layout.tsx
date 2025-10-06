@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
+import { isSuperAdminUser } from '@/lib/config';
 
 const baseSettingsNav = [
   { href: '/settings', label: 'Business' },
@@ -26,7 +27,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     const pathname = usePathname();
     const { user } = useAuth();
     
-    const isSuperAdmin = user?.email === 'superadmin@gmail.com';
+    const isSuperAdmin = user?.email ? isSuperAdminUser(user.email) : false;
     const settingsNav = isSuperAdmin ? [...baseSettingsNav, ...superAdminNav] : baseSettingsNav;
 
   return (
