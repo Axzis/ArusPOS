@@ -182,7 +182,7 @@ export default function TransactionsPage() {
             <tr>
                 <td style="padding: 2px 4px; vertical-align: top; word-break: break-word;">${item.name}</td>
                 <td style="padding: 2px 4px; vertical-align: top; text-align: center;">${item.quantity}</td>
-                <td style="padding: 2px 4px; vertical-align: top; text-align: center;">${item.unit || ''}</td>
+                <td style="padding: 2px 4px; vertical-align: top; text-align: right;">${formatCurrency(item.price, transactionCurrency)}</td>
                 <td style="padding: 2px 4px; vertical-align: top; text-align: right;">${formatCurrency(item.price * item.quantity, transactionCurrency)}</td>
             </tr>
         `).join('');
@@ -218,7 +218,7 @@ export default function TransactionsPage() {
                                 <tr>
                                     <th style="padding: 2px 4px;">Product</th>
                                     <th style="padding: 2px 4px; text-align: center;">Qty</th>
-                                    <th style="padding: 2px 4px; text-align: center;">Unit</th>
+                                    <th style="padding: 2px 4px; text-align: right;">Price</th>
                                     <th style="padding: 2px 4px; text-align: right;">Total</th>
                                 </tr>
                             </thead>
@@ -652,3 +652,5 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
+    
