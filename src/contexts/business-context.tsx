@@ -4,6 +4,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getBusinessWithBranches } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from './auth-context';
 
 type Business = {
     id: string;
@@ -32,9 +33,14 @@ const BusinessContext = createContext<BusinessContextType | undefined>(undefined
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
     const [business, setBusiness] = useState<Business | null>(null);
     const [loading, setLoading] = useState(true);
+    const { user } = useAuth();
 
     useEffect(() => {
         async function fetchBusiness() {
+            if (!user) {
+                setLoading(false);
+                return;
+            }
             try {
                 const businesses = await getBusinessWithBranches();
                 if (businesses.length > 0) {
@@ -47,7 +53,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
             }
         }
         fetchBusiness();
-    }, []);
+    }, [user]);
 
     const currency = business?.currency || 'USD';
     const taxEnabled = business?.taxEnabled !== false; // default to true
@@ -56,17 +62,6 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     const paperSize = business?.paperSize || '8cm';
 
     const value = { business, loading, currency, taxEnabled, taxRate, units, paperSize };
-
-    if (loading) {
-         return (
-          <div className="flex h-screen items-center justify-center">
-             <div className="w-full h-full flex flex-col items-center justify-center">
-                 <Skeleton className="h-12 w-1/2 mb-4" />
-                 <Skeleton className="h-8 w-1/3" />
-            </div>
-          </div>
-        )
-    }
 
     return (
         <BusinessContext.Provider value={value}>

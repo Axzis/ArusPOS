@@ -1,12 +1,12 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { auth, db } from '@/lib/firebase';
-import { onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { collection, query, where, getDocs, DocumentData } from 'firebase/firestore';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { getAuth, onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
+import { getFirestore, collection, query, where, getDocs, DocumentData } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 import { isSuperAdminUser } from '@/lib/config';
+import { initializeFirebase } from '@/firebase';
 
 const USERS_COLLECTION = 'users';
 
@@ -30,7 +30,13 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 async function getUserData(userAuth: User): Promise<DocumentData | null> {
-    const usersRef = collection(db, USERS_COLLECTION);
+    const { firestore } = initializeFirebase();
+    // Superadmins do not have user documents, so we can short-circuit this
+    if (userAuth.email && isSuperAdminUser(userAuth.email)) {
+        return { role: 'Super Admin', name: 'Super Admin' };
+    }
+
+    const usersRef = collection(firestore, USERS_COLLECTION);
     const q = query(usersRef, where("uid", "==", userAuth.uid));
     const querySnapshot = await getDocs(q);
 
@@ -43,8 +49,9 @@ async function getUserData(userAuth: User): Promise<DocumentData | null> {
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<AppUser | null>(null);
     const [loading, setLoading] = useState(true);
+    const { auth } = initializeFirebase();
 
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         const currentUserAuth = auth.currentUser;
         if (currentUserAuth) {
             await currentUserAuth.reload();
@@ -67,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
             }
         }
-    }
+    }, [auth]);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
@@ -90,9 +97,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             displayName: userDoc?.name || userAuth.displayName,
                         });
                     } else {
-                        // User is authenticated with Firebase but has no doc in 'users' collection
-                        console.warn(`User with UID ${userAuth.uid} is authenticated but has no Firestore document. This can happen to old superadmin accounts. Logging out.`);
-                        // Set user to null to prevent access
+                        // This case can happen for a newly registered superadmin or an error.
+                        // We already handle the superadmin case above, so if we're here, it's likely an issue.
+                        console.warn(`User with UID ${userAuth.uid} is authenticated but has no Firestore document and is not a superadmin. Logging out.`);
                         setUser(null);
                         await signOut(auth); // Force sign out
                     }
@@ -106,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Cleanup subscription on unmount
         return () => unsubscribe();
-    }, []);
+    }, [auth]);
 
     const login = async (email: string, password: string): Promise<AppUser | null> => {
         try {
