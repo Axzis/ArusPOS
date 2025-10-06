@@ -7,6 +7,7 @@ import OrderSummary from './_components/order-summary';
 import ProductSelection from './_components/product-selection';
 import RecentTransactions from './_components/recent-transactions';
 import RefundDialog from './_components/refund-dialog';
+import ConfirmationDialogs from './_components/confirmation-dialogs';
 
 import {
   getProductsForBranch,
@@ -23,18 +24,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { isWithinInterval, parseISO } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 
 type OrderItem = {
   id: string;
@@ -108,14 +97,10 @@ type RefundItem = {
 const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
 
 const getBestPrice = (product: Product | ProductWithPromo, quantity: number): { price: number, originalPrice: number} => {
-    // If it's a product with a promo, its price is already the promo price.
-    // The originalPrice would be the standard price before promo.
     if ('hasPromo' in product && product.hasPromo) {
-        // Bundles don't apply to items that already have a promo
         return { price: product.price, originalPrice: product.originalPrice };
     }
 
-    // If there's no promo, check for bundle pricing
     if (!product.bundles || product.bundles.length === 0) {
         return { price: product.price, originalPrice: product.price };
     }
@@ -131,10 +116,8 @@ const getBestPrice = (product: Product | ProductWithPromo, quantity: number): { 
     return { price: product.price, originalPrice: product.price };
 };
 
-
 export default function TransactionsPage() {
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
@@ -144,19 +127,19 @@ export default function TransactionsPage() {
   const [selectedCustomerId, setSelectedCustomerId] = useState(ANONYMOUS_CUSTOMER_ID);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { currency, taxEnabled, taxRate, loading: loadingBusiness } = useBusiness();
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
-  const { toast } = useToast();
   const [scannerEnabled, setScannerEnabled] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const [transactionForRegistration, setTransactionForRegistration] = useState<Transaction | null>(null);
   const [discount, setDiscount] = useState(0);
-  const { user } = useAuth();
   
-  // Refund state
   const [transactionToRefund, setTransactionToRefund] = useState<Transaction | null>(null);
   const [refundItems, setRefundItems] = useState<RefundItem[]>([]);
+  
+  const { currency, taxEnabled, taxRate, loading: loadingBusiness } = useBusiness();
+  const { toast } = useToast();
+  const { user } = useAuth();
+
 
   const fetchData = useCallback(async (branchId: string) => {
     setLoading(true);
@@ -169,12 +152,9 @@ export default function TransactionsPage() {
         ]);
         
         setTransactions(transactionsData as Transaction[] || []);
-        const fetchedCustomers = customersData as Customer[] || [];
-        setCustomers(fetchedCustomers);
-        const fetchedProducts = productsData as Product[] || [];
-        setAllProducts(fetchedProducts);
-        const fetchedPromos = promoData as Promo[] || [];
-        setPromos(fetchedPromos);
+        setCustomers(customersData as Customer[] || []);
+        setAllProducts(productsData as Product[] || []);
+        setPromos(promoData as Promo[] || []);
 
     } catch (error) {
         console.error("Failed to load transaction page data:", error);
@@ -192,17 +172,14 @@ export default function TransactionsPage() {
 
     return allProducts.map(product => {
         const promo = activePromos.find(p => p.productId === product.id);
-        
-        // We get the best price for quantity 1 to display in the product list.
-        // Bundle pricing won't apply here, but promo pricing will.
-        const { price: bestPrice, originalPrice } = getBestPrice(product, 1);
-        const finalPrice = promo ? promo.promoPrice : bestPrice;
+        const { price, originalPrice } = getBestPrice(product, 1);
+        const finalPrice = promo ? promo.promoPrice : price;
         
         return {
             ...product,
-            originalPrice: originalPrice,
+            originalPrice: product.price,
             price: finalPrice,
-            hasPromo: !!promo || finalPrice < originalPrice,
+            hasPromo: !!promo || finalPrice < product.price,
         };
     });
   }, [allProducts, promos, loading]);
@@ -392,7 +369,6 @@ export default function TransactionsPage() {
   const handleOpenRefundDialog = (transaction: Transaction) => {
     setTransactionToRefund(transaction);
     
-    // Find all previous refunds for this transaction
     const previousRefunds = transactions.filter(t => t.type === 'Refund' && t.originalTransactionId === transaction.id);
     
     const refundedQuantities: { [key: string]: number } = {};
@@ -407,10 +383,10 @@ export default function TransactionsPage() {
         const maxQuantity = item.quantity - alreadyRefunded;
         return {
             ...item,
-            quantity: 0, // Start with 0 quantity to refund
+            quantity: 0,
             maxQuantity: maxQuantity > 0 ? maxQuantity : 0
         }
-    }).filter(item => item.maxQuantity > 0); // Only show items that can be refunded
+    }).filter(item => item.maxQuantity > 0);
 
     if (refundableItems.length === 0) {
         toast({ title: "No Items to Refund", description: "All items in this transaction have already been fully refunded.", variant: "default" });
@@ -445,7 +421,7 @@ export default function TransactionsPage() {
         title: "Refund Successful",
         description: `Refund of ${formatCurrency(totalRefundAmount, currency)} processed.`,
       });
-      if(activeBranchId) fetchData(activeBranchId); // Refresh data
+      if(activeBranchId) fetchData(activeBranchId);
     } catch (error: any) {
       console.error("Failed to process refund:", error);
       toast({
@@ -485,15 +461,14 @@ export default function TransactionsPage() {
     }
   };
 
-  const handleRegisterAndSend = async () => {
+  const handleRegisterAndSend = async (newCustomer: {name: string, phone: string}) => {
     if (!newCustomer.name || !newCustomer.phone || !transactionForRegistration || !activeBranchId) return;
     try {
       await addCustomer({ name: newCustomer.name, email: '', phone: newCustomer.phone });
       toast({ title: "Pelanggan Terdaftar", description: `${newCustomer.name} telah berhasil ditambahkan.` });
-      fetchData(activeBranchId); 
+      if (activeBranchId) fetchData(activeBranchId); 
       generateWhatsAppMessage(transactionForRegistration, newCustomer.phone);
       setIsRegistering(false);
-      setNewCustomer({ name: '', phone: '' });
       setTransactionForRegistration(null);
     } catch (error) {
       toast({ title: "Error", description: "Gagal mendaftarkan pelanggan baru.", variant: "destructive" });
@@ -556,21 +531,17 @@ export default function TransactionsPage() {
         onOpenRefundDialog={handleOpenRefundDialog}
       />
       
-      <AlertDialog open={isConfirming} onOpenChange={setIsConfirming}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Payment</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to charge {formatCurrency(total, currency)}? This will complete the transaction.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleChargePayment}>Confirm</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
+      <ConfirmationDialogs
+        isConfirming={isConfirming}
+        onConfirmingChange={setIsConfirming}
+        onConfirmCharge={handleChargePayment}
+        chargeAmount={total}
+        currency={currency}
+        isRegistering={isRegistering}
+        onRegisteringChange={setIsRegistering}
+        onRegisterAndSend={handleRegisterAndSend}
+      />
+      
       <RefundDialog
         transactionToRefund={transactionToRefund}
         onClose={() => setTransactionToRefund(null)}
@@ -580,33 +551,7 @@ export default function TransactionsPage() {
         isProcessing={isProcessing}
         currency={currency}
       />
-      
-      <AlertDialog open={isRegistering} onOpenChange={setIsRegistering}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Daftarkan Pelanggan Baru</AlertDialogTitle>
-            <AlertDialogDescription>
-              Masukkan detail pelanggan untuk mendaftar dan mengirim struk via WhatsApp.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">Nama</Label>
-              <Input id="name" value={newCustomer.name} onChange={(e) => setNewCustomer({...newCustomer, name: e.target.value})} className="col-span-3" />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phone" className="text-right">No. WhatsApp</Label>
-              <Input id="phone" value={newCustomer.phone} onChange={(e) => setNewCustomer({...newCustomer, phone: e.target.value})} className="col-span-3" placeholder="628123456789" />
-            </div>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRegisterAndSend}>Daftar & Kirim</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+
     </div>
   );
 }
-
-
