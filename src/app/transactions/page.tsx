@@ -244,6 +244,8 @@ export default function TransactionsPage() {
   const [transactionForRegistration, setTransactionForRegistration] = useState<Transaction | null>(null);
   const [discount, setDiscount] = useState(0);
   const { user } = useAuth();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
 
   // Refund state
@@ -571,6 +573,20 @@ export default function TransactionsPage() {
   
   const isLoading = loading || loadingBusiness;
 
+  const totalPages = itemsPerPage > 0 ? Math.ceil(transactions.length / itemsPerPage) : 1;
+  const currentTransactions = useMemo(() => {
+    if (itemsPerPage === 0) return transactions;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return transactions.slice(startIndex, endIndex);
+  }, [transactions, currentPage, itemsPerPage]);
+
+  const handleItemsPerPageChange = (value: string) => {
+    const numValue = parseInt(value, 10);
+    setItemsPerPage(isNaN(numValue) ? 0 : numValue);
+    setCurrentPage(1); // Reset to first page
+  };
+
   return (
     <div className="flex flex-col gap-6" id="main-content">
        <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6 no-print">
@@ -805,7 +821,7 @@ export default function TransactionsPage() {
                             <TableCell className="flex gap-2 justify-end"><Skeleton className="h-8 w-8" /><Skeleton className="h-8 w-8" /></TableCell>
                         </TableRow>
                     ))
-                    ) : transactions.map((transaction) => {
+                    ) : currentTransactions.map((transaction) => {
                     const itemsSummary = transaction.items?.map(i => `${i.quantity}x ${i.name}`).join(', ') || 'No items';
                     return (
                     <TableRow key={transaction.id}>
@@ -882,6 +898,49 @@ export default function TransactionsPage() {
                 </div>
             )}
         </CardContent>
+        <CardFooter className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+                Showing {Math.min((currentPage - 1) * (itemsPerPage || 0) + 1, transactions.length)} to {Math.min(currentPage * (itemsPerPage || transactions.length), transactions.length)} of {transactions.length} transactions.
+            </div>
+            <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium">Rows per page</p>
+                    <Select value={String(itemsPerPage)} onValueChange={handleItemsPerPageChange}>
+                        <SelectTrigger className="h-8 w-[70px]">
+                            <SelectValue placeholder={itemsPerPage} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="10">10</SelectItem>
+                            <SelectItem value="15">15</SelectItem>
+                            <SelectItem value="20">20</SelectItem>
+                            <SelectItem value="25">25</SelectItem>
+                            <SelectItem value="0">All</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="text-sm font-medium">
+                    Page {currentPage} of {totalPages}
+                </div>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                    >
+                        Previous
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                    >
+                        Next
+                    </Button>
+                </div>
+            </div>
+        </CardFooter>
       </Card>
       
       <AlertDialog open={isConfirming} onOpenChange={setIsConfirming}>
@@ -982,3 +1041,6 @@ export default function TransactionsPage() {
 
 
     
+
+
+      
