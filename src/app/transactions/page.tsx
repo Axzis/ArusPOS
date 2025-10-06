@@ -814,7 +814,7 @@ export default function TransactionsPage() {
                             {transaction.customerName || 'Anonymous'}
                         </div>
                         </TableCell>
-                        <TableCell className='max-w-[200px] truncate hidden sm:table-cell'>{itemsSummary}</TableCell>
+                        <TableCell className='max-w-[200px] hidden sm:table-cell'>{itemsSummary}</TableCell>
                         <TableCell className="hidden md:table-cell">{formatDate(new Date(transaction.date), "dd MMM yyyy, HH:mm")}</TableCell>
                         <TableCell>
                         <Badge
