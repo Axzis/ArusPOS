@@ -52,7 +52,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { format as formatDate, isWithinInterval } from 'date-fns';
+import { format as formatDate, isWithinInterval, parseISO } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import {
@@ -244,8 +244,12 @@ export default function TransactionsPage() {
   const [transactionForRegistration, setTransactionForRegistration] = useState<Transaction | null>(null);
   const [discount, setDiscount] = useState(0);
   const { user } = useAuth();
+  
+  // Pagination and filter state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [filterType, setFilterType] = useState('customer');
+  const [filterValue, setFilterValue] = useState('');
 
 
   // Refund state
@@ -573,13 +577,53 @@ export default function TransactionsPage() {
   
   const isLoading = loading || loadingBusiness;
 
-  const totalPages = itemsPerPage > 0 ? Math.ceil(transactions.length / itemsPerPage) : 1;
+  const handleFilterChange = (value: string) => {
+    setFilterValue(value);
+    setCurrentPage(1); // Reset to first page on new filter
+  };
+  
+  const handleFilterTypeChange = (type: string) => {
+      setFilterType(type);
+      setFilterValue('');
+      setCurrentPage(1);
+  };
+  
+  const clearFilter = () => {
+    setFilterValue('');
+    setFilterType('customer');
+    setCurrentPage(1);
+  };
+
+
+  const filteredTransactions = useMemo(() => {
+    if (!filterValue) return transactions;
+
+    return transactions.filter(transaction => {
+        if (filterType === 'customer') {
+            return transaction.customerName.toLowerCase().includes(filterValue.toLowerCase());
+        }
+        if (filterType === 'date') {
+            // Compare YYYY-MM-DD strings
+            try {
+                return formatDate(parseISO(transaction.date), 'yyyy-MM-dd') === filterValue;
+            } catch {
+                return false;
+            }
+        }
+        if (filterType === 'item') {
+            return transaction.items.some(item => item.name.toLowerCase().includes(filterValue.toLowerCase()));
+        }
+        return true;
+    });
+  }, [transactions, filterType, filterValue]);
+
+  const totalPages = itemsPerPage > 0 ? Math.ceil(filteredTransactions.length / itemsPerPage) : 1;
   const currentTransactions = useMemo(() => {
-    if (itemsPerPage === 0) return transactions;
+    if (itemsPerPage === 0) return filteredTransactions;
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return transactions.slice(startIndex, endIndex);
-  }, [transactions, currentPage, itemsPerPage]);
+    return filteredTransactions.slice(startIndex, endIndex);
+  }, [filteredTransactions, currentPage, itemsPerPage]);
 
   const handleItemsPerPageChange = (value: string) => {
     const numValue = parseInt(value, 10);
@@ -792,7 +836,29 @@ export default function TransactionsPage() {
       <Card>
         <CardHeader>
             <CardTitle>Recent Transactions</CardTitle>
-            <CardDescription>A list of the most recent sales for this branch.</CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <CardDescription>A list of the most recent sales for this branch.</CardDescription>
+                <div className="flex flex-col sm:flex-row items-center gap-2">
+                    <Select value={filterType} onValueChange={handleFilterTypeChange}>
+                        <SelectTrigger className="w-full sm:w-[150px]">
+                            <SelectValue placeholder="Filter by..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="customer">Customer</SelectItem>
+                            <SelectItem value="date">Date</SelectItem>
+                            <SelectItem value="item">Item</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Input
+                        type={filterType === 'date' ? 'date' : 'text'}
+                        placeholder="Search..."
+                        value={filterValue}
+                        onChange={(e) => handleFilterChange(e.target.value)}
+                        className="w-full sm:w-auto"
+                    />
+                    <Button variant="ghost" onClick={clearFilter}>Clear</Button>
+                </div>
+            </div>
         </CardHeader>
         <CardContent>
             <div className="overflow-x-auto">
@@ -830,7 +896,7 @@ export default function TransactionsPage() {
                             {transaction.customerName || 'Anonymous'}
                         </div>
                         </TableCell>
-                        <TableCell className='max-w-[200px] hidden sm:table-cell'>{itemsSummary}</TableCell>
+                        <TableCell className='max-w-[200px] hidden sm:table-cell whitespace-normal break-words'>{itemsSummary}</TableCell>
                         <TableCell className="hidden md:table-cell">{formatDate(new Date(transaction.date), "dd MMM yyyy, HH:mm")}</TableCell>
                         <TableCell>
                         <Badge
@@ -892,15 +958,15 @@ export default function TransactionsPage() {
                 </TableBody>
                 </Table>
             </div>
-             { !isLoading && transactions.length === 0 && (
+             { !isLoading && filteredTransactions.length === 0 && (
                 <div className="text-center p-10 text-muted-foreground">
-                    No transactions found for this branch yet.
+                    No transactions found for this branch or filter.
                 </div>
             )}
         </CardContent>
         <CardFooter className="flex items-center justify-between">
             <div className="text-sm text-muted-foreground">
-                Showing {Math.min((currentPage - 1) * (itemsPerPage || 0) + 1, transactions.length)} to {Math.min(currentPage * (itemsPerPage || transactions.length), transactions.length)} of {transactions.length} transactions.
+                Showing {Math.min((currentPage - 1) * (itemsPerPage || 0) + 1, filteredTransactions.length)} to {Math.min(currentPage * (itemsPerPage || filteredTransactions.length), filteredTransactions.length)} of {filteredTransactions.length} transactions.
             </div>
             <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
