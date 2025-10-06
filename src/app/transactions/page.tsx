@@ -178,12 +178,15 @@ export default function TransactionsPage() {
             }
         };
 
+        const numberFormatter = new Intl.NumberFormat('id-ID');
+
         const itemsHtml = transaction.items.map(item => `
             <tr>
                 <td style="padding: 2px 4px; vertical-align: top; word-break: break-word;">${item.name}</td>
+                <td style="padding: 2px 4px; vertical-align: top; text-align: center;">${item.unit}</td>
                 <td style="padding: 2px 4px; vertical-align: top; text-align: center;">${item.quantity}</td>
-                <td style="padding: 2px 4px; vertical-align: top; text-align: right;">${formatCurrency(item.price, transactionCurrency)}</td>
-                <td style="padding: 2px 4px; vertical-align: top; text-align: right;">${formatCurrency(item.price * item.quantity, transactionCurrency)}</td>
+                <td style="padding: 2px 4px; vertical-align: top; text-align: right;">${numberFormatter.format(item.price)}</td>
+                <td style="padding: 2px 4px; vertical-align: top; text-align: right;">${numberFormatter.format(item.price * item.quantity)}</td>
             </tr>
         `).join('');
 
@@ -217,6 +220,7 @@ export default function TransactionsPage() {
                             <thead>
                                 <tr>
                                     <th style="padding: 2px 4px;">Product</th>
+                                    <th style="padding: 2px 4px; text-align: center;">Unit</th>
                                     <th style="padding: 2px 4px; text-align: center;">Qty</th>
                                     <th style="padding: 2px 4px; text-align: right;">Price</th>
                                     <th style="padding: 2px 4px; text-align: right;">Total</th>
