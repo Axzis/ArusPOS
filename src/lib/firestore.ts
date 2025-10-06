@@ -1,5 +1,5 @@
 
-import { initializeFirebase } from '@/firebase'; // Corrected import path
+import { initializeFirebase } from '@/lib/firebase';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import {
   getFirestore,
@@ -768,7 +768,7 @@ export async function resetBranchData(branchId: string): Promise<void> {
     
     const productsPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PRODUCTS_COLLECTION}`;
     const transactionsPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${TRANSACTIONS_COLLECTION}`;
-    const promosPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PROMOS_COLLECTION}`;
+    const promosPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLlection}/${branchId}/${PROMOS_COLLECTION}`;
     
     // Execute deletions in parallel
     await Promise.all([
