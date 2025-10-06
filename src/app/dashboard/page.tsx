@@ -61,6 +61,7 @@ type Transaction = {
     status: 'Paid' | 'Refunded';
     type: 'Sale' | 'Refund';
     items: TransactionItem[];
+    cashierName?: string;
 }
 
 type Customer = {
@@ -315,8 +316,8 @@ export default function DashboardPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Customer</TableHead>
-                  <TableHead className="hidden sm:table-cell">Type</TableHead>
                   <TableHead className="hidden sm:table-cell">Status</TableHead>
+                  <TableHead className="hidden md:table-cell">User</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                 </TableRow>
               </TableHeader>
@@ -325,8 +326,8 @@ export default function DashboardPage() {
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                         <TableCell><Skeleton className="h-5 w-24" /></TableCell>
-                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-16" /></TableCell>
-                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-16" /></TableCell>
+                        <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                        <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
                         <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                     </TableRow>
                   ))
@@ -340,7 +341,6 @@ export default function DashboardPage() {
                         {transaction.type} - {transaction.status}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell">{transaction.type}</TableCell>
                     <TableCell className="hidden sm:table-cell">
                       <Badge
                         variant={
@@ -352,6 +352,7 @@ export default function DashboardPage() {
                         {transaction.status}
                       </Badge>
                     </TableCell>
+                    <TableCell className="hidden md:table-cell">{transaction.cashierName}</TableCell>
                     <TableCell
                       className={`text-right ${
                         transaction.type === 'Refund'
