@@ -1,5 +1,5 @@
 
-import { initializeFirebase } from './firebase'; // Corrected import path
+import { initializeFirebase } from '@/firebase'; // Corrected import path
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import {
   getFirestore,
@@ -780,7 +780,7 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     }
 
     const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
-    const customersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION);
+    const customersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLlection);
 
     // Check if products already exist to prevent re-seeding
     const existingProductsQuery = query(productsCollectionRef, limit(1));
