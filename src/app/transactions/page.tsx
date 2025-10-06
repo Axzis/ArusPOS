@@ -14,7 +14,7 @@ import {
   getTransactionsForBranch,
   addTransactionAndUpdateStock,
   getPromosForBranch,
-  addNewCustomer,
+  addCustomer,
   refundTransaction,
 } from '@/lib/firestore';
 
@@ -442,7 +442,7 @@ export default function TransactionsPage() {
   const handleRegisterAndSend = async () => {
     if (!newCustomer.name || !newCustomer.phone || !transactionForRegistration || !activeBranchId) return;
     try {
-      await addNewCustomer({ name: newCustomer.name, email: '', phone: newCustomer.phone });
+      await addCustomer({ name: newCustomer.name, email: '', phone: newCustomer.phone });
       toast({ title: "Pelanggan Terdaftar", description: `${newCustomer.name} telah berhasil ditambahkan.` });
       fetchData(activeBranchId); 
       generateWhatsAppMessage(transactionForRegistration, newCustomer.phone);
