@@ -124,7 +124,7 @@ export default function InvoicePrintPage() {
                     <CardDescription>#{transaction.id.substring(0, 8)}</CardDescription>
                 </CardHeader>
                 <CardContent className="p-2">
-                    <div className="grid gap-2 text-center">
+                    <div className="grid gap-2 text-left">
                         <div>
                             <p className="font-medium">Billed To:</p>
                             <p>{transaction.customerName}</p>
@@ -134,7 +134,7 @@ export default function InvoicePrintPage() {
                             <p>{new Date(transaction.date).toLocaleString()}</p>
                         </div>
                         {transaction.cashierName && (
-                             <div className="text-center">
+                             <div>
                                 <p className="font-medium">Cashier:</p>
                                 <p>{transaction.cashierName}</p>
                             </div>
@@ -161,7 +161,7 @@ export default function InvoicePrintPage() {
                             </TableBody>
                         </Table>
                         <Separator className="my-2"/>
-                         <div className="mx-auto w-full max-w-xs space-y-1">
+                         <div className="w-full space-y-1">
                             <div className="flex justify-between">
                                 <span>Subtotal</span>
                                 <span>{formatCurrency(subtotal, currency)}</span>
