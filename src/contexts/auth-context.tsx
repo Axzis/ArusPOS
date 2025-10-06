@@ -13,6 +13,7 @@ const USERS_COLLECTION = 'users';
 export type AppUser = User & {
     role?: string;
     photoURL?: string; // Allow overriding from Firestore
+    displayName?: string; // Allow overriding from Firestore
 };
 
 type AuthContextType = {
@@ -54,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     ...refreshedUserAuth,
                     role: userDoc?.role,
                     photoURL: userDoc?.photoURL || refreshedUserAuth.photoURL,
+                    displayName: userDoc?.name || refreshedUserAuth.displayName,
                 });
             }
         }
@@ -68,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     ...userAuth,
                     role: userDoc?.role,
                     photoURL: userDoc?.photoURL || userAuth.photoURL, // Prefer Firestore URL
+                    displayName: userDoc?.name || userAuth.displayName,
                 });
             } else {
                 // User is signed out
@@ -90,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 ...userCredential.user,
                 role: userDoc?.role,
                 photoURL: userDoc?.photoURL || userCredential.user.photoURL,
+                displayName: userDoc?.name || userCredential.user.displayName,
             };
             return appUser;
         } catch (error) {

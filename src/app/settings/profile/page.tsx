@@ -113,6 +113,32 @@ export default function ProfilePage() {
         <div className="grid gap-8">
             <Card>
                 <CardHeader>
+                    <CardTitle>Informasi Pengguna</CardTitle>
+                    <CardDescription>Ini adalah detail akun Anda. Email tidak dapat diubah.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {isLoading ? (
+                        <div className="space-y-4">
+                            <Skeleton className="h-10 w-full" />
+                            <Skeleton className="h-10 w-full" />
+                        </div>
+                    ) : (
+                        <div className="grid sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="displayName">Nama Lengkap</Label>
+                                <Input id="displayName" value={user?.displayName || user?.email || ''} disabled />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="email">Email</Label>
+                                <Input id="email" value={user?.email || ''} disabled />
+                            </div>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
                     <CardTitle>Foto Profil</CardTitle>
                     <CardDescription>Perbarui foto profil Anda.</CardDescription>
                 </CardHeader>
@@ -128,7 +154,7 @@ export default function ProfilePage() {
                         <div className="flex flex-col sm:flex-row items-center gap-6">
                             <Avatar className="h-24 w-24">
                                 <AvatarImage src={newPhotoUrl || user?.photoURL || `https://picsum.photos/seed/${user?.uid}/96/96`} alt={user?.email || 'User'} />
-                                <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
+                                <AvatarFallback>{user?.displayName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
                             </Avatar>
                              <div className="flex flex-col gap-2 items-center sm:items-start">
                                 <ImageUploadDialog onImageSelect={setNewPhotoUrl}>
