@@ -77,6 +77,15 @@ async function getBusinessId(): Promise<string | null> {
     return userData.businessId || null;
 }
 
+// === Super Admin User Creation (Auth only) ===
+export async function createAuthUser(email: string, password?: string) {
+     if (!email || !password) {
+        throw new Error("Email and password are required to create a new user.");
+    }
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
+}
+
 
 // === New Business and User Registration ===
 export async function addUserAndBusiness(data: BusinessData) {
@@ -88,12 +97,9 @@ export async function addUserAndBusiness(data: BusinessData) {
     const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
     const user = userCredential.user;
 
-    // 2. Send verification email - We will now allow login without verification
-    // await sendEmailVerification(user);
-
     const batch = writeBatch(db);
 
-    // 3. Create the Business document
+    // 2. Create the Business document
     const businessRef = doc(collection(db, BUSINESSES_COLLECTION));
     batch.set(businessRef, {
         name: data.businessName,
@@ -108,7 +114,7 @@ export async function addUserAndBusiness(data: BusinessData) {
         adminUid: user.uid,
     });
 
-    // 4. Create Branch documents 
+    // 3. Create Branch documents 
     data.branches.forEach(branchData => {
         const branchRef = doc(collection(db, `businesses/${businessRef.id}/branches`));
         batch.set(branchRef, {
@@ -118,7 +124,7 @@ export async function addUserAndBusiness(data: BusinessData) {
         });
     });
 
-    // 5. Create the User document in Firestore
+    // 4. Create the User document in Firestore
     const userRef = doc(collection(db, USERS_COLLECTION));
     batch.set(userRef, {
         uid: user.uid,
@@ -599,8 +605,6 @@ export async function addUserToBusiness(userData: NewUser) {
 
     const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
     const user = userCredential.user;
-    
-    await sendEmailVerification(user);
     
     const batch = writeBatch(db);
     const userRef = doc(collection(db, USERS_COLLECTION));
