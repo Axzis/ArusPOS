@@ -66,7 +66,13 @@ export default function SelectBranchPage() {
   const handleSelectBranch = (branch: Branch) => {
     console.log(`Selected branch: ${branch.name}`);
     localStorage.setItem('activeBranch', JSON.stringify(branch));
-    router.push('/dashboard');
+    
+    // Conditional redirect based on user role
+    if (user?.role === 'Staff') {
+        router.push('/transactions');
+    } else {
+        router.push('/dashboard');
+    }
   };
 
   const hasActiveBranches = business && business.branches && business.branches.length > 0;
