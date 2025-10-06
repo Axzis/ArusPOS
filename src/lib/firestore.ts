@@ -1,5 +1,5 @@
 
-import { initializeFirebase } from '@/lib/firebase';
+import { initializeFirebase } from './firebase';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import {
   getFirestore,
@@ -65,19 +65,22 @@ async function getBusinessId(): Promise<string | null> {
     if (user.email && isSuperAdminUser(user.email)) {
         return null;
     }
-
-    // Use collectionGroup to find the user across all businesses
-    const usersQuery = query(collectionGroup(db, USERS_COLLECTION), where("uid", "==", user.uid), limit(1));
-    const usersSnapshot = await getDocs(usersQuery);
-
-    if (usersSnapshot.empty) {
-        console.warn(`No user document found for UID: ${user.uid}`);
-        return null;
+    
+    // Fallback search mechanism
+    const businessesSnapshot = await getDocs(collection(db, BUSINESSES_COLLECTION));
+    for (const businessDoc of businessesSnapshot.docs) {
+        const usersRef = collection(db, BUSINESSES_COLLECTION, businessDoc.id, USERS_COLLECTION);
+        const userQuery = query(usersRef, where("uid", "==", user.uid), limit(1));
+        const userSnapshot = await getDocs(userQuery);
+        if (!userSnapshot.empty) {
+            // Found the user in this business, return the business ID
+            return businessDoc.id;
+        }
     }
 
-    const userData = usersSnapshot.docs[0].data();
-    // The businessId is part of the user document itself in this new structure
-    return userData.businessId || null;
+
+    console.warn(`No business associated with UID: ${user.uid}`);
+    return null;
 }
 
 // === Super Admin User Creation (Auth only) ===
@@ -768,7 +771,7 @@ export async function resetBranchData(branchId: string): Promise<void> {
     
     const productsPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PRODUCTS_COLLECTION}`;
     const transactionsPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${TRANSACTIONS_COLLECTION}`;
-    const promosPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLlection}/${branchId}/${PROMOS_COLLECTION}`;
+    const promosPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PROMOS_COLLECTION}`;
     
     // Execute deletions in parallel
     await Promise.all([
