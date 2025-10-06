@@ -155,7 +155,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    // Allow accessing superadmin register page even if logged in
+    // Allow accessing certain public pages even if logged in
     if (user && (pathname === '/login' || pathname === '/quick-assessment')) {
         router.replace('/select-branch');
         return;
@@ -172,13 +172,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           if (storedBranch) {
               setActiveBranch(JSON.parse(storedBranch));
           } else {
-              if (!pathname.startsWith('/select-branch') && !pathname.startsWith('/superadmin')) {
+              // SuperAdmins should not be redirected to select a branch
+              if (!isSuperAdmin && !pathname.startsWith('/select-branch') && !pathname.startsWith('/superadmin')) {
                   router.replace('/select-branch');
               }
           }
        } catch (error) {
           console.error("Could not parse active branch", error);
-          router.replace('/select-branch');
+           if (!isSuperAdmin) {
+                router.replace('/select-branch');
+           }
        } finally {
           setLoadingBranch(false);
        }
@@ -316,7 +319,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2 text-sm font-medium">
                 <Building className="size-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Managing:</span>
-                {loadingBranch ? <Skeleton className="h-5 w-24" /> : <span>{activeBranch?.name ?? '...'}</span>}
+                {loadingBranch ? <Skeleton className="h-5 w-24" /> : <span>{activeBranch?.name ?? 'All Branches'}</span>}
             </div>
 
         <div className="ml-auto flex items-center gap-2">
