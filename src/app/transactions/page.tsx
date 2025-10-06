@@ -135,7 +135,7 @@ export default function TransactionsPage() {
   const [transactionToRefund, setTransactionToRefund] = useState<Transaction | null>(null);
   const [refundItems, setRefundItems] = useState<RefundItem[]>([]);
   
-  const { currency, taxEnabled, taxRate, loading: loadingBusiness } = useBusiness();
+  const { currency, taxEnabled, taxRate, loading: loadingBusiness, paperSize } = useBusiness();
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -163,6 +163,108 @@ export default function TransactionsPage() {
     }
   }, [toast]);
   
+    const generateInvoiceHtml = (transaction: Transaction) => {
+        const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const transactionDiscount = transaction.discount || 0;
+        const tax = transaction.amount + transactionDiscount - subtotal;
+        const transactionCurrency = transaction.currency || 'Rp';
+
+        const getPaperWidthClass = () => {
+            switch (paperSize) {
+                case '5.8cm': return 'width: 58mm;';
+                case '8cm': return 'width: 80mm;';
+                case 'A4':
+                default: return 'width: 210mm;';
+            }
+        };
+
+        const itemsHtml = transaction.items.map(item => `
+            <tr>
+                <td style="padding: 2px 4px; vertical-align: top; word-break: break-word;">${item.name}</td>
+                <td style="padding: 2px 4px; vertical-align: top; text-align: center;">${item.quantity}</td>
+                <td style="padding: 2px 4px; vertical-align: top; text-align: center;">${item.unit || ''}</td>
+                <td style="padding: 2px 4px; vertical-align: top; text-align: right;">${formatCurrency(item.price * item.quantity, transactionCurrency)}</td>
+            </tr>
+        `).join('');
+
+        return `
+            <html>
+                <head>
+                    <title>Invoice #${transaction.id.substring(0, 8)}</title>
+                    <style>
+                        body { font-family: monospace; font-size: 10px; }
+                        .invoice-box { ${getPaperWidthClass()} margin: auto; padding: 10px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, 0.15); }
+                        table { width: 100%; line-height: inherit; text-align: left; border-collapse: collapse; }
+                        .text-center { text-align: center; }
+                        .font-bold { font-weight: bold; }
+                        .my-2 { margin-top: 8px; margin-bottom: 8px; }
+                        .separator { border-top: 1px dashed #ccc; }
+                    </style>
+                </head>
+                <body>
+                    <div class="invoice-box">
+                        <div class="text-center">
+                            <h2 style="font-size: 14px; margin: 0;">Invoice</h2>
+                            <p>#${transaction.id.substring(0, 8)}</p>
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <p><strong>Billed To:</strong> ${transaction.customerName}</p>
+                            <p><strong>Date:</strong> ${new Date(transaction.date).toLocaleString()}</p>
+                            ${transaction.cashierName ? `<p><strong>Cashier:</strong> ${transaction.cashierName}</p>` : ''}
+                        </div>
+                        <hr class="my-2 separator">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="padding: 2px 4px;">Product</th>
+                                    <th style="padding: 2px 4px; text-align: center;">Qty</th>
+                                    <th style="padding: 2px 4px; text-align: center;">Unit</th>
+                                    <th style="padding: 2px 4px; text-align: right;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${itemsHtml}
+                            </tbody>
+                        </table>
+                        <hr class="my-2 separator">
+                        <div>
+                            <p><span>Subtotal:</span> <span style="float: right;">${formatCurrency(subtotal, transactionCurrency)}</span></p>
+                            ${tax > 0 ? `<p><span>Tax:</span> <span style="float: right;">${formatCurrency(tax, transactionCurrency)}</span></p>` : ''}
+                            ${transactionDiscount > 0 ? `<p><span>Discount:</span> <span style="float: right;">-${formatCurrency(transactionDiscount, transactionCurrency)}</span></p>` : ''}
+                            <hr class="my-2 separator">
+                            <p class="font-bold" style="font-size: 12px;"><span>Total:</span> <span style="float: right;">${formatCurrency(transaction.amount, transactionCurrency)}</span></p>
+                        </div>
+                        <div class="text-center" style="margin-top: 20px; font-size: 9px;">
+                            <p>Thank you for your business!</p>
+                            <p>Arus POS</p>
+                        </div>
+                    </div>
+                </body>
+            </html>
+        `;
+    };
+
+    const handlePrintInvoice = (transaction: Transaction) => {
+        const htmlContent = generateInvoiceHtml(transaction);
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.write(htmlContent);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 250);
+        } else {
+            toast({
+                title: "Print Error",
+                description: "Could not open a new window for printing. Please check your browser's pop-up settings.",
+                variant: "destructive",
+            });
+        }
+    };
+
+
   const productsWithPromo = useMemo(() => {
     if (loading) return [];
     
@@ -202,20 +304,6 @@ export default function TransactionsPage() {
     }
   }, [activeBranchId, fetchData]);
 
-  const handlePrintInvoice = (transaction: Transaction) => {
-    try {
-        localStorage.setItem('transactionToPrint', JSON.stringify(transaction));
-        window.open('/print/invoice', '_blank');
-    } catch (error) {
-        console.error("Could not save transaction to localStorage for printing:", error);
-        toast({
-            title: "Print Error",
-            description: "Could not prepare the invoice for printing.",
-            variant: "destructive"
-        });
-    }
-  };
-  
   const updateOrderItemQuantity = useCallback((productId: string, newQuantity: number) => {
     setOrderItems(prevItems => {
         const itemToUpdate = prevItems.find(item => item.id === productId);
