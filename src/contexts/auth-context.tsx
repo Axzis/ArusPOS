@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         });
                     } else {
                         // User is authenticated with Firebase but has no doc in 'users' collection
-                        console.warn(`User with UID ${userAuth.uid} is authenticated but has no Firestore document. Logging out.`);
+                        console.warn(`User with UID ${userAuth.uid} is authenticated but has no Firestore document. This can happen to old superadmin accounts. Logging out.`);
                         // Set user to null to prevent access
                         setUser(null);
                         await signOut(auth); // Force sign out
