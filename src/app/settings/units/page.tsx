@@ -59,8 +59,11 @@ export default function UnitsPage() {
         setSaving(true);
         try {
             await updateBusiness(business.id, { units });
-            toast({ title: "Success", description: "Units updated successfully." });
-            // Optionally, force a reload of business context if needed, but local state is fine for now
+            toast({ title: "Success", description: "Units updated successfully. The app will now reload." });
+            // Force a reload to make sure the business context picks up the new units everywhere.
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
         } catch (error) {
             console.error("Failed to save units:", error);
             toast({ title: "Error", description: "Could not save units.", variant: "destructive" });
