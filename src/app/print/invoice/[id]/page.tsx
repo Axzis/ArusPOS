@@ -117,26 +117,24 @@ export default function InvoicePrintPage() {
     const currency = transaction.currency || 'USD';
 
     return (
-        <div className={cn("p-4 bg-white font-mono text-xs", getPaperWidthClass())}>
+        <div className={cn("p-4 bg-white font-mono text-xs mx-auto", getPaperWidthClass())}>
             <Card className="shadow-none border-0">
                 <CardHeader className='text-center p-2'>
                     <CardTitle className="text-base">Invoice</CardTitle>
                     <CardDescription>#{transaction.id.substring(0, 8)}</CardDescription>
                 </CardHeader>
                 <CardContent className="p-2">
-                    <div className="grid gap-2">
-                        <div className="grid grid-cols-2">
-                            <div>
-                                <p className="font-medium">Billed To:</p>
-                                <p>{transaction.customerName}</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="font-medium">Date:</p>
-                                <p>{new Date(transaction.date).toLocaleString()}</p>
-                            </div>
+                    <div className="grid gap-2 text-center">
+                        <div>
+                            <p className="font-medium">Billed To:</p>
+                            <p>{transaction.customerName}</p>
+                        </div>
+                        <div>
+                            <p className="font-medium">Date:</p>
+                            <p>{new Date(transaction.date).toLocaleString()}</p>
                         </div>
                         {transaction.cashierName && (
-                             <div className="text-left">
+                             <div className="text-center">
                                 <p className="font-medium">Cashier:</p>
                                 <p>{transaction.cashierName}</p>
                             </div>
@@ -154,7 +152,7 @@ export default function InvoicePrintPage() {
                             <TableBody>
                                 {transaction.items.map(item => (
                                     <TableRow key={item.id} className="break-inside-avoid">
-                                        <TableCell className="p-1 align-top break-words whitespace-normal">{item.name}</TableCell>
+                                        <TableCell className="p-1 align-top break-words whitespace-normal text-left">{item.name}</TableCell>
                                         <TableCell className="text-center p-1 align-top">{item.quantity}</TableCell>
                                         <TableCell className="text-center p-1 align-top">{item.unit || ''}</TableCell>
                                         <TableCell className="text-right p-1 align-top">{formatCurrency(item.price * item.quantity, currency)}</TableCell>
@@ -163,7 +161,7 @@ export default function InvoicePrintPage() {
                             </TableBody>
                         </Table>
                         <Separator className="my-2"/>
-                         <div className="ml-auto w-full max-w-xs space-y-1">
+                         <div className="mx-auto w-full max-w-xs space-y-1">
                             <div className="flex justify-between">
                                 <span>Subtotal</span>
                                 <span>{formatCurrency(subtotal, currency)}</span>
