@@ -11,5 +11,6 @@ const SUPER_ADMIN_EMAILS = [
  * @returns True if the email is in the super admin list, false otherwise.
  */
 export function isSuperAdminUser(email: string): boolean {
+    if (!email) return false;
     return SUPER_ADMIN_EMAILS.includes(email);
 }

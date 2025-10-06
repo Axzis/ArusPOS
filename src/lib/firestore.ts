@@ -22,6 +22,7 @@ import {
   setDoc,
   collectionGroup,
 } from 'firebase/firestore';
+import { isSuperAdminUser } from './config';
 
 const USERS_COLLECTION = 'users';
 const BUSINESSES_COLLECTION = 'businesses';
@@ -59,12 +60,15 @@ async function getBusinessId(): Promise<string | null> {
         return null;
     }
 
+    // If user is a superadmin, they don't have a businessId.
+    if (user.email && isSuperAdminUser(user.email)) {
+        return null;
+    }
+
     const usersQuery = query(collection(db, USERS_COLLECTION), where("uid", "==", user.uid), limit(1));
     const usersSnapshot = await getDocs(usersQuery);
 
     if (usersSnapshot.empty) {
-        // This can happen if the user is the superadmin who doesn't have a businessId
-        if (user.email === 'superadmin@gmail.com') return null;
         console.warn(`No user document found for UID: ${user.uid}`);
         return null;
     }
@@ -84,8 +88,8 @@ export async function addUserAndBusiness(data: BusinessData) {
     const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
     const user = userCredential.user;
 
-    // 2. Send verification email
-    await sendEmailVerification(user);
+    // 2. Send verification email - We will now allow login without verification
+    // await sendEmailVerification(user);
 
     const batch = writeBatch(db);
 
