@@ -165,7 +165,7 @@ export async function getAllBusinesses() {
     // 1. Fetch all businesses
     const businessQuery = query(collection(db, BUSINESSES_COLLECTION), orderBy("createdAt", "desc"));
     const businessSnapshot = await getDocs(businessQuery);
-    const businessesData = businessSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Business[];
+    const businessesData = businessSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
     const businessMap = new Map(businessesData.map(b => [b.id, { ...b, branches: [], users: [] }]));
 
     // 2. Fetch all branches using a collectionGroup query
@@ -513,27 +513,37 @@ export async function refundTransaction(
             console.warn(`Product with ID ${item.id} not found. Could not restore stock.`);
         }
     }
+    
+    // 3. Calculate new status for original transaction
+    const allRefundsQuery = query(
+        collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION),
+        where('originalTransactionId', '==', originalTransaction.id)
+    );
+    const allRefundsSnapshot = await getDocs(allRefundsQuery);
+    
+    const totalRefundedQuantities: { [key: string]: number } = {};
+    allRefundsSnapshot.docs.forEach(doc => {
+        doc.data().items.forEach((item: any) => {
+            totalRefundedQuantities[item.id] = (totalRefundedQuantities[item.id] || 0) + item.quantity;
+        });
+    });
+    
+    // Add the current refund items to the total
+    itemsToRefund.forEach(item => {
+        totalRefundedQuantities[item.id] = (totalRefundedQuantities[item.id] || 0) + item.quantity;
+    });
 
-    // 3. Check if all items were refunded to update the original transaction status
     const allItemsRefunded = originalTransaction.items.every((origItem: any) => {
-        const refundedItem = itemsToRefund.find(refItem => refItem.id === origItem.id);
-        const previouslyRefunded = (originalTransaction.refundedItems || {})[origItem.id] || 0;
-        return (refundedItem ? refundedItem.quantity : 0) + previouslyRefunded >= origItem.quantity;
+        return (totalRefundedQuantities[origItem.id] || 0) >= origItem.quantity;
     });
 
     const newStatus = allItemsRefunded ? 'Refunded' : 'Partially Refunded';
 
-    // 4. Update the original transaction status and refunded items
+    // 4. Update the original transaction status
     const originalTransactionRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION, originalTransaction.id);
-    const updatedRefundedItems = { ...(originalTransaction.refundedItems || {}) };
-    for (const item of itemsToRefund) {
-        updatedRefundedItems[item.id] = (updatedRefundedItems[item.id] || 0) + item.quantity;
-    }
     
     batch.update(originalTransactionRef, { 
-        status: newStatus,
-        refundedItems: updatedRefundedItems,
-        amount: increment(-totalRefundAmount) // Decrease the original transaction amount
+        status: newStatus
     });
 
     // 5. Update the customer's totalSpent

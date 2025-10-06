@@ -91,6 +91,7 @@ type Transaction = {
     items: OrderItem[];
     discount?: number;
     currency: string;
+    originalTransactionId?: string;
 }
 
 type RefundItem = {
@@ -228,25 +229,21 @@ export default function TransactionsPage() {
   const updateOrderItemQuantity = useCallback((productId: string, newQuantity: number) => {
     setOrderItems(prevItems => {
         const itemToUpdate = prevItems.find(item => item.id === productId);
-        const productInfo = allProducts.find(p => p.id === productId);
+        // Find product from the memoized list that includes promo pricing
+        const productInfo = productsWithPromo.find(p => p.id === productId);
         if (!itemToUpdate || !productInfo) return prevItems;
 
         const cappedQuantity = Math.max(1, Math.min(newQuantity, itemToUpdate.stock));
-        // Recalculate price based on the new quantity (for bundle pricing)
+        
         const { price, originalPrice } = getBestPrice(productInfo, cappedQuantity);
-
-        // Check if there is an active promo for this product
-        const now = new Date();
-        const activePromo = promos.find(p => p.productId === productId && isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
-        const finalPrice = activePromo ? activePromo.promoPrice : price;
 
         return prevItems.map(item => 
             item.id === productId 
-                ? { ...item, quantity: cappedQuantity, price: finalPrice, originalPrice: originalPrice }
+                ? { ...item, quantity: cappedQuantity, price: price, originalPrice: originalPrice }
                 : item
         );
     });
-  }, [allProducts, promos]);
+  }, [productsWithPromo]);
 
 
   const addToOrder = useCallback((product: ProductWithPromo) => {
@@ -258,15 +255,11 @@ export default function TransactionsPage() {
               return prevItems;
           }
         const newQuantity = existingItem.quantity + 1;
-        // Recalculate price to check for bundle price changes
-        const { price: newPrice } = getBestPrice(product, newQuantity);
-        
-        // A promo price overrides any bundle price
-        const finalPrice = product.hasPromo ? product.price : newPrice;
+        const { price } = getBestPrice(product, newQuantity);
 
         return prevItems.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: newQuantity, price: finalPrice }
+            ? { ...item, quantity: newQuantity, price: price }
             : item
         );
       }
@@ -274,7 +267,6 @@ export default function TransactionsPage() {
             toast({ title: "Out of Stock", description: `${product.name} is out of stock.`, variant: "destructive" });
             return prevItems;
         }
-      // For a new item, getBestPrice is already reflected in product.price from productsWithPromo
       return [...prevItems, { ...product, quantity: 1, price: product.price, originalPrice: product.originalPrice, unit: product.unit }];
     });
   }, [toast]);
@@ -385,11 +377,33 @@ export default function TransactionsPage() {
 
   const handleOpenRefundDialog = (transaction: Transaction) => {
     setTransactionToRefund(transaction);
-    const refundableItems: RefundItem[] = transaction.items.map(item => ({
-        ...item,
-        quantity: 0, // Start with 0 quantity to refund
-        maxQuantity: item.quantity
-    }));
+    
+    // Find all previous refunds for this transaction
+    const previousRefunds = transactions.filter(t => t.type === 'Refund' && t.originalTransactionId === transaction.id);
+    
+    const refundedQuantities: { [key: string]: number } = {};
+    previousRefunds.forEach(refund => {
+        refund.items.forEach(item => {
+            refundedQuantities[item.id] = (refundedQuantities[item.id] || 0) + item.quantity;
+        });
+    });
+
+    const refundableItems: RefundItem[] = transaction.items.map(item => {
+        const alreadyRefunded = refundedQuantities[item.id] || 0;
+        const maxQuantity = item.quantity - alreadyRefunded;
+        return {
+            ...item,
+            quantity: 0, // Start with 0 quantity to refund
+            maxQuantity: maxQuantity > 0 ? maxQuantity : 0
+        }
+    }).filter(item => item.maxQuantity > 0); // Only show items that can be refunded
+
+    if (refundableItems.length === 0) {
+        toast({ title: "No Items to Refund", description: "All items in this transaction have already been fully refunded.", variant: "default" });
+        setTransactionToRefund(null);
+        return;
+    }
+
     setRefundItems(refundableItems);
   }
 
@@ -580,3 +594,4 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
