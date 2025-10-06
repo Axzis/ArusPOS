@@ -151,7 +151,7 @@ export default function TransactionsPage() {
             getPromosForBranch(branchId),
         ]);
         
-        setTransactions(transactionsData as Transaction[] || []);
+        setTransactions((transactionsData as Transaction[] || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
         setCustomers(customersData as Customer[] || []);
         setAllProducts(productsData as Product[] || []);
         setPromos(promoData as Promo[] || []);
@@ -340,7 +340,7 @@ export default function TransactionsPage() {
               discount: discount,
               status: 'Paid' as TransactionStatus,
               type: 'Sale' as 'Sale' | 'Refund',
-              currency: currency || 'USD',
+              currency: currency || 'Rp',
               items: orderItems.map(item => ({ 
                   id: item.id, 
                   name: item.name, 
