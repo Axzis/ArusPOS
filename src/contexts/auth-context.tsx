@@ -3,13 +3,10 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { getAuth, onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { getFirestore, collection, query, where, getDocs, DocumentData, limit, collectionGroup } from 'firebase/firestore';
+import { initializeFirebase } from '@/lib/firebase';
+import { getBusinessId, updateUserProfile as updateUserProfileInDb } from '@/lib/firestore';
 import { Logo } from '@/components/icons';
 import { isSuperAdminUser } from '@/lib/config';
-import { initializeFirebase } from '@/lib/firebase';
-
-const BUSINESSES_COLLECTION = 'businesses';
-const USERS_COLLECTION = 'users';
 
 export type AppUser = User & {
     role?: string;
@@ -21,7 +18,7 @@ type AuthContextType = {
     user: AppUser | null;
     loading: boolean;
     businessId: string | null;
-    login: (email: string, password: string) => Promise<AppUser | null>;
+    login: (email: string, password: string) => Promise<User | null>;
     logout: () => Promise<void>;
     sendPasswordReset: (email: string) => Promise<void>;
     updateUserPassword: (currentPass: string, newPass: string) => Promise<void>;
@@ -30,32 +27,44 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-async function getUserData(userAuth: User): Promise<DocumentData | null> {
-    const { db } = initializeFirebase();
-    // Use a collectionGroup query to find the user document across all businesses.
-    const usersQuery = query(collectionGroup(db, USERS_COLLECTION), where("uid", "==", userAuth.uid), limit(1));
-    const userSnapshot = await getDocs(usersQuery);
-
-    if (!userSnapshot.empty) {
-        return userSnapshot.docs[0].data();
-    }
-    
-    console.warn(`No user document found for UID: ${userAuth.uid} in any business.`);
-    return null;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<AppUser | null>(null);
-    const [businessId, setBusinessId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [businessId, setBusinessId] = useState<string | null>(null);
     const { auth } = initializeFirebase();
 
-    const refreshUser = useCallback(async () => {
+    const fetchBusinessInfo = useCallback(async (userAuth: User) => {
+        try {
+            const { businessId: bId, userData } = await getBusinessId(userAuth);
+            if (bId) {
+                setBusinessId(bId);
+                setUser({
+                    ...userAuth,
+                    role: userData?.role,
+                    photoURL: userData?.photoURL || userAuth.photoURL,
+                    displayName: userData?.name || userAuth.displayName,
+                });
+            } else {
+                 console.warn(`User with UID ${userAuth.uid} is not associated with any business. Logging out.`);
+                 await signOut(auth);
+                 setUser(null);
+                 setBusinessId(null);
+            }
+        } catch (error) {
+            console.error("Error fetching business info:", error);
+            await signOut(auth);
+            setUser(null);
+            setBusinessId(null);
+        }
+    }, [auth]);
+
+     const refreshUser = useCallback(async () => {
         const currentUserAuth = auth.currentUser;
         if (currentUserAuth) {
             await currentUserAuth.reload();
             const refreshedUserAuth = auth.currentUser;
             if (refreshedUserAuth) {
+                // Isolated fix for superadmin
                  if (refreshedUserAuth.email && isSuperAdminUser(refreshedUserAuth.email)) {
                     setUser({
                         ...refreshedUserAuth,
@@ -64,47 +73,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     });
                     setBusinessId(null);
                 } else {
-                    const userDoc = await getUserData(refreshedUserAuth);
-                    setUser({
-                        ...refreshedUserAuth,
-                        role: userDoc?.role,
-                        photoURL: userDoc?.photoURL || refreshedUserAuth.photoURL,
-                        displayName: userDoc?.name || refreshedUserAuth.displayName,
-                    });
-                    setBusinessId(userDoc?.businessId || null);
+                    await fetchBusinessInfo(refreshedUserAuth);
                 }
             }
         }
-    }, [auth]);
+    }, [auth, fetchBusinessInfo]);
+
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
             setLoading(true);
             if (userAuth) {
+                // Isolated fix for superadmin
                 if (userAuth.email && isSuperAdminUser(userAuth.email)) {
                     setUser({
                         ...userAuth,
                         role: 'Super Admin',
                         displayName: 'Super Admin',
                     });
-                    setBusinessId(null); // Superadmin has no businessId
+                    setBusinessId(null);
                 } else {
-                    const userDoc = await getUserData(userAuth);
-                    if (userDoc && userDoc.businessId) {
-                        setUser({
-                            ...userAuth,
-                            role: userDoc.role,
-                            photoURL: userDoc.photoURL || userAuth.photoURL,
-                            displayName: userDoc.name || userAuth.displayName,
-                        });
-                        setBusinessId(userDoc.businessId);
-                    } else {
-                        console.warn(`User with UID ${userAuth.uid} is authenticated but has no Firestore document or businessId. Logging out.`);
-                        setUser(null);
-                        setBusinessId(null);
-                        await signOut(auth);
-                    }
+                    await fetchBusinessInfo(userAuth);
                 }
+                
             } else {
                 setUser(null);
                 setBusinessId(null);
@@ -113,22 +104,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         return () => unsubscribe();
-    }, [auth]);
+    }, [auth, fetchBusinessInfo]);
 
 
-    const login = async (email: string, password: string): Promise<AppUser | null> => {
+    const login = async (email: string, password: string): Promise<User | null> => {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        // The onAuthStateChanged listener handles setting state, but we can return data for immediate feedback.
-        if (isSuperAdminUser(email)) {
-            return { ...userCredential.user, role: 'Super Admin', displayName: 'Super Admin' };
-        }
-        const userDoc = await getUserData(userCredential.user);
-        return {
-            ...userCredential.user,
-            role: userDoc?.role,
-            photoURL: userDoc?.photoURL || userCredential.user.photoURL,
-            displayName: userDoc?.name || userCredential.user.displayName,
-        };
+        // The onAuthStateChanged listener will handle setting the global user state.
+        return userCredential.user;
     };
 
     const logout = async () => {
@@ -138,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const sendPasswordReset = async (email: string) => {
         await sendPasswordResetEmail(auth, email);
     };
-
+    
     const updateUserPassword = async (currentPass: string, newPass: string) => {
         const user = auth.currentUser;
         if (!user || !user.email) {
@@ -148,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await reauthenticateWithCredential(user, credential);
         await updatePassword(user, newPass);
     };
+
 
     const value = { user, loading, businessId, login, logout, sendPasswordReset, updateUserPassword, refreshUser };
 

@@ -1,6 +1,6 @@
 
 import { initializeFirebase } from './firebase';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, User } from 'firebase/auth';
 import {
   getFirestore,
   collection,
@@ -22,6 +22,8 @@ import {
   setDoc,
   collectionGroup,
 } from 'firebase/firestore';
+import { isSuperAdminUser } from './config';
+
 
 const USERS_COLLECTION = 'users';
 const BUSINESSES_COLLECTION = 'businesses';
@@ -59,6 +61,29 @@ export async function createAuthUser(email: string, password?: string) {
     }
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     return userCredential.user;
+}
+
+// Get Business ID for a given user
+export async function getBusinessId(user: User): Promise<{ businessId: string | null; userData: DocumentData | null; }> {
+    const { db } = initializeFirebase();
+
+    // Handle superadmin case explicitly
+    if (user.email && isSuperAdminUser(user.email)) {
+        return { businessId: null, userData: null };
+    }
+    
+    const usersQuery = query(collectionGroup(db, USERS_COLLECTION), where("uid", "==", user.uid), limit(1));
+    const userSnapshot = await getDocs(usersQuery);
+
+    if (!userSnapshot.empty) {
+        const userDoc = userSnapshot.docs[0];
+        const userData = userDoc.data();
+        // The businessId is stored on the user document itself
+        return { businessId: userData.businessId || null, userData: userData };
+    } else {
+        console.warn(`No user document found for UID: ${user.uid}`);
+        return { businessId: null, userData: null };
+    }
 }
 
 
@@ -342,7 +367,7 @@ export async function upsertCustomersByEmail(businessId: string, customersData: 
         };
 
         if (existing) {
-            const docRef = doc(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION, existing.id);
+            const docRef = doc(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLlection, existing.id);
             batch.update(docRef, { ...customerPayload, updatedAt: serverTimestamp() });
             updated++;
         } else {
