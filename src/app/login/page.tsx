@@ -18,7 +18,6 @@ import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { FirebaseError } from 'firebase/app';
 import Link from 'next/link';
-import { sendEmailVerification } from 'firebase/auth';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +32,7 @@ import {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, sendPasswordReset, user, loading: authLoading } = useAuth();
+  const { login, sendPasswordReset, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -54,7 +53,11 @@ export default function LoginPage() {
       if (error instanceof FirebaseError) {
           switch (error.code) {
               case 'auth/user-not-found':
+                  description = "No account found with this email address.";
+                  break;
               case 'auth/wrong-password':
+                  description = "The password you entered is incorrect.";
+                  break;
               case 'auth/invalid-credential':
                   description = "Invalid email or password.";
                   break;
@@ -62,7 +65,7 @@ export default function LoginPage() {
                   description = "Please enter a valid email address.";
                   break;
               default:
-                  description = "An error occurred during login. Please try again."
+                  description = `An error occurred: ${error.message}`;
                   break;
           }
       }
@@ -76,35 +79,6 @@ export default function LoginPage() {
     }
   };
   
-  const handleResendVerification = async () => {
-      setLoading(true);
-      try {
-        if(user) {
-            await sendEmailVerification(user);
-            toast({
-                title: "Email Verifikasi Terkirim",
-                description: "Tautan verifikasi baru telah dikirimkan ke email Anda.",
-            });
-        } else {
-             toast({
-                title: "Error",
-                description: "Tidak dapat mengirim ulang email. Silakan coba login terlebih dahulu.",
-                variant: "destructive"
-            });
-_
-        }
-      } catch (error) {
-          console.error("Resend verification failed:", error);
-           toast({
-                title: "Error",
-                description: "Gagal mengirim ulang email verifikasi. Silakan coba lagi nanti.",
-                variant: "destructive"
-            });
-      } finally {
-          setLoading(false);
-      }
-  }
-
   const handleForgotPassword = async () => {
     if (!forgotPasswordEmail) {
       toast({ title: "Error", description: "Please enter your email address.", variant: "destructive" });
