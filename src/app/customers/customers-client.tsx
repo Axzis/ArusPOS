@@ -76,18 +76,14 @@ const initialCustomerState = {
     phone: ''
 };
 
-export default function CustomersClient({ initialCustomers }: { initialCustomers: Customer[] }) {
-  const [customers, setCustomers] = React.useState<Customer[]>(initialCustomers);
-  const [loading, setLoading] = React.useState(false);
+export default function CustomersClient() {
+  const [customers, setCustomers] = React.useState<Customer[]>([]);
+  const [loading, setLoading] = React.useState(true); // Start loading true
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
   const [newCustomer, setNewCustomer] = React.useState(initialCustomerState);
   const [customerToDelete, setCustomerToDelete] = React.useState<Customer | null>(null);
   const { toast } = useToast();
-
-  React.useEffect(() => {
-    setCustomers(initialCustomers);
-  }, [initialCustomers]);
 
   const fetchCustomers = React.useCallback(async () => {
     setLoading(true);
@@ -102,6 +98,11 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
     }
   }, [toast]);
   
+  // Fetch data on component mount
+  React.useEffect(() => {
+    fetchCustomers();
+  }, [fetchCustomers]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const { id, value } = e.target;
       setNewCustomer(prev => ({ ...prev, [id]: value }));
@@ -118,7 +119,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
         toast({ title: "Success", description: "New customer has been added." });
         setIsSheetOpen(false);
         setNewCustomer(initialCustomerState);
-        fetchCustomers();
+        fetchCustomers(); // Refetch data
     } catch (error) {
         console.error("Failed to save customer:", error);
         toast({ title: "Error", description: "Could not save the new customer.", variant: "destructive"});
@@ -132,7 +133,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
       await deleteCustomer(customerToDelete.id);
       toast({ title: "Success", description: `Customer ${customerToDelete.name} has been deleted.` });
       setCustomerToDelete(null);
-      fetchCustomers();
+      fetchCustomers(); // Refetch data
     } catch (error) {
        console.error("Failed to delete customer:", error);
        toast({ title: "Error", description: "Could not delete the customer.", variant: "destructive"});
@@ -155,7 +156,7 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
             title: "Import Successful",
             description: `${result.updated} customers updated, ${result.inserted} new customers added.`,
         });
-        fetchCustomers();
+        fetchCustomers(); // Refetch data
     } catch (error: any) {
         toast({
             title: "Import Failed",
@@ -357,5 +358,3 @@ export default function CustomersClient({ initialCustomers }: { initialCustomers
     </div>
   );
 }
-
-    

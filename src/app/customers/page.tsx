@@ -1,22 +1,11 @@
 
 import * as React from 'react';
-import { getCustomers } from '@/lib/firestore';
 import CustomersClient from './customers-client';
 
-export const revalidate = 0; // Force dynamic rendering
+export const revalidate = 0; // Force dynamic rendering, although data fetching is now on client
 
-type Customer = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  totalSpent: number;
-  avatar: string;
-};
-
-export default async function CustomersPage() {
-  // Fetch data on the server
-  const customersData = (await getCustomers()) as Customer[];
-
-  return <CustomersClient initialCustomers={customersData} />;
+// This Server Component now only acts as a wrapper for the Client Component.
+// All data fetching logic has been moved to CustomersClient to ensure reliability.
+export default function CustomersPage() {
+  return <CustomersClient />;
 }
