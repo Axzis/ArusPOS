@@ -41,10 +41,19 @@ export default function InvoicePrintPage() {
     const [transaction, setTransaction] = useState<Transaction | null>(null);
     const [loading, setLoading] = useState(true);
     const { paperSize } = useBusiness();
+    const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (typeof transactionId === 'string') {
-            getTransactionById(transactionId)
+        const storedBranch = localStorage.getItem('activeBranch');
+        if (storedBranch) {
+            const branch = JSON.parse(storedBranch);
+            setActiveBranchId(branch.id);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (typeof transactionId === 'string' && activeBranchId) {
+            getTransactionById(activeBranchId, transactionId)
                 .then(data => {
                     if(data){
                         setTransaction(data as Transaction);
@@ -52,10 +61,11 @@ export default function InvoicePrintPage() {
                 })
                 .catch(console.error)
                 .finally(() => setLoading(false));
-        } else {
+        } else if (activeBranchId === null) {
+            // Handle case where branch isn't set yet or at all
             setLoading(false);
         }
-    }, [transactionId]);
+    }, [transactionId, activeBranchId]);
 
     useEffect(() => {
         if (!loading && transaction) {
@@ -108,7 +118,7 @@ export default function InvoicePrintPage() {
     }
 
     if (!transaction) {
-        return <div className="p-8 text-center">Transaction not found or could not be loaded.</div>;
+        return <div className="p-8 text-center">Transaction not found or could not be loaded for this branch.</div>;
     }
     
     const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);

@@ -396,36 +396,23 @@ export async function getTransactionsForBranch(branchId: string) {
     });
 }
 
-export async function getTransactionById(transactionId: string): Promise<DocumentData | null> {
-    if (!transactionId) return null;
+export async function getTransactionById(branchId: string, transactionId: string): Promise<DocumentData | null> {
     const businessId = await getBusinessId();
-    if (!businessId) {
-        // This could be a superadmin, so we need to search across all businesses
-        const transactionQuery = query(collectionGroup(db, TRANSACTIONS_COLLECTION));
-        const snapshot = await getDocs(transactionQuery);
-        const transactionDoc = snapshot.docs.find(d => d.id === transactionId);
-        
-        if (transactionDoc && transactionDoc.exists()) {
-            const data = transactionDoc.data();
-            const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
-            return { id: transactionDoc.id, ...data, date: date };
-        }
-
-    } else {
-        // Find in the user's specific business
-        const transactionQuery = query(collectionGroup(db, TRANSACTIONS_COLLECTION), where('__name__', '>=', `businesses/${businessId}/`), where('__name__', '<', `businesses/${businessId}~`));
-        const snapshot = await getDocs(transactionQuery);
-        const transactionDoc = snapshot.docs.find(d => d.id === transactionId);
-
-        if (transactionDoc && transactionDoc.exists()) {
-             const data = transactionDoc.data();
-            const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
-            return { id: transactionDoc.id, ...data, date: date };
-        }
+    if (!businessId || !branchId || !transactionId) {
+        console.warn("Get transaction by ID requires a valid business, branch, and transaction ID.");
+        return null;
     }
 
+    const transactionDocRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION, transactionId);
+    const transactionDoc = await getDoc(transactionDocRef);
 
-    console.warn(`Transaction with ID ${transactionId} not found.`);
+    if (transactionDoc.exists()) {
+        const data = transactionDoc.data();
+        const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : new Date().toISOString();
+        return { id: transactionDoc.id, ...data, date: date };
+    }
+
+    console.warn(`Transaction with ID ${transactionId} not found in branch ${branchId}.`);
     return null;
 }
 
@@ -498,7 +485,7 @@ export async function refundTransaction(
             ...originalTransaction.items.find((i: any) => i.id === item.id), // Get original item details
             quantity: item.quantity, // Overwrite with refunded quantity
         })),
-        currency: currency || 'USD',
+        currency: currency || 'Rp',
         cashierName: cashierName,
         date: serverTimestamp(),
     });
@@ -803,4 +790,3 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
-
