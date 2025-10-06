@@ -112,6 +112,7 @@ type TransactionStatus = 'Paid' | 'Refunded' | 'Partially Refunded';
 type Transaction = {
     id: string;
     customerName: string;
+    cashierName?: string;
     amount: number;
     date: string;
     status: TransactionStatus;
@@ -778,6 +779,7 @@ export default function TransactionsPage() {
                     <TableHead className="hidden sm:table-cell">Items</TableHead>
                     <TableHead className="hidden md:table-cell">Date</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="hidden lg:table-cell">User</TableHead>
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead className="w-[100px] text-right">Actions</TableHead>
                     </TableRow>
@@ -790,6 +792,7 @@ export default function TransactionsPage() {
                             <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
                             <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
                             <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                            <TableCell className="hidden lg:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
                             <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                             <TableCell className="flex gap-2 justify-end"><Skeleton className="h-8 w-8" /><Skeleton className="h-8 w-8" /></TableCell>
                         </TableRow>
@@ -816,6 +819,7 @@ export default function TransactionsPage() {
                             {transaction.status || 'N/A'}
                         </Badge>
                         </TableCell>
+                        <TableCell className="hidden lg:table-cell">{transaction.cashierName}</TableCell>
                         <TableCell
                         className={`text-right ${
                             transaction.type === 'Refund'
