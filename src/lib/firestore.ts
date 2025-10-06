@@ -1,4 +1,5 @@
 
+
 import { auth, db } from './firebase';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import {
@@ -746,7 +747,7 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
         throw new Error("Missing Business ID or Branch ID for seeding.");
     }
 
-    const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLlection);
+    const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
     const customersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION);
 
     // Check if products already exist to prevent re-seeding
