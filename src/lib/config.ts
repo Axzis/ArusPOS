@@ -3,6 +3,7 @@
 const SUPER_ADMIN_EMAILS = [
     'superadmin@gmail.com',
     'axzis11@gmail.com',
+    'arus.superadmin@gmail.com',
 ];
 
 /**

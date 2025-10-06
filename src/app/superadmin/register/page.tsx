@@ -22,7 +22,7 @@ import { createAuthUser } from '@/lib/firestore';
 export default function SuperAdminRegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = React.useState('');
+  const [email, setEmail] = React.useState('arus.superadmin@gmail.com');
   const [password, setPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
 
@@ -118,4 +118,3 @@ export default function SuperAdminRegisterPage() {
     </div>
   );
 }
-
