@@ -79,9 +79,14 @@ type Promo = {
   endDate: string;
 };
 
-export default function PromosClient() {
-    const [promos, setPromos] = React.useState<Promo[]>([]);
-    const [products, setProducts] = React.useState<Product[]>([]);
+type PromosClientProps = {
+    initialPromos: Promo[];
+    initialProducts: Product[];
+}
+
+export default function PromosClient({ initialPromos, initialProducts }: PromosClientProps) {
+    const [promos, setPromos] = React.useState<Promo[]>(initialPromos);
+    const [products, setProducts] = React.useState<Product[]>(initialProducts);
     const [loading, setLoading] = React.useState(true);
     const [isSheetOpen, setIsSheetOpen] = React.useState(false);
     const [activeBranchId, setActiveBranchId] = React.useState<string |null>(null);
@@ -96,22 +101,12 @@ export default function PromosClient() {
     const [isCalendarOpen, setIsCalendarOpen] = React.useState(false);
 
 
-    React.useEffect(() => {
-        const storedBranch = localStorage.getItem('activeBranch');
-        if (storedBranch) {
-            setActiveBranchId(JSON.parse(storedBranch).id);
-        } else {
-            setLoading(false);
-        }
-    }, []);
-
-    const fetchData = React.useCallback(async () => {
-        if (!activeBranchId) return;
+    const fetchData = React.useCallback(async (branchId: string) => {
         setLoading(true);
         try {
             const [promoData, productData] = await Promise.all([
-                getPromosForBranch(activeBranchId),
-                getProductsForBranch(activeBranchId),
+                getPromosForBranch(branchId),
+                getProductsForBranch(branchId),
             ]);
             // Sort promos by end date client-side
             const sortedPromos = (promoData as Promo[]).sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
@@ -123,13 +118,19 @@ export default function PromosClient() {
         } finally {
             setLoading(false);
         }
-    }, [activeBranchId, toast]);
+    }, [toast]);
 
     React.useEffect(() => {
-        if (activeBranchId) {
-            fetchData();
+        const storedBranch = localStorage.getItem('activeBranch');
+        if (storedBranch) {
+            const branchId = JSON.parse(storedBranch).id;
+            setActiveBranchId(branchId);
+            fetchData(branchId);
+        } else {
+            setLoading(false);
         }
-    }, [activeBranchId, fetchData]);
+    }, [fetchData]);
+
 
     const resetForm = () => {
         setSelectedProductId('');
@@ -161,7 +162,7 @@ export default function PromosClient() {
         try {
             await addPromoToBranch(activeBranchId, promoData);
             toast({ title: "Success", description: "New promotion has been added." });
-            fetchData();
+            fetchData(activeBranchId);
             setIsSheetOpen(false);
             resetForm();
         } catch (error) {
@@ -175,7 +176,7 @@ export default function PromosClient() {
         try {
             await deletePromoFromBranch(activeBranchId, promoToDelete.id);
             toast({ title: "Success", description: `Promotion for ${promoToDelete.productName} has been deleted.` });
-            fetchData();
+            fetchData(activeBranchId);
         } catch (error) {
             console.error("Failed to delete promo:", error);
             toast({ title: "Error", description: "Could not delete promotion.", variant: "destructive" });
@@ -396,3 +397,5 @@ export default function PromosClient() {
 
     
 }
+
+    
