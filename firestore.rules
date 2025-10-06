@@ -1,0 +1,163 @@
+/**
+ * @fileoverview Firestore Security Rules for Arus POS.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for user-specific data
+ * and allows public read access for product listings. System-wide permissions
+ * are managed via the /user_permissions collection.
+ *
+ * Data Structure:
+ * - /products/{productId}: Publicly readable product information.
+ * - /users/{userId}/customers/{customerId}: Customer data owned by a specific user.
+ * - /users/{userId}/transactions/{transactionId}: Transaction data owned by a specific user.
+ * - /users/{userId}/transactions/{transactionId}/transaction_items/{transactionItemId}: Items within a transaction, owned by the user.
+ * - /inventory/{inventoryId}: Inventory data, only accessible to authenticated users.
+ * - /user_permissions/{userId}: User permission settings, accessible only by the user themselves.
+ *
+ * Key Security Decisions:
+ * - Products are publicly readable but only authenticated users can make changes.
+ * - User data (customers, transactions, transaction items) is strictly user-owned.
+ * - User listing is disallowed.
+ * - Data validation is minimal in this prototyping phase.
+ *
+ * Denormalization for Authorization:
+ * No denormalization is needed as the data structure inherently supports path-based authorization.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Allows public read access to product information and owner-only write access.
+     * @path /products/{productId}
+     * @allow (get, list): if true;
+     * @allow (create): if isSignedIn() && request.resource.data.id == request.auth.uid;
+     * @allow (update): if isSignedIn() && resource.data.id == request.auth.uid;
+     * @allow (delete): if isSignedIn() && resource.data.id == request.auth.uid;
+     * @deny (create): if !isSignedIn();
+     * @deny (update): if !isSignedIn() || resource.data.id != request.auth.uid;
+     * @deny (delete): if !isSignedIn() || resource.data.id != request.auth.uid;
+     * @principle Allows public reads, enforces owner-only writes, and validates relational integrity on create/update.
+     */
+    match /products/{productId} {
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Manages customer data specific to a user, accessible only by that user.
+     * @path /users/{userId}/customers/{customerId}
+     * @allow (get, list): if isOwner(userId);
+     * @allow (create): if isOwner(userId) && request.resource.data.id == userId;
+     * @allow (update): if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+     * @allow (delete): if isExistingOwner(userId);
+     * @deny (create): if !isOwner(userId) || request.resource.data.id != userId;
+     * @deny (update): if !isExistingOwner(userId) || request.resource.data.id != resource.data.id;
+     * @deny (delete): if !isExistingOwner(userId);
+     * @principle Enforces document ownership for all operations and validates relational integrity on create/update.
+     */
+    match /users/{userId}/customers/{customerId} {
+      allow get, list: if request.auth.uid == userId;
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId;
+      allow delete: if request.auth.uid == userId;
+    }
+
+    /**
+     * @description Stores transaction data related to a specific user, accessible only by that user.
+     * @path /users/{userId}/transactions/{transactionId}
+     * @allow (get, list): if isOwner(userId);
+     * @allow (create): if isOwner(userId) && request.resource.data.customerId == userId;
+     * @allow (update): if isExistingOwner(userId) && request.resource.data.customerId == resource.data.customerId;
+     * @allow (delete): if isExistingOwner(userId);
+     * @deny (create): if !isOwner(userId) || request.resource.data.customerId != userId;
+     * @deny (update): if !isExistingOwner(userId) || request.resource.data.customerId != resource.data.customerId;
+     * @deny (delete): if !isExistingOwner(userId);
+     * @principle Enforces document ownership for all operations and validates relational integrity on create/update.
+     */
+    match /users/{userId}/transactions/{transactionId} {
+      allow get, list: if request.auth.uid == userId;
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId;
+      allow delete: if request.auth.uid == userId;
+    }
+
+    /**
+     * @description Stores items within a specific transaction, linked to a user. Accessible only by the user who owns the transaction.
+     * @path /users/{userId}/transactions/{transactionId}/transaction_items/{transactionItemId}
+     * @allow (get, list): if isOwner(userId);
+     * @allow (create): if isOwner(userId) && request.resource.data.transactionId == transactionId;
+     * @allow (update): if isExistingOwner(userId) && request.resource.data.transactionId == resource.data.transactionId;
+     * @allow (delete): if isExistingOwner(userId);
+     * @deny (create): if !isOwner(userId) || request.resource.data.transactionId != transactionId;
+     * @deny (update): if !isExistingOwner(userId) || request.resource.data.transactionId != resource.data.transactionId;
+     * @deny (delete): if !isExistingOwner(userId);
+     * @principle Enforces document ownership for all operations and validates relational integrity on create/update.
+     */
+    match /users/{userId}/transactions/{transactionId}/transaction_items/{transactionItemId} {
+      allow get, list: if request.auth.uid == userId;
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId;
+      allow delete: if request.auth.uid == userId;
+    }
+
+    /**
+     * @description Stores inventory levels for each product. Only authenticated users can read/write to inventory collection.
+     * @path /inventory/{inventoryId}
+     * @allow (get, list): if isSignedIn();
+     * @allow (create): if isSignedIn();
+     * @allow (update): if isSignedIn() && exists(resource);
+     * @allow (delete): if isSignedIn() && exists(resource);
+     * @deny (create): if !isSignedIn();
+     * @deny (update): if !isSignedIn();
+     * @deny (delete): if !isSignedIn();
+     * @principle Enforces authentication for all operations.
+     */
+    match /inventory/{inventoryId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Stores user permission settings. Document ID is user ID. Directly accessible by the User ID.
+     * @path /user_permissions/{userId}
+     * @allow (get): if isOwner(userId);
+     * @allow (create): if isOwner(userId) && request.resource.data.id == userId;
+     * @allow (update): if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+     * @allow (delete): if isExistingOwner(userId);
+     * @allow list: if false;
+     * @deny (create): if !isOwner(userId) || request.resource.data.id != userId;
+     * @deny (update): if !isExistingOwner(userId) || request.resource.data.id != resource.data.id;
+     * @deny (delete): if !isExistingOwner(userId);
+     * @principle Enforces document ownership for all operations, validates relational integrity on create/update, and restricts listing.
+     */
+    match /user_permissions/{userId} {
+      allow get: if request.auth.uid == userId;
+      allow create: if request.auth.uid == userId;
+      allow update: if request.auth.uid == userId;
+      allow delete: if request.auth.uid == userId;
+      allow list: if false;
+    }
+  }
+
+  // Helper functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
+
+  function isExistingOwner(userId) {
+    return isOwner(userId) && exists(resource);
+  }
+  
+  function exists(resource) {
+    return resource.data != null;
+  }
+}

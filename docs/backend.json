@@ -1,0 +1,330 @@
+{
+  "entities": {
+    "Product": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Product",
+      "type": "object",
+      "description": "Represents a product available for sale in the Arus POS system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the product."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the product."
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the product."
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the product."
+        },
+        "sku": {
+          "type": "string",
+          "description": "Stock keeping unit of the product"
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the product image.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "price",
+        "sku"
+      ]
+    },
+    "Customer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Customer",
+      "type": "object",
+      "description": "Represents a customer in the Arus POS CRM.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the customer."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the customer."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of the customer."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the customer.",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number of the customer."
+        },
+        "address": {
+          "type": "string",
+          "description": "Address of the customer."
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName"
+      ]
+    },
+    "Transaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Transaction",
+      "type": "object",
+      "description": "Represents a sales transaction in the Arus POS system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the transaction."
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to Customer. (Relationship: Customer 1:N Transaction)"
+        },
+        "date": {
+          "type": "string",
+          "description": "Date and time of the transaction.",
+          "format": "date-time"
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Total amount of the transaction."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "Payment method used for the transaction (e.g., cash, credit card)."
+        }
+      },
+      "required": [
+        "id",
+        "date",
+        "totalAmount",
+        "paymentMethod"
+      ]
+    },
+    "TransactionItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TransactionItem",
+      "type": "object",
+      "description": "Represents an item within a transaction.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the transaction item."
+        },
+        "transactionId": {
+          "type": "string",
+          "description": "Reference to Transaction. (Relationship: Transaction 1:N TransactionItem)"
+        },
+        "productId": {
+          "type": "string",
+          "description": "Reference to Product. (Relationship: Product 1:N TransactionItem)"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantity of the product in the transaction."
+        },
+        "price": {
+          "type": "number",
+          "description": "Price of the product at the time of the transaction."
+        }
+      },
+      "required": [
+        "id",
+        "transactionId",
+        "productId",
+        "quantity",
+        "price"
+      ]
+    },
+    "Inventory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Inventory",
+      "type": "object",
+      "description": "Represents the inventory levels of a product.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the inventory entry."
+        },
+        "productId": {
+          "type": "string",
+          "description": "Reference to Product. (Relationship: Product 1:1 Inventory)"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Current quantity of the product in inventory."
+        },
+        "lastUpdated": {
+          "type": "string",
+          "description": "Date and time the inventory was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "productId",
+        "quantity",
+        "lastUpdated"
+      ]
+    },
+    "UserPermissions": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserPermissions",
+      "type": "object",
+      "description": "Represents a user's system wide permission settings for Arus POS system.  The authentication data itself is NOT stored.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserPermissions entry."
+        },
+        "email": {
+          "type": "string",
+          "description": "User Email"
+        },
+        "canEditSettings": {
+          "type": "boolean",
+          "description": "Flag indicating whether the user has permissions to edit settings."
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "canEditSettings"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/products/{productId}",
+        "definition": {
+          "entityName": "Product",
+          "schema": {
+            "$ref": "#/backend/entities/Product"
+          },
+          "description": "Stores product information. Only authenticated users are able to list products.",
+          "params": [
+            {
+              "name": "productId",
+              "description": "The unique identifier for the product."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/customers/{customerId}",
+        "definition": {
+          "entityName": "Customer",
+          "schema": {
+            "$ref": "#/backend/entities/Customer"
+          },
+          "description": "Stores customer information specific to a user. Accessible only by the user with the corresponding userId.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "customerId",
+              "description": "The unique identifier for the customer."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/transactions/{transactionId}",
+        "definition": {
+          "entityName": "Transaction",
+          "schema": {
+            "$ref": "#/backend/entities/Transaction"
+          },
+          "description": "Stores transaction data related to a specific user. Accessible only by the user with the corresponding userId.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "transactionId",
+              "description": "The unique identifier for the transaction."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/transactions/{transactionId}/transaction_items/{transactionItemId}",
+        "definition": {
+          "entityName": "TransactionItem",
+          "schema": {
+            "$ref": "#/backend/entities/TransactionItem"
+          },
+          "description": "Stores items within a specific transaction, linked to a user. Accessible only by the user who owns the transaction.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "transactionId",
+              "description": "The unique identifier for the transaction."
+            },
+            {
+              "name": "transactionItemId",
+              "description": "The unique identifier for the transaction item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/inventory/{inventoryId}",
+        "definition": {
+          "entityName": "Inventory",
+          "schema": {
+            "$ref": "#/backend/entities/Inventory"
+          },
+          "description": "Stores inventory levels for each product. Only authenticated users can read/write to inventory collection.",
+          "params": [
+            {
+              "name": "inventoryId",
+              "description": "The unique identifier for the inventory entry."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/user_permissions/{userId}",
+        "definition": {
+          "entityName": "UserPermissions",
+          "schema": {
+            "$ref": "#/backend/entities/UserPermissions"
+          },
+          "description": "Stores user permission settings. Document ID is user ID. Directly accessible by the User ID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to address the 'auth/configuration-not-found' error, which typically arises from incorrect Firebase configuration. This is not related to the data structure but rather how the Firebase SDK is initialized. However, the provided structure ensures a secure and scalable data architecture for the Arus POS system. It emphasizes authorization independence, clarity, and adherence to best practices for Firestore security rules.\n\nAuthorization Independence: User-specific data (e.g., customer information, transactions) is stored under `/users/{userId}`. This ensures clear ownership and avoids the need for complex `get()` calls in security rules. The `UserPermissions` entity is stored directly at `/user_permissions/{userId}`, enabling efficient permission checks without hierarchical dependencies.\n\nStructural Segregation: Each collection serves a distinct purpose with consistent security requirements. Private user data resides under the `/users/{userId}` collection, while system-wide permissions are managed in the `/user_permissions` collection.\n\nAccess Modeling: The structure implements path-based ownership for user-specific data. For collaborative scenarios, such as sharing settings (if any), a membership map (`members: {uid1: 'role', uid2: 'role'}`) can be incorporated into relevant documents to manage access control effectively.\n\nQAPs (Rules are not Filters): The structure facilitates secure list operations. For instance, listing products does not require filtering based on user roles. Instead, the list operation is secured at the collection level (e.g., only authenticated users can list products). Similarly, listing transactions is restricted to the user who owns those transactions (i.e., `/users/{userId}/transactions`).\n\nInvariants: The structure supports data integrity. Ownership is enforced through path-based access control. Timestamps (e.g., `lastUpdated` in `Inventory`) can be managed using server timestamps in Firestore, ensuring consistency."
+  }
+}
