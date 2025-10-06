@@ -111,6 +111,7 @@ const getBestPrice = (product: Product | ProductWithPromo, quantity: number): { 
     // If it's a product with a promo, its price is already the promo price.
     // The originalPrice would be the standard price before promo.
     if ('hasPromo' in product && product.hasPromo) {
+        // Bundles don't apply to items that already have a promo
         return { price: product.price, originalPrice: product.originalPrice };
     }
 
@@ -191,6 +192,9 @@ export default function TransactionsPage() {
 
     return allProducts.map(product => {
         const promo = activePromos.find(p => p.productId === product.id);
+        
+        // We get the best price for quantity 1 to display in the product list.
+        // Bundle pricing won't apply here, but promo pricing will.
         const { price: bestPrice, originalPrice } = getBestPrice(product, 1);
         const finalPrice = promo ? promo.promoPrice : bestPrice;
         
@@ -229,11 +233,19 @@ export default function TransactionsPage() {
   const updateOrderItemQuantity = useCallback((productId: string, newQuantity: number) => {
     setOrderItems(prevItems => {
         const itemToUpdate = prevItems.find(item => item.id === productId);
-        // Find product from the memoized list that includes promo pricing
         const productInfo = productsWithPromo.find(p => p.id === productId);
         if (!itemToUpdate || !productInfo) return prevItems;
 
-        const cappedQuantity = Math.max(1, Math.min(newQuantity, itemToUpdate.stock));
+        let cappedQuantity = Math.max(1, newQuantity);
+
+        if (cappedQuantity > itemToUpdate.stock) {
+            cappedQuantity = itemToUpdate.stock;
+            toast({
+                title: "Stock limit reached",
+                description: `Quantity for ${itemToUpdate.name} set to max available (${itemToUpdate.stock}).`,
+                variant: 'destructive',
+            });
+        }
         
         const { price, originalPrice } = getBestPrice(productInfo, cappedQuantity);
 
@@ -243,7 +255,7 @@ export default function TransactionsPage() {
                 : item
         );
     });
-  }, [productsWithPromo]);
+  }, [productsWithPromo, toast]);
 
 
   const addToOrder = useCallback((product: ProductWithPromo) => {
@@ -255,11 +267,11 @@ export default function TransactionsPage() {
               return prevItems;
           }
         const newQuantity = existingItem.quantity + 1;
-        const { price } = getBestPrice(product, newQuantity);
+        const { price, originalPrice } = getBestPrice(product, newQuantity);
 
         return prevItems.map((item) =>
           item.id === product.id
-            ? { ...item, quantity: newQuantity, price: price }
+            ? { ...item, quantity: newQuantity, price: price, originalPrice: originalPrice }
             : item
         );
       }
@@ -267,9 +279,11 @@ export default function TransactionsPage() {
             toast({ title: "Out of Stock", description: `${product.name} is out of stock.`, variant: "destructive" });
             return prevItems;
         }
-      return [...prevItems, { ...product, quantity: 1, price: product.price, originalPrice: product.originalPrice, unit: product.unit }];
+        
+      const { price, originalPrice } = getBestPrice(product, 1);
+      return [...prevItems, { ...product, quantity: 1, price: price, originalPrice: originalPrice, unit: product.unit }];
     });
-  }, [toast]);
+  }, [toast, productsWithPromo]);
 
 
   useEffect(() => {
@@ -594,4 +608,5 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
 
