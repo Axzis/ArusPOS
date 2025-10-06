@@ -73,7 +73,7 @@ const bottomNavItems = [
   { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
-const publicRoutes = ['/login', '/quick-assessment', '/print'];
+const publicRoutes = ['/login', '/quick-assessment', '/print', '/superadmin/register'];
 
 type ActiveBranch = {
     id: string;
@@ -155,8 +155,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    if (user && (pathname === '/login' || pathname === '/quick-assessment')) {
+    if (user && (pathname === '/login' || pathname === '/quick-assessment' || pathname === '/superadmin/register')) {
         router.replace('/select-branch');
+        return;
+    }
+    
+    // Redirect non-superadmin users from superadmin pages
+    if (pathname.startsWith('/superadmin') && !isSuperAdmin) {
+        router.replace('/dashboard');
         return;
     }
     
@@ -179,7 +185,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     } else {
         setLoadingBranch(false);
     }
-  }, [pathname, router, user, authLoading]);
+  }, [pathname, router, user, authLoading, isSuperAdmin]);
 
 
   // Set sidebar open state based on cookie
@@ -225,7 +231,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
    
   if (pathname.startsWith('/superadmin') && !isSuperAdmin) {
-       router.replace('/dashboard');
        return (
             <div className="flex h-screen items-center justify-center">
                 <p>Redirecting...</p>
