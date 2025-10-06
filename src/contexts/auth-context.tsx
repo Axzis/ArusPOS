@@ -69,15 +69,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
-            if (userAuth) { // MODIFIED: Check for user existence only, not verification status
+            if (userAuth) {
                 // User is signed in, let's get their custom data.
                 const userDoc = await getUserData(userAuth);
-                setUser({
-                    ...userAuth,
-                    role: userDoc?.role,
-                    photoURL: userDoc?.photoURL || userAuth.photoURL, // Prefer Firestore URL
-                    displayName: userDoc?.name || userAuth.displayName,
-                });
+                // If userDoc is null and it's not a superadmin, it means there's no corresponding Firestore user.
+                // This can happen if a superadmin was just created via Auth but not registered for a business.
+                // We let them through, but they won't have a business context. AppShell handles redirection.
+                if (!userDoc && userAuth.email && !isSuperAdminUser(userAuth.email)) {
+                     console.warn(`User with UID ${userAuth.uid} is authenticated but has no Firestore document.`);
+                     setUser(null);
+                } else {
+                    setUser({
+                        ...userAuth,
+                        role: userDoc?.role,
+                        photoURL: userDoc?.photoURL || userAuth.photoURL, // Prefer Firestore URL
+                        displayName: userDoc?.name || userAuth.displayName,
+                    });
+                }
             } else {
                 // User is signed out
                 setUser(null);
