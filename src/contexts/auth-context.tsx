@@ -3,12 +3,13 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { getAuth, onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { getFirestore, collection, query, where, getDocs, DocumentData, collectionGroup, limit } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, DocumentData, limit } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 import { isSuperAdminUser } from '@/lib/config';
 import { initializeFirebase } from '@/lib/firebase'; // Reverted to old firebase lib path
 
 const USERS_COLLECTION = 'users';
+const BUSINESSES_COLLECTION = 'businesses';
 
 // Extend the User type to include our custom role and photoURL from Firestore
 export type AppUser = User & {
@@ -32,13 +33,20 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 async function getUserData(userAuth: User): Promise<DocumentData | null> {
     const { db } = initializeFirebase();
-    // Use a collectionGroup query to find the user document across all businesses
-    const usersQuery = query(collectionGroup(db, USERS_COLLECTION), where("uid", "==", userAuth.uid), limit(1));
-    const usersSnapshot = await getDocs(usersQuery);
-
-    if (!usersSnapshot.empty) {
-        return usersSnapshot.docs[0].data();
+    
+    // Fallback search mechanism: iterate through businesses to find the user
+    const businessesSnapshot = await getDocs(collection(db, BUSINESSES_COLLECTION));
+    for (const businessDoc of businessesSnapshot.docs) {
+        const usersRef = collection(db, BUSINESSES_COLLECTION, businessDoc.id, USERS_COLLECTION);
+        const userQuery = query(usersRef, where("uid", "==", userAuth.uid), limit(1));
+        const userSnapshot = await getDocs(userQuery);
+        if (!userSnapshot.empty) {
+            // Found the user in this business, return the user data
+            return userSnapshot.docs[0].data();
+        }
     }
+
+    console.warn(`No user document found for UID: ${userAuth.uid} in any business.`);
     return null;
 }
 
