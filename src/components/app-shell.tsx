@@ -155,13 +155,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
     
+    // Redirect superadmin to /superadmin page after login
+    if (user && isSuperAdmin && pathname === '/login') {
+        router.replace('/superadmin');
+        return;
+    }
+    
     // Allow accessing certain public pages even if logged in
     if (user && (pathname === '/login' || pathname === '/quick-assessment')) {
         router.replace('/select-branch');
         return;
     }
 
-    if (pathname.startsWith('/superadmin') && !pathname.startsWith('/superadmin/register') && !isSuperAdmin) {
+    if (user && pathname.startsWith('/superadmin') && !pathname.startsWith('/superadmin/register') && !isSuperAdmin) {
         router.replace('/dashboard');
         return;
     }
@@ -233,7 +239,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return null;
   }
    
-  if (pathname.startsWith('/superadmin') && !pathname.startsWith('/superadmin/register') && !isSuperAdmin) {
+   if (pathname.startsWith('/superadmin') && !pathname.startsWith('/superadmin/register') && !isSuperAdmin) {
        return (
             <div className="flex h-screen items-center justify-center">
                 <p>Redirecting...</p>
