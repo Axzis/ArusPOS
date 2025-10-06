@@ -1,9 +1,8 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
-import { getTransactionById } from '@/lib/firestore';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -35,40 +34,24 @@ type Transaction = {
 };
 
 export default function InvoicePrintPage() {
-    const params = useParams();
-    const { id: transactionId } = params;
     const [transaction, setTransaction] = useState<Transaction | null>(null);
     const [loading, setLoading] = useState(true);
     const { paperSize } = useBusiness();
 
     useEffect(() => {
-        const fetchTransaction = async () => {
-            const storedBranch = localStorage.getItem('activeBranch');
-            if (storedBranch && typeof transactionId === 'string') {
-                const branch = JSON.parse(storedBranch);
-                const activeBranchId = branch.id;
-                
-                if (activeBranchId) {
-                    try {
-                        const data = await getTransactionById(activeBranchId, transactionId);
-                        if (data) {
-                            setTransaction(data as Transaction);
-                        }
-                    } catch (error) {
-                        console.error("Failed to fetch transaction:", error);
-                    } finally {
-                        setLoading(false);
-                    }
-                } else {
-                    setLoading(false);
-                }
-            } else {
-                setLoading(false);
+        try {
+            const storedTransaction = localStorage.getItem('transactionToPrint');
+            if (storedTransaction) {
+                setTransaction(JSON.parse(storedTransaction));
+                // Optional: remove the item after reading to keep localStorage clean
+                localStorage.removeItem('transactionToPrint');
             }
-        };
-        
-        fetchTransaction();
-    }, [transactionId]);
+        } catch (error) {
+            console.error("Could not parse transaction from localStorage", error);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
 
     useEffect(() => {
@@ -122,7 +105,7 @@ export default function InvoicePrintPage() {
     }
 
     if (!transaction) {
-        return <div className="p-8 text-center">Transaction not found or could not be loaded for this branch.</div>;
+        return <div className="p-8 text-center">Transaction not found or could not be loaded. Please close this tab and try again.</div>;
     }
     
     const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);

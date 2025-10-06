@@ -66,7 +66,7 @@ interface RecentTransactionsProps {
     transactions: Transaction[];
     isLoading: boolean;
     currency: string;
-    onPrint: (transactionId: string) => void;
+    onPrint: (transaction: Transaction) => void;
     onSendWhatsApp: (transaction: Transaction) => void;
     onOpenRefundDialog: (transaction: Transaction) => void;
 }
@@ -227,7 +227,7 @@ export default function RecentTransactions({
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                        <DropdownMenuItem onSelect={() => onPrint(transaction.id)}>
+                                        <DropdownMenuItem onSelect={() => onPrint(transaction)}>
                                             <Printer className="mr-2 h-4 w-4" /> Print
                                         </DropdownMenuItem>
                                         <DropdownMenuItem onSelect={() => onSendWhatsApp(transaction)}>

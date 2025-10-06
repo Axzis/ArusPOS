@@ -203,8 +203,18 @@ export default function TransactionsPage() {
     }
   }, [activeBranchId, fetchData]);
 
-  const handlePrintInvoice = (transactionId: string) => {
-    window.open(`/print/invoice/${transactionId}`, '_blank');
+  const handlePrintInvoice = (transaction: Transaction) => {
+    try {
+        localStorage.setItem('transactionToPrint', JSON.stringify(transaction));
+        window.open('/print/invoice', '_blank');
+    } catch (error) {
+        console.error("Could not save transaction to localStorage for printing:", error);
+        toast({
+            title: "Print Error",
+            description: "Could not prepare the invoice for printing.",
+            variant: "destructive"
+        });
+    }
   };
   
   const updateOrderItemQuantity = useCallback((productId: string, newQuantity: number) => {
