@@ -70,6 +70,8 @@ import { utils, writeFile } from 'xlsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { ImageUploadDialog } from '@/components/image-upload-dialog';
+import { useAuth } from '@/contexts/auth-context';
+
 
 type Bundle = {
   quantity: number;
@@ -90,6 +92,7 @@ type Product = {
 };
 
 export default function ProductsPage() {
+    const { businessId } = useAuth();
     const [products, setProducts] = React.useState<Product[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [searchTerm, setSearchTerm] = React.useState('');
@@ -110,14 +113,19 @@ export default function ProductsPage() {
         if (storedBranch) {
             const branch = JSON.parse(storedBranch);
             setActiveBranchId(branch.id);
+        } else {
+            setLoading(false);
         }
     }, []);
 
     const fetchProducts = React.useCallback(async () => {
-        if (!activeBranchId) return;
+        if (!activeBranchId || !businessId) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
-            const productsData = await getProductsForBranch(activeBranchId);
+            const productsData = await getProductsForBranch(businessId, activeBranchId);
             setProducts(productsData as Product[]);
         } catch (error) {
             console.error("Failed to fetch products:", error);
@@ -125,13 +133,13 @@ export default function ProductsPage() {
         } finally {
             setLoading(false);
         }
-    }, [activeBranchId, toast]);
+    }, [activeBranchId, businessId, toast]);
 
     React.useEffect(() => {
-        if(activeBranchId) {
+        if(activeBranchId && businessId) {
             fetchProducts();
         }
-    }, [activeBranchId, fetchProducts]);
+    }, [activeBranchId, businessId, fetchProducts]);
 
     const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -143,7 +151,7 @@ export default function ProductsPage() {
     };
 
     const executeSave = async () => {
-        if (!activeBranchId || !formRef.current) return;
+        if (!activeBranchId || !businessId || !formRef.current) return;
 
         const formData = new FormData(formRef.current);
         const productData = {
@@ -160,10 +168,10 @@ export default function ProductsPage() {
 
         try {
             if (editingProduct) {
-                await updateProductInBranch(activeBranchId, editingProduct.id, productData);
+                await updateProductInBranch(businessId, activeBranchId, editingProduct.id, productData);
                 toast({ title: "Success", description: "Product updated successfully." });
             } else {
-                await addProductToBranch(activeBranchId, productData);
+                await addProductToBranch(businessId, activeBranchId, productData);
                 toast({ title: "Success", description: "Product added successfully." });
             }
             fetchProducts();
@@ -177,10 +185,10 @@ export default function ProductsPage() {
     }
     
     const executeDelete = async () => {
-        if (!productToDelete || !activeBranchId) return;
+        if (!productToDelete || !activeBranchId || !businessId) return;
 
         try {
-            await deleteProductFromBranch(activeBranchId, productToDelete.id);
+            await deleteProductFromBranch(businessId, activeBranchId, productToDelete.id);
             toast({ title: "Success", description: "Product deleted successfully." });
             fetchProducts();
         } catch (error) {
@@ -209,12 +217,12 @@ export default function ProductsPage() {
     };
 
     const handleImport = async (data: any[]) => {
-        if (!activeBranchId) {
+        if (!activeBranchId || !businessId) {
             toast({ title: "Error", description: "No active branch selected.", variant: "destructive" });
             return;
         }
         try {
-            const result = await upsertProductsBySku(activeBranchId, data);
+            const result = await upsertProductsBySku(businessId, activeBranchId, data);
             toast({
                 title: "Import Successful",
                 description: `${result.updated} products updated, ${result.inserted} new products added.`,
@@ -562,3 +570,4 @@ export default function ProductsPage() {
     </div>
   );
 }
+

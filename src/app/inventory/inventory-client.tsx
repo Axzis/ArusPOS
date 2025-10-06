@@ -83,7 +83,10 @@ export default function InventoryClient() {
   }, []);
 
   const fetchInventory = React.useCallback(async () => {
-    if (!activeBranchId || !businessId) return;
+    if (!activeBranchId || !businessId) {
+        setLoading(false);
+        return;
+    }
     setLoading(true);
     try {
       const data = await getProductsForBranch(businessId, activeBranchId);
