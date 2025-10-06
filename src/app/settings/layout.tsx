@@ -13,6 +13,7 @@ const baseSettingsNav = [
   { href: '/settings/branches', label: 'Branches' },
   { href: '/settings/users', label: 'Users & Roles' },
   { href: '/settings/units', label: 'Units' },
+  { href: '/settings/paper', label: 'Paper' },
   { href: '/settings/scanner', label: 'Barcode Scanner' },
 ];
 

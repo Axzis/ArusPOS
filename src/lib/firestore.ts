@@ -1,5 +1,4 @@
 
-
 import { auth, db } from './firebase';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import {
@@ -43,6 +42,7 @@ type BusinessData = {
     taxRate?: number;
     isActive?: boolean;
     units?: string[];
+    paperSize?: 'A4' | '8cm' | '5.8cm';
     branches: {
         name: string;
         address: string;
@@ -97,6 +97,7 @@ export async function addUserAndBusiness(data: BusinessData) {
         taxEnabled: true,
         taxRate: 8,
         units: ['pcs', 'kg', 'liter'], // Default units
+        paperSize: '8cm', // Default paper size
         isActive: true,
         createdAt: serverTimestamp(),
         adminUid: user.uid,
@@ -436,6 +437,8 @@ export async function addTransactionAndUpdateStock(
 ) {
   const businessId = await getBusinessId();
   if (!businessId || !branchId) throw new Error("Missing business or branch ID");
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error("No authenticated user to perform this action.");
 
   const batch = writeBatch(db);
 
@@ -443,6 +446,7 @@ export async function addTransactionAndUpdateStock(
   const transactionRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION));
   batch.set(transactionRef, {
     ...transactionData,
+    cashierName: currentUser.displayName || currentUser.email,
     date: serverTimestamp(),
   });
 
@@ -478,6 +482,8 @@ export async function refundTransaction(
     const businessId = await getBusinessId();
     if (!businessId || !branchId) throw new Error("Missing business or branch ID");
     if (originalTransaction.status === 'Refunded') throw new Error("Transaction has already been fully refunded.");
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("No authenticated user to perform this action.");
 
     const batch = writeBatch(db);
 
@@ -493,7 +499,8 @@ export async function refundTransaction(
             ...originalTransaction.items.find((i: any) => i.id === item.id), // Get original item details
             quantity: item.quantity, // Overwrite with refunded quantity
         })),
-        currency: currency,
+        currency: currency || 'USD',
+        cashierName: currentUser.displayName || currentUser.email,
         date: serverTimestamp(),
     });
 
@@ -739,7 +746,7 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
         throw new Error("Missing Business ID or Branch ID for seeding.");
     }
 
-    const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
+    const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLlection);
     const customersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION);
 
     // Check if products already exist to prevent re-seeding

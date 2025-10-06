@@ -1,5 +1,10 @@
 
 @media print {
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
   body.printing > *:not(.print-invoice) {
     visibility: hidden;
   }
@@ -15,9 +20,13 @@
   .no-print {
     display: none !important;
   }
+  
+  .break-inside-avoid {
+    page-break-inside: avoid;
+  }
 
   @page {
     size: auto;
-    margin: 0.5in;
+    margin: 0;
   }
 }

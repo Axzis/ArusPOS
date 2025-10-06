@@ -13,6 +13,7 @@ type Business = {
     taxEnabled: boolean;
     taxRate: number;
     units: string[];
+    paperSize: 'A4' | '8cm' | '5.8cm';
     branches: any[];
 }
 
@@ -23,6 +24,7 @@ type BusinessContextType = {
     taxEnabled: boolean;
     taxRate: number;
     units: string[];
+    paperSize: 'A4' | '8cm' | '5.8cm';
 };
 
 const BusinessContext = createContext<BusinessContextType | undefined>(undefined);
@@ -51,8 +53,9 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
     const taxEnabled = business?.taxEnabled !== false; // default to true
     const taxRate = business?.taxRate || 0;
     const units = business?.units || ['pcs'];
+    const paperSize = business?.paperSize || '8cm';
 
-    const value = { business, loading, currency, taxEnabled, taxRate, units };
+    const value = { business, loading, currency, taxEnabled, taxRate, units, paperSize };
 
     if (loading) {
          return (
@@ -79,5 +82,3 @@ export function useBusiness() {
     }
     return context;
 }
-
-    

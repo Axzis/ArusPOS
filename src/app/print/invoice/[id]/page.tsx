@@ -4,11 +4,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { getTransactionById } from '@/lib/firestore';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useBusiness } from '@/contexts/business-context';
 
 type TransactionItem = {
     id: string;
@@ -23,6 +24,7 @@ type TransactionItem = {
 type Transaction = {
     id: string;
     customerName: string;
+    cashierName?: string;
     amount: number;
     date: string;
     status: 'Paid' | 'Refunded';
@@ -37,6 +39,7 @@ export default function InvoicePrintPage() {
     const { id: transactionId } = params;
     const [transaction, setTransaction] = useState<Transaction | null>(null);
     const [loading, setLoading] = useState(true);
+    const { paperSize } = useBusiness();
 
     useEffect(() => {
         if (typeof transactionId === 'string') {
@@ -75,11 +78,22 @@ export default function InvoicePrintPage() {
         };
     }, []);
 
+    const getPaperWidthClass = () => {
+        switch (paperSize) {
+            case '5.8cm':
+                return 'w-[58mm]';
+            case '8cm':
+                return 'w-[80mm]';
+            case 'A4':
+            default:
+                return 'w-[210mm]';
+        }
+    }
 
     if (loading) {
         return (
-            <div className="p-8">
-                <Card>
+            <div className="p-4 bg-white">
+                <Card className="mx-auto">
                     <CardHeader className="text-center">
                         <Skeleton className="h-8 w-1/4 mx-auto" />
                         <Skeleton className="h-4 w-1/6 mx-auto mt-2" />
@@ -102,47 +116,53 @@ export default function InvoicePrintPage() {
     const currency = transaction.currency || 'USD';
 
     return (
-        <div className="p-8 bg-white">
+        <div className={cn("p-4 bg-white font-mono text-xs", getPaperWidthClass())}>
             <Card className="shadow-none border-0">
-                <CardHeader className='text-center'>
-                    <CardTitle>Invoice</CardTitle>
+                <CardHeader className='text-center p-2'>
+                    <CardTitle className="text-base">Invoice</CardTitle>
                     <CardDescription>#{transaction.id.substring(0, 8)}</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className="grid gap-4">
-                        <div className="grid grid-cols-2 text-sm">
+                <CardContent className="p-2">
+                    <div className="grid gap-2">
+                        <div className="grid grid-cols-2">
                             <div>
-                                <p className="font-medium">Billed To</p>
+                                <p className="font-medium">Billed To:</p>
                                 <p>{transaction.customerName}</p>
                             </div>
                             <div className="text-right">
-                                <p className="font-medium">Date</p>
-                                <p>{new Date(transaction.date).toLocaleDateString()}</p>
+                                <p className="font-medium">Date:</p>
+                                <p>{new Date(transaction.date).toLocaleString()}</p>
                             </div>
                         </div>
-                        <Separator />
+                        {transaction.cashierName && (
+                             <div className="text-left">
+                                <p className="font-medium">Cashier:</p>
+                                <p>{transaction.cashierName}</p>
+                            </div>
+                        )}
+                        <Separator className="my-2"/>
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Product</TableHead>
-                                    <TableHead className="text-center">Qty</TableHead>
-                                    <TableHead className="text-center">Unit</TableHead>
-                                    <TableHead className="text-right">Total</TableHead>
+                                    <TableHead className="p-1 h-auto">Product</TableHead>
+                                    <TableHead className="text-center p-1 h-auto">Qty</TableHead>
+                                    <TableHead className="text-center p-1 h-auto">Unit</TableHead>
+                                    <TableHead className="text-right p-1 h-auto">Total</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {transaction.items.map(item => (
-                                    <TableRow key={item.id}>
-                                        <TableCell>{item.name}</TableCell>
-                                        <TableCell className="text-center">{item.quantity}</TableCell>
-                                        <TableCell className="text-center">{item.unit || ''}</TableCell>
-                                        <TableCell className="text-right">{formatCurrency(item.price * item.quantity, currency)}</TableCell>
+                                    <TableRow key={item.id} className="break-inside-avoid">
+                                        <TableCell className="p-1 align-top break-words whitespace-normal">{item.name}</TableCell>
+                                        <TableCell className="text-center p-1 align-top">{item.quantity}</TableCell>
+                                        <TableCell className="text-center p-1 align-top">{item.unit || ''}</TableCell>
+                                        <TableCell className="text-right p-1 align-top">{formatCurrency(item.price * item.quantity, currency)}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
-                        <Separator />
-                         <div className="ml-auto w-full max-w-xs space-y-2 text-sm">
+                        <Separator className="my-2"/>
+                         <div className="ml-auto w-full max-w-xs space-y-1">
                             <div className="flex justify-between">
                                 <span>Subtotal</span>
                                 <span>{formatCurrency(subtotal, currency)}</span>
@@ -167,7 +187,7 @@ export default function InvoicePrintPage() {
                         </div>
                     </div>
                 </CardContent>
-                 <CardFooter className="flex-col gap-2 text-center text-xs text-muted-foreground">
+                 <CardFooter className="flex-col gap-2 text-center text-muted-foreground p-2 mt-4">
                     <p>Thank you for your business!</p>
                     <p>Arus POS</p>
                 </CardFooter>
