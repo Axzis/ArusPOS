@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { seedInitialDataForBranch, resetBranchData } from '@/lib/firestore';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal, TriangleAlert, ShieldAlert, Ban } from 'lucide-react';
+import { Terminal, ShieldAlert, Ban } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { 
   AlertDialog,
@@ -24,7 +24,9 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/auth-context';
 
 export default function SeedingPage() {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
+    const router = useRouter();
+
     const [seedingLoading, setSeedingLoading] = useState(false);
     const [resettingLoading, setResettingLoading] = useState(false);
     const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
@@ -32,9 +34,15 @@ export default function SeedingPage() {
     const [isResetAlertOpen, setIsResetAlertOpen] = useState(false);
     const [resetConfirmText, setResetConfirmText] = useState("");
     const { toast } = useToast();
-    const router = useRouter();
 
     const isSuperAdmin = user?.email === 'superadmin@gmail.com';
+
+    useEffect(() => {
+        if (!authLoading && !isSuperAdmin) {
+            router.replace('/dashboard');
+        }
+    }, [user, authLoading, isSuperAdmin, router]);
+
 
     useEffect(() => {
         const storedBranch = localStorage.getItem('activeBranch');

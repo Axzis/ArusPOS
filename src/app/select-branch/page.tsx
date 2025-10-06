@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -73,7 +74,7 @@ export default function SelectBranchPage() {
   const isLoading = loading || authLoading;
 
   return (
-    <div className="flex items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center p-4 bg-muted/40">
       <Card className="mx-auto max-w-md w-full">
         <CardHeader className="text-center">
           <div className='flex justify-center items-center gap-2 mb-4'>
