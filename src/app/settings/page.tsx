@@ -183,10 +183,10 @@ export default function SettingsBusinessPage() {
                                     <SelectValue placeholder="Select currency" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="USD">USD ($)</SelectItem>
-                                    <SelectItem value="EUR">EUR (€)</SelectItem>
-                                    <SelectItem value="JPY">JPY (¥)</SelectItem>
-                                    <SelectItem value="IDR">IDR (Rp)</SelectItem>
+                                    <SelectItem value="IDR">Rupiah (Rp)</SelectItem>
+                                    <SelectItem value="USD">US Dollar ($)</SelectItem>
+                                    <SelectItem value="EUR">Euro (€)</SelectItem>
+                                    <SelectItem value="JPY">Japanese Yen (¥)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -228,3 +228,4 @@ const SettingsSkeleton = () => (
         </div>
     </div>
 )
+
