@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -32,40 +32,41 @@ type Transaction = {
     discount?: number;
 };
 
+// This component is now simpler and does not use React state for the transaction.
 export default function InvoicePrintPage() {
-    const [transaction, setTransaction] = useState<Transaction | null>(null);
-    const [loading, setLoading] = useState(true);
     const { paperSize } = useBusiness();
+    
+    // We get the transaction data directly when the component mounts.
+    // No state, no useEffect for data fetching.
+    let transaction: Transaction | null = null;
+    let isLoading = true;
 
-    useEffect(() => {
+    if (typeof window !== 'undefined') {
         try {
             const storedTransaction = localStorage.getItem('transactionToPrint');
             if (storedTransaction) {
-                setTransaction(JSON.parse(storedTransaction));
+                transaction = JSON.parse(storedTransaction);
             }
         } catch (error) {
             console.error("Could not parse transaction from localStorage", error);
+            transaction = null;
         } finally {
-            setLoading(false);
+            isLoading = false;
         }
-    }, []);
-
+    }
 
     useEffect(() => {
-        if (!loading && transaction) {
-            // Give a very small delay to ensure DOM is fully painted before printing
+        if (transaction) {
+             // Use a small timeout to ensure the DOM is fully painted before printing.
             setTimeout(() => {
                 window.print();
             }, 100);
         }
-    }, [loading, transaction]);
-    
-    // Add an event listener for after printing to clean up and close the window
-    useEffect(() => {
+
         const handleAfterPrint = () => {
-             // Now it's safe to remove the item
-             localStorage.removeItem('transactionToPrint');
-             window.close();
+            // Clean up and close the window after printing is done.
+            localStorage.removeItem('transactionToPrint');
+            window.close();
         };
 
         window.addEventListener('afterprint', handleAfterPrint);
@@ -73,7 +74,7 @@ export default function InvoicePrintPage() {
         return () => {
             window.removeEventListener('afterprint', handleAfterPrint);
         };
-    }, []);
+    }, [transaction]); // Dependency array ensures this runs only when the transaction object is resolved.
 
     const getPaperWidthClass = () => {
         switch (paperSize) {
@@ -85,9 +86,9 @@ export default function InvoicePrintPage() {
             default:
                 return 'w-[210mm]';
         }
-    }
+    };
 
-    if (loading) {
+    if (isLoading) {
         return (
             <div className="p-4 bg-white">
                 <Card className="mx-auto">
@@ -100,7 +101,7 @@ export default function InvoicePrintPage() {
                     </CardContent>
                 </Card>
             </div>
-        )
+        );
     }
 
     if (!transaction) {
