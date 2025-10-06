@@ -35,7 +35,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const fetchBusinessInfo = useCallback(async (userAuth: User) => {
         try {
+            // Check for superadmin first
+            if (userAuth.email && isSuperAdminUser(userAuth.email)) {
+                setUser({
+                    ...userAuth,
+                    role: 'Super Admin',
+                    displayName: 'Super Admin',
+                });
+                setBusinessId(null);
+                return;
+            }
+
             const { businessId: bId, userData } = await getBusinessId(userAuth);
+            
             if (bId) {
                 setBusinessId(bId);
                 setUser({
@@ -45,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     displayName: userData?.name || userAuth.displayName,
                 });
             } else {
-                 console.warn(`User with UID ${userAuth.uid} is not associated with any business. Logging out.`);
+                 console.warn(`User with UID ${userAuth.uid} is not associated with any business. This might be a superadmin or an unassigned user. Logging out for safety.`);
                  await signOut(auth);
                  setUser(null);
                  setBusinessId(null);
@@ -64,17 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await currentUserAuth.reload();
             const refreshedUserAuth = auth.currentUser;
             if (refreshedUserAuth) {
-                // Isolated fix for superadmin
-                 if (refreshedUserAuth.email && isSuperAdminUser(refreshedUserAuth.email)) {
-                    setUser({
-                        ...refreshedUserAuth,
-                        role: 'Super Admin',
-                        displayName: 'Super Admin',
-                    });
-                    setBusinessId(null);
-                } else {
-                    await fetchBusinessInfo(refreshedUserAuth);
-                }
+                await fetchBusinessInfo(refreshedUserAuth);
             }
         }
     }, [auth, fetchBusinessInfo]);
@@ -84,18 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
             setLoading(true);
             if (userAuth) {
-                // Isolated fix for superadmin
-                if (userAuth.email && isSuperAdminUser(userAuth.email)) {
-                    setUser({
-                        ...userAuth,
-                        role: 'Super Admin',
-                        displayName: 'Super Admin',
-                    });
-                    setBusinessId(null);
-                } else {
-                    await fetchBusinessInfo(userAuth);
-                }
-                
+                await fetchBusinessInfo(userAuth);
             } else {
                 setUser(null);
                 setBusinessId(null);
