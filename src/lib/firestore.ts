@@ -434,20 +434,19 @@ export async function addTransactionAndUpdateStock(
   branchId: string,
   customerId: string | null,
   transactionData: Omit<DocumentData, 'id'>,
-  items: { id: string; quantity: number }[]
+  items: { id: string; quantity: number }[],
+  cashierName: string,
 ) {
   const businessId = await getBusinessId();
   if (!businessId || !branchId) throw new Error("Missing business or branch ID");
-  const currentUser = auth.currentUser;
-  if (!currentUser) throw new Error("No authenticated user to perform this action.");
-
+  
   const batch = writeBatch(db);
 
   // 1. Add the transaction document
   const transactionRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION));
   batch.set(transactionRef, {
     ...transactionData,
-    cashierName: currentUser.displayName || currentUser.email,
+    cashierName: cashierName,
     date: serverTimestamp(),
   });
 
@@ -478,13 +477,12 @@ export async function refundTransaction(
     originalTransaction: DocumentData, 
     itemsToRefund: RefundItem[], 
     totalRefundAmount: number,
-    currency: string
+    currency: string,
+    cashierName: string,
 ) {
     const businessId = await getBusinessId();
     if (!businessId || !branchId) throw new Error("Missing business or branch ID");
     if (originalTransaction.status === 'Refunded') throw new Error("Transaction has already been fully refunded.");
-    const currentUser = auth.currentUser;
-    if (!currentUser) throw new Error("No authenticated user to perform this action.");
 
     const batch = writeBatch(db);
 
@@ -501,7 +499,7 @@ export async function refundTransaction(
             quantity: item.quantity, // Overwrite with refunded quantity
         })),
         currency: currency || 'USD',
-        cashierName: currentUser.displayName || currentUser.email,
+        cashierName: cashierName,
         date: serverTimestamp(),
     });
 
@@ -795,3 +793,4 @@ export async function seedInitialDataForBranch(branchId: string): Promise<boolea
     await batch.commit();
     return true; // Indicate that seeding was successful
 }
+

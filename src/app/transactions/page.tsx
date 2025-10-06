@@ -64,6 +64,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
 
 type OrderItem = {
   id: string;
@@ -240,6 +241,8 @@ export default function TransactionsPage() {
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const [transactionForRegistration, setTransactionForRegistration] = useState<Transaction | null>(null);
   const [discount, setDiscount] = useState(0);
+  const { user } = useAuth();
+
 
   // Refund state
   const [transactionToRefund, setTransactionToRefund] = useState<Transaction | null>(null);
@@ -418,13 +421,15 @@ export default function TransactionsPage() {
   };
 
   const handleChargePayment = async () => {
-      if (!activeBranchId || orderItems.length === 0) return;
+      if (!activeBranchId || orderItems.length === 0 || !user) return;
       
       setIsProcessing(true);
       try {
           const isAnonymous = selectedCustomerId === ANONYMOUS_CUSTOMER_ID || selectedCustomerId === '';
           const customerId = isAnonymous ? null : selectedCustomerId;
           const selectedCustomer = isAnonymous ? null : customers.find(c => c.id === selectedCustomerId);
+          const cashierName = user.displayName || user.email || 'System';
+
 
           const transactionData = {
               customerName: selectedCustomer?.name || 'Anonymous',
@@ -444,7 +449,7 @@ export default function TransactionsPage() {
                 })),
           };
 
-          await addTransactionAndUpdateStock(activeBranchId, customerId, transactionData, orderItems);
+          await addTransactionAndUpdateStock(activeBranchId, customerId, transactionData, orderItems, cashierName);
           
           toast({ title: "Transaction Successful", description: `Payment of ${formatCurrency(total, currency)} charged.` });
           clearOrder();
@@ -479,7 +484,7 @@ export default function TransactionsPage() {
   }, [refundItems]);
 
   const executeRefund = async () => {
-    if (!transactionToRefund || !activeBranchId) return;
+    if (!transactionToRefund || !activeBranchId || !user) return;
 
     const itemsToRefund = refundItems.filter(item => item.quantity > 0);
     if (itemsToRefund.length === 0) {
@@ -489,7 +494,8 @@ export default function TransactionsPage() {
 
     setIsProcessing(true);
     try {
-      await refundTransaction(activeBranchId, transactionToRefund, itemsToRefund, totalRefundAmount, currency);
+      const cashierName = user.displayName || user.email || 'System';
+      await refundTransaction(activeBranchId, transactionToRefund, itemsToRefund, totalRefundAmount, currency, cashierName);
       toast({
         title: "Refund Successful",
         description: `Refund of ${formatCurrency(totalRefundAmount, currency)} processed.`,
@@ -970,3 +976,4 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
