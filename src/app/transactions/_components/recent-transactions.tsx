@@ -211,7 +211,7 @@ export default function RecentTransactions({
                                 {transaction.status || 'N/A'}
                             </Badge>
                             </TableCell>
-                            <TableCell className="hidden md:table-cell">{transaction.cashierName}</TableCell>
+                            <TableCell className="hidden md:table-cell whitespace-normal break-words">{transaction.cashierName}</TableCell>
                             <TableCell
                                 className={`text-right ${transaction.type === 'Refund' ? 'text-destructive' : ''}`}
                             >
