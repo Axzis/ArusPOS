@@ -164,9 +164,10 @@ const ProductListItem = React.memo(({ product, onAddToOrder, currency }: { produ
                     <>
                         <span className="text-destructive font-semibold">{formatCurrency(product.price, currency)}</span>
                         <span className="line-through ml-2">{formatCurrency(product.originalPrice, currency)}</span>
+                         <span className="ml-1">/ {product.unit}</span>
                     </>
                 ) : (
-                    <span>{formatCurrency(product.price, currency)}</span>
+                    <span>{formatCurrency(product.price, currency)} / {product.unit}</span>
                 )}
             </div>
         </div>
@@ -205,9 +206,10 @@ const ProductGridItem = React.memo(({ product, onAddToOrder, currency }: { produ
                         <>
                             <span className="text-destructive font-semibold">{formatCurrency(product.price, currency)}</span>
                             <span className="line-through ml-2">{formatCurrency(product.originalPrice, currency)}</span>
+                             <span className="ml-1">/ {product.unit}</span>
                         </>
                     ) : (
-                        <span>{formatCurrency(product.price, currency)}</span>
+                        <span>{formatCurrency(product.price, currency)} / {product.unit}</span>
                     )}
                 </p>
             </div>
@@ -977,3 +979,6 @@ export default function TransactionsPage() {
   );
 }
 
+
+
+    
