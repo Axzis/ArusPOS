@@ -33,6 +33,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Bar, CartesianGrid, XAxis, YAxis, Tooltip, BarChart, LineChart, Line } from 'recharts';
 import { DateRange } from 'react-day-picker';
 import { utils, writeFile } from 'xlsx';
+import { useAuth } from '@/contexts/auth-context';
 
 
 type TransactionItem = {
@@ -73,6 +74,7 @@ const topProductsConfig = {
 };
 
 export default function ReportsPage() {
+    const { businessId } = useAuth();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
@@ -92,13 +94,13 @@ export default function ReportsPage() {
     }, []);
 
     const fetchData = useCallback(async () => {
-        if (!activeBranchId) {
+        if (!activeBranchId || !businessId) {
             setLoading(false);
             return;
         }
         setLoading(true);
         try {
-            const transactionsData = await getTransactionsForBranch(activeBranchId);
+            const transactionsData = await getTransactionsForBranch(businessId, activeBranchId);
             setTransactions(transactionsData as Transaction[]);
         } catch (error) {
             console.error("Failed to load report data:", error);
@@ -106,13 +108,13 @@ export default function ReportsPage() {
         } finally {
             setLoading(false);
         }
-    }, [activeBranchId, toast]);
+    }, [activeBranchId, businessId, toast]);
 
     useEffect(() => {
-        if (activeBranchId) {
+        if (activeBranchId && businessId) {
             fetchData();
         }
-    }, [activeBranchId, fetchData]);
+    }, [activeBranchId, businessId, fetchData]);
 
     const salesTransactions = useMemo(() => transactions.filter(t => t.type === 'Sale'), [transactions]);
 
@@ -236,7 +238,6 @@ export default function ReportsPage() {
             return;
         }
         
-        // Ensure the end of the day is included in the filter
         const inclusiveDateRange = {
             from: dateRange.from,
             to: endOfDay(dateRange.to),
@@ -275,7 +276,6 @@ export default function ReportsPage() {
 
         const ws = utils.json_to_sheet(reportData);
         
-        // Auto-fit columns
         const colWidths = Object.keys(reportData[0]).map(key => {
             const maxLength = Math.max(...reportData.map(row => String(row[key as keyof typeof row]).length), key.length);
             return { wch: maxLength + 2 };
@@ -455,14 +455,3 @@ export default function ReportsPage() {
         </div>
     );
 }
-
-    
-
-    
-
-
-
-
-    
-
-    

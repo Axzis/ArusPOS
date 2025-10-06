@@ -3,24 +3,24 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { getAuth, onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { getFirestore, collection, query, where, getDocs, DocumentData, limit } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, DocumentData, limit, collectionGroup } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
 import { isSuperAdminUser } from '@/lib/config';
-import { initializeFirebase } from '@/lib/firebase'; // Reverted to old firebase lib path
+import { initializeFirebase } from '@/lib/firebase';
 
-const USERS_COLLECTION = 'users';
 const BUSINESSES_COLLECTION = 'businesses';
+const USERS_COLLECTION = 'users';
 
-// Extend the User type to include our custom role and photoURL from Firestore
 export type AppUser = User & {
     role?: string;
-    photoURL?: string; // Allow overriding from Firestore
-    displayName?: string; // Allow overriding from Firestore
+    photoURL?: string;
+    displayName?: string;
 };
 
 type AuthContextType = {
     user: AppUser | null;
     loading: boolean;
+    businessId: string | null;
     login: (email: string, password: string) => Promise<AppUser | null>;
     logout: () => Promise<void>;
     sendPasswordReset: (email: string) => Promise<void>;
@@ -30,28 +30,23 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-
 async function getUserData(userAuth: User): Promise<DocumentData | null> {
     const { db } = initializeFirebase();
-    
-    // Fallback search mechanism: iterate through businesses to find the user
-    const businessesSnapshot = await getDocs(collection(db, BUSINESSES_COLLECTION));
-    for (const businessDoc of businessesSnapshot.docs) {
-        const usersRef = collection(db, BUSINESSES_COLLECTION, businessDoc.id, USERS_COLLECTION);
-        const userQuery = query(usersRef, where("uid", "==", userAuth.uid), limit(1));
-        const userSnapshot = await getDocs(userQuery);
-        if (!userSnapshot.empty) {
-            // Found the user in this business, return the user data
-            return userSnapshot.docs[0].data();
-        }
-    }
+    // Use a collectionGroup query to find the user document across all businesses.
+    const usersQuery = query(collectionGroup(db, USERS_COLLECTION), where("uid", "==", userAuth.uid), limit(1));
+    const userSnapshot = await getDocs(usersQuery);
 
+    if (!userSnapshot.empty) {
+        return userSnapshot.docs[0].data();
+    }
+    
     console.warn(`No user document found for UID: ${userAuth.uid} in any business.`);
     return null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<AppUser | null>(null);
+    const [businessId, setBusinessId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const { auth } = initializeFirebase();
 
@@ -67,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         role: 'Super Admin',
                         displayName: 'Super Admin',
                     });
+                    setBusinessId(null);
                 } else {
                     const userDoc = await getUserData(refreshedUserAuth);
                     setUser({
@@ -75,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         photoURL: userDoc?.photoURL || refreshedUserAuth.photoURL,
                         displayName: userDoc?.name || refreshedUserAuth.displayName,
                     });
+                    setBusinessId(userDoc?.businessId || null);
                 }
             }
         }
@@ -84,33 +81,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const unsubscribe = onAuthStateChanged(auth, async (userAuth) => {
             setLoading(true);
             if (userAuth) {
-                // Explicitly handle superadmin case first
                 if (userAuth.email && isSuperAdminUser(userAuth.email)) {
                     setUser({
                         ...userAuth,
                         role: 'Super Admin',
                         displayName: 'Super Admin',
                     });
+                    setBusinessId(null); // Superadmin has no businessId
                 } else {
-                    // For regular users, fetch their data from Firestore.
                     const userDoc = await getUserData(userAuth);
-                    if (userDoc) {
+                    if (userDoc && userDoc.businessId) {
                         setUser({
                             ...userAuth,
                             role: userDoc.role,
                             photoURL: userDoc.photoURL || userAuth.photoURL,
                             displayName: userDoc.name || userAuth.displayName,
                         });
+                        setBusinessId(userDoc.businessId);
                     } else {
-                        // This case handles users who are authenticated but have no Firestore record
-                        // and are not superadmins. This is an error state, log them out.
-                        console.warn(`User with UID ${userAuth.uid} is authenticated but has no Firestore document and is not a superadmin. Logging out.`);
+                        console.warn(`User with UID ${userAuth.uid} is authenticated but has no Firestore document or businessId. Logging out.`);
                         setUser(null);
+                        setBusinessId(null);
                         await signOut(auth);
                     }
                 }
             } else {
                 setUser(null);
+                setBusinessId(null);
             }
             setLoading(false);
         });
@@ -120,24 +117,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
     const login = async (email: string, password: string): Promise<AppUser | null> => {
-        try {
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            // The onAuthStateChanged listener will handle setting the global user state.
-            // We just return the user object on successful login for immediate feedback if needed.
-            if (isSuperAdminUser(email)) {
-                return { ...userCredential.user, role: 'Super Admin', displayName: 'Super Admin' };
-            }
-            const userDoc = await getUserData(userCredential.user);
-            const appUser = {
-                ...userCredential.user,
-                role: userDoc?.role,
-                photoURL: userDoc?.photoURL || userCredential.user.photoURL,
-                displayName: userDoc?.name || userCredential.user.displayName,
-            };
-            return appUser;
-        } catch (error) {
-            throw error;
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        // The onAuthStateChanged listener handles setting state, but we can return data for immediate feedback.
+        if (isSuperAdminUser(email)) {
+            return { ...userCredential.user, role: 'Super Admin', displayName: 'Super Admin' };
         }
+        const userDoc = await getUserData(userCredential.user);
+        return {
+            ...userCredential.user,
+            role: userDoc?.role,
+            photoURL: userDoc?.photoURL || userCredential.user.photoURL,
+            displayName: userDoc?.name || userCredential.user.displayName,
+        };
     };
 
     const logout = async () => {
@@ -153,19 +144,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!user || !user.email) {
             throw new Error("No user is currently signed in.");
         }
-
         const credential = EmailAuthProvider.credential(user.email, currentPass);
-        
-        try {
-            await reauthenticateWithCredential(user, credential);
-            await updatePassword(user, newPass);
-        } catch (error) {
-            throw error;
-        }
+        await reauthenticateWithCredential(user, credential);
+        await updatePassword(user, newPass);
     };
 
-
-    const value = { user, loading, login, logout, sendPasswordReset, updateUserPassword, refreshUser };
+    const value = { user, loading, businessId, login, logout, sendPasswordReset, updateUserPassword, refreshUser };
 
     if (loading) {
          return (

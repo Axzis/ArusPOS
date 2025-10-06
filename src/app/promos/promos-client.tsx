@@ -63,6 +63,7 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/contexts/auth-context';
 
 type Product = {
   id: string;
@@ -85,6 +86,7 @@ type PromosClientProps = {
 }
 
 export default function PromosClient({ initialPromos, initialProducts }: PromosClientProps) {
+    const { businessId } = useAuth();
     const [promos, setPromos] = React.useState<Promo[]>(initialPromos);
     const [products, setProducts] = React.useState<Product[]>(initialProducts);
     const [loading, setLoading] = React.useState(true);
@@ -101,14 +103,13 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
     const [isCalendarOpen, setIsCalendarOpen] = React.useState(false);
 
 
-    const fetchData = React.useCallback(async (branchId: string) => {
+    const fetchData = React.useCallback(async (busId: string, branchId: string) => {
         setLoading(true);
         try {
             const [promoData, productData] = await Promise.all([
-                getPromosForBranch(branchId),
-                getProductsForBranch(branchId),
+                getPromosForBranch(busId, branchId),
+                getProductsForBranch(busId, branchId),
             ]);
-            // Sort promos by end date client-side
             const sortedPromos = (promoData as Promo[]).sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
             setPromos(sortedPromos);
             setProducts(productData as Product[]);
@@ -125,11 +126,13 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
         if (storedBranch) {
             const branchId = JSON.parse(storedBranch).id;
             setActiveBranchId(branchId);
-            fetchData(branchId);
+            if (businessId) {
+                fetchData(businessId, branchId);
+            }
         } else {
             setLoading(false);
         }
-    }, [fetchData]);
+    }, [fetchData, businessId]);
 
 
     const resetForm = () => {
@@ -139,7 +142,7 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
     };
 
     const handleSavePromo = async () => {
-        if (!activeBranchId || !selectedProductId || !promoPrice || !dateRange?.from || !dateRange?.to) {
+        if (!activeBranchId || !businessId || !selectedProductId || !promoPrice || !dateRange?.from || !dateRange?.to) {
             toast({ title: "Validation Error", description: "Please fill all fields.", variant: "destructive" });
             return;
         }
@@ -160,9 +163,9 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
         };
 
         try {
-            await addPromoToBranch(activeBranchId, promoData);
+            await addPromoToBranch(businessId, activeBranchId, promoData);
             toast({ title: "Success", description: "New promotion has been added." });
-            fetchData(activeBranchId);
+            fetchData(businessId, activeBranchId);
             setIsSheetOpen(false);
             resetForm();
         } catch (error) {
@@ -172,11 +175,11 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
     };
     
     const handleDeletePromo = async () => {
-        if (!promoToDelete || !activeBranchId) return;
+        if (!promoToDelete || !activeBranchId || !businessId) return;
         try {
-            await deletePromoFromBranch(activeBranchId, promoToDelete.id);
+            await deletePromoFromBranch(businessId, activeBranchId, promoToDelete.id);
             toast({ title: "Success", description: `Promotion for ${promoToDelete.productName} has been deleted.` });
-            fetchData(activeBranchId);
+            fetchData(businessId, activeBranchId);
         } catch (error) {
             console.error("Failed to delete promo:", error);
             toast({ title: "Error", description: "Could not delete promotion.", variant: "destructive" });
@@ -397,5 +400,3 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
 
     
 }
-
-    

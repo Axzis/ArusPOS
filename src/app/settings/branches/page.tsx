@@ -29,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { getBusinessWithBranches } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/contexts/auth-context';
 
 type Branch = {
     id: string;
@@ -39,13 +40,18 @@ type Branch = {
 }
 
 export default function BranchesPage() {
+    const { businessId } = useAuth();
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loading, setLoading] = useState(true);
 
     const fetchBranches = useCallback(async () => {
+        if (!businessId) {
+            setLoading(false);
+            return;
+        };
         setLoading(true);
         try {
-            const businessData = await getBusinessWithBranches();
+            const businessData = await getBusinessWithBranches(businessId);
             if (businessData.length > 0) {
                 const mappedBranches = businessData[0].branches.map((b: any) => ({
                     ...b,
@@ -58,7 +64,7 @@ export default function BranchesPage() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [businessId]);
 
     useEffect(() => {
         fetchBranches();

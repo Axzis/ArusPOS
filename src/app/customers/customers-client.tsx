@@ -59,6 +59,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import ExcelImport from '@/components/excel-import';
 import { utils, writeFile } from 'xlsx';
+import { useAuth } from '@/contexts/auth-context';
 
 
 type Customer = {
@@ -77,6 +78,7 @@ const initialCustomerState = {
 };
 
 export default function CustomersClient() {
+  const { businessId } = useAuth();
   const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [loading, setLoading] = React.useState(true); // Start loading true
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -86,9 +88,13 @@ export default function CustomersClient() {
   const { toast } = useToast();
 
   const fetchCustomers = React.useCallback(async () => {
+    if (!businessId) {
+        setLoading(false);
+        return;
+    }
     setLoading(true);
     try {
-        const customersData = await getCustomers();
+        const customersData = await getCustomers(businessId);
         setCustomers(customersData as Customer[]);
     } catch (error) {
         console.error("Failed to fetch customers:", error);
@@ -96,7 +102,7 @@ export default function CustomersClient() {
     } finally {
         setLoading(false);
     }
-  }, [toast]);
+  }, [toast, businessId]);
   
   // Fetch data on component mount
   React.useEffect(() => {
@@ -109,17 +115,21 @@ export default function CustomersClient() {
   };
 
   const handleSaveCustomer = async () => {
+    if (!businessId) {
+        toast({ title: "Error", description: "No active business found.", variant: "destructive"});
+        return;
+    }
     if (!newCustomer.name) {
         toast({ title: "Validation Error", description: "Name is required.", variant: "destructive"});
         return;
     }
 
     try {
-        await addCustomer(newCustomer);
+        await addCustomer(businessId, newCustomer);
         toast({ title: "Success", description: "New customer has been added." });
         setIsSheetOpen(false);
         setNewCustomer(initialCustomerState);
-        fetchCustomers(); // Refetch data
+        fetchCustomers();
     } catch (error) {
         console.error("Failed to save customer:", error);
         toast({ title: "Error", description: "Could not save the new customer.", variant: "destructive"});
@@ -127,13 +137,13 @@ export default function CustomersClient() {
   };
   
   const executeDelete = async () => {
-    if (!customerToDelete) return;
+    if (!customerToDelete || !businessId) return;
     
     try {
-      await deleteCustomer(customerToDelete.id);
+      await deleteCustomer(businessId, customerToDelete.id);
       toast({ title: "Success", description: `Customer ${customerToDelete.name} has been deleted.` });
       setCustomerToDelete(null);
-      fetchCustomers(); // Refetch data
+      fetchCustomers();
     } catch (error) {
        console.error("Failed to delete customer:", error);
        toast({ title: "Error", description: "Could not delete the customer.", variant: "destructive"});
@@ -150,13 +160,17 @@ export default function CustomersClient() {
   };
 
   const handleImport = async (data: any[]) => {
+    if (!businessId) {
+        toast({ title: "Error", description: "No active business found.", variant: "destructive"});
+        return;
+    }
     try {
-        const result = await upsertCustomersByEmail(data);
+        const result = await upsertCustomersByEmail(businessId, data);
         toast({
             title: "Import Successful",
             description: `${result.updated} customers updated, ${result.inserted} new customers added.`,
         });
-        fetchCustomers(); // Refetch data
+        fetchCustomers();
     } catch (error: any) {
         toast({
             title: "Import Failed",

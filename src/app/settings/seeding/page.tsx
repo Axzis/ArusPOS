@@ -25,7 +25,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { isSuperAdminUser } from '@/lib/config';
 
 export default function SeedingPage() {
-    const { user, loading: authLoading } = useAuth();
+    const { user, loading: authLoading, businessId } = useAuth();
     const router = useRouter();
 
     const [seedingLoading, setSeedingLoading] = useState(false);
@@ -55,9 +55,9 @@ export default function SeedingPage() {
     }, []);
 
     const handleSeed = async () => {
-        if (!activeBranchId) {
+        if (!activeBranchId || !businessId) {
             toast({
-                title: "No Active Branch",
+                title: "No Active Branch/Business",
                 description: "Please select a branch before seeding data.",
                 variant: "destructive",
             });
@@ -66,7 +66,7 @@ export default function SeedingPage() {
 
         setSeedingLoading(true);
         try {
-            const success = await seedInitialDataForBranch(activeBranchId);
+            const success = await seedInitialDataForBranch(businessId, activeBranchId);
             if (success) {
                 toast({
                     title: "Database Seeded!",
@@ -93,9 +93,9 @@ export default function SeedingPage() {
     };
     
     const handleReset = async () => {
-        if (!activeBranchId) {
+        if (!activeBranchId || !businessId) {
             toast({
-                title: "No Active Branch",
+                title: "No Active Branch/Business",
                 description: "Please select a branch before resetting data.",
                 variant: "destructive",
             });
@@ -104,7 +104,7 @@ export default function SeedingPage() {
 
         setResettingLoading(true);
         try {
-            await resetBranchData(activeBranchId);
+            await resetBranchData(businessId, activeBranchId);
             toast({
                 title: "Branch Reset Successful!",
                 description: `All products, transactions, and promos for ${activeBranchName} have been deleted.`,

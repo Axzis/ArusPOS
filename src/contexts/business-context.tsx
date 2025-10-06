@@ -3,7 +3,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getBusinessWithBranches } from '@/lib/firestore';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from './auth-context';
 
 type Business = {
@@ -33,27 +32,31 @@ const BusinessContext = createContext<BusinessContextType | undefined>(undefined
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
     const [business, setBusiness] = useState<Business | null>(null);
     const [loading, setLoading] = useState(true);
-    const { user } = useAuth();
+    const { user, businessId } = useAuth();
 
     useEffect(() => {
         async function fetchBusiness() {
-            if (!user) {
+            if (!user || !businessId) {
                 setLoading(false);
                 return;
             }
+            setLoading(true);
             try {
-                const businesses = await getBusinessWithBranches();
+                const businesses = await getBusinessWithBranches(businessId);
                 if (businesses.length > 0) {
                     setBusiness(businesses[0] as Business);
+                } else {
+                    setBusiness(null);
                 }
             } catch (error) {
                 console.error("Failed to fetch business details:", error);
+                setBusiness(null);
             } finally {
                 setLoading(false);
             }
         }
         fetchBusiness();
-    }, [user]);
+    }, [user, businessId]);
 
     const currency = business?.currency || 'USD';
     const taxEnabled = business?.taxEnabled !== false; // default to true

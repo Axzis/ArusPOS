@@ -29,7 +29,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
-import { getProductsForBranch, updateProductInBranch } from '@/lib/firestore'; // Changed from getInventory
+import { getProductsForBranch, updateProductInBranch } from '@/lib/firestore';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -45,13 +45,13 @@ import {
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
 
 type InventoryItem = {
   id: string;
   name: string;
   sku: string;
   stock: number;
-  // The status will be calculated dynamically
 };
 
 function getStatus(stock: number): 'In Stock' | 'Low Stock' | 'Out of Stock' {
@@ -62,6 +62,7 @@ function getStatus(stock: number): 'In Stock' | 'Low Stock' | 'Out of Stock' {
 
 
 export default function InventoryClient() {
+  const { businessId } = useAuth();
   const [inventoryData, setInventoryData] = React.useState<InventoryItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -82,11 +83,10 @@ export default function InventoryClient() {
   }, []);
 
   const fetchInventory = React.useCallback(async () => {
-    if (!activeBranchId) return;
+    if (!activeBranchId || !businessId) return;
     setLoading(true);
     try {
-      // We fetch products for the branch, as they contain the stock info
-      const data = await getProductsForBranch(activeBranchId);
+      const data = await getProductsForBranch(businessId, activeBranchId);
       setInventoryData(data as InventoryItem[]);
     } catch(error) {
         console.error("Failed to fetch inventory data:", error);
@@ -94,13 +94,13 @@ export default function InventoryClient() {
     } finally {
         setLoading(false);
     }
-  }, [activeBranchId, toast]);
+  }, [activeBranchId, businessId, toast]);
 
   React.useEffect(() => {
-    if (activeBranchId) {
+    if (activeBranchId && businessId) {
         fetchInventory();
     }
-  }, [activeBranchId, fetchInventory]);
+  }, [activeBranchId, businessId, fetchInventory]);
   
   const handleUpdateClick = (item: InventoryItem) => {
     setSelectedItem(item);
@@ -109,10 +109,10 @@ export default function InventoryClient() {
   };
 
   const executeStockUpdate = async () => {
-    if (!selectedItem || !activeBranchId) return;
+    if (!selectedItem || !activeBranchId || !businessId) return;
     
     try {
-        await updateProductInBranch(activeBranchId, selectedItem.id, { stock: newStock });
+        await updateProductInBranch(businessId, activeBranchId, selectedItem.id, { stock: newStock });
         toast({ title: "Success", description: `Stock for ${selectedItem.name} updated.` });
         fetchInventory(); // Refresh data
     } catch(error) {

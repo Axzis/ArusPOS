@@ -37,6 +37,7 @@ import { formatCurrency } from '@/lib/utils';
 import { format, parseISO, isToday } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from 'recharts';
+import { useAuth } from '@/contexts/auth-context';
 
 const chartConfig = {
   sales: {
@@ -76,6 +77,7 @@ type Customer = {
 
 
 export default function DashboardPage() {
+    const { businessId } = useAuth();
     const [transactions, setTransactions] = React.useState<Transaction[]>([]);
     const [customers, setCustomers] = React.useState<Customer[]>([]);
     const [loading, setLoading] = React.useState(true);
@@ -90,12 +92,16 @@ export default function DashboardPage() {
         const branch = storedBranch ? JSON.parse(storedBranch) : null;
         if (branch?.id) {
             setActiveBranchId(branch.id);
+            if (!businessId) {
+                setLoading(false);
+                return;
+            };
             const loadData = async () => {
                 setLoading(true);
                 try {
                     const [transactionsData, customersData] = await Promise.all([
-                        getTransactionsForBranch(branch.id),
-                        getCustomers()
+                        getTransactionsForBranch(businessId, branch.id),
+                        getCustomers(businessId)
                     ]);
                     setTransactions(transactionsData as Transaction[]);
                     setCustomers(customersData as Customer[]);
@@ -114,7 +120,7 @@ export default function DashboardPage() {
         } else {
           setLoading(false);
         }
-    }, [toast]);
+    }, [toast, businessId]);
 
   const salesTransactions = useMemo(() => transactions.filter(t => t.type === 'Sale'), [transactions]);
   

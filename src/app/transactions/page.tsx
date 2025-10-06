@@ -137,17 +137,17 @@ export default function TransactionsPage() {
   
   const { currency, taxEnabled, taxRate, loading: loadingBusiness, paperSize } = useBusiness();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, businessId } = useAuth();
 
 
-  const fetchData = useCallback(async (branchId: string) => {
+  const fetchData = useCallback(async (busId: string, branchId: string) => {
     setLoading(true);
     try {
         const [transactionsData, productsData, customersData, promoData] = await Promise.all([
-            getTransactionsForBranch(branchId),
-            getProductsForBranch(branchId),
-            getCustomers(),
-            getPromosForBranch(branchId),
+            getTransactionsForBranch(busId, branchId),
+            getProductsForBranch(busId, branchId),
+            getCustomers(busId),
+            getPromosForBranch(busId, branchId),
         ]);
         
         setTransactions((transactionsData as Transaction[] || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
@@ -301,12 +301,12 @@ export default function TransactionsPage() {
   }, []);
 
   useEffect(() => {
-    if (activeBranchId) {
-        fetchData(activeBranchId);
+    if (activeBranchId && businessId) {
+        fetchData(businessId, activeBranchId);
     } else {
         setLoading(false);
     }
-  }, [activeBranchId, fetchData]);
+  }, [activeBranchId, businessId, fetchData]);
 
   const updateOrderItemQuantity = useCallback((productId: string, newQuantity: number) => {
     setOrderItems(prevItems => {
@@ -425,7 +425,7 @@ export default function TransactionsPage() {
   };
 
   const handleChargePayment = async () => {
-      if (!activeBranchId || orderItems.length === 0 || !user) return;
+      if (!activeBranchId || !businessId || orderItems.length === 0 || !user) return;
       
       setIsProcessing(true);
       try {
@@ -453,11 +453,11 @@ export default function TransactionsPage() {
                 })),
           };
 
-          await addTransactionAndUpdateStock(activeBranchId, customerId, transactionData, orderItems, cashierName);
+          await addTransactionAndUpdateStock(businessId, activeBranchId, customerId, transactionData, orderItems, cashierName);
           
           toast({ title: "Transaction Successful", description: `Payment of ${formatCurrency(total, currency)} charged.` });
           clearOrder();
-          if(activeBranchId) fetchData(activeBranchId);
+          if(activeBranchId && businessId) fetchData(businessId, activeBranchId);
       } catch (error) {
           console.error("Failed to charge payment:", error);
           toast({ title: "Error", description: "Could not process the payment.", variant: "destructive" });
@@ -505,7 +505,7 @@ export default function TransactionsPage() {
   };
 
   const executeRefund = async () => {
-    if (!transactionToRefund || !activeBranchId || !user) return;
+    if (!transactionToRefund || !activeBranchId || !businessId || !user) return;
 
     const itemsToRefund = refundItems.filter(item => item.quantity > 0);
     if (itemsToRefund.length === 0) {
@@ -517,12 +517,12 @@ export default function TransactionsPage() {
     try {
       const cashierName = user.displayName || user.email || 'System';
       const totalRefundAmount = refundItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-      await refundTransaction(activeBranchId, transactionToRefund, itemsToRefund, totalRefundAmount, currency, cashierName);
+      await refundTransaction(businessId, activeBranchId, transactionToRefund, itemsToRefund, totalRefundAmount, currency, cashierName);
       toast({
         title: "Refund Successful",
         description: `Refund of ${formatCurrency(totalRefundAmount, currency)} processed.`,
       });
-      if(activeBranchId) fetchData(activeBranchId);
+      if(activeBranchId && businessId) fetchData(businessId, activeBranchId);
     } catch (error: any) {
       console.error("Failed to process refund:", error);
       toast({
@@ -563,11 +563,11 @@ export default function TransactionsPage() {
   };
 
   const handleRegisterAndSend = async (newCustomer: {name: string, phone: string}) => {
-    if (!newCustomer.name || !newCustomer.phone || !transactionForRegistration || !activeBranchId) return;
+    if (!newCustomer.name || !newCustomer.phone || !transactionForRegistration || !businessId) return;
     try {
-      await addCustomer({ name: newCustomer.name, email: '', phone: newCustomer.phone });
+      await addCustomer(businessId, { name: newCustomer.name, email: '', phone: newCustomer.phone });
       toast({ title: "Pelanggan Terdaftar", description: `${newCustomer.name} telah berhasil ditambahkan.` });
-      if (activeBranchId) fetchData(activeBranchId); 
+      if (activeBranchId && businessId) fetchData(businessId, activeBranchId); 
       generateWhatsAppMessage(transactionForRegistration, newCustomer.phone);
       setIsRegistering(false);
       setTransactionForRegistration(null);
@@ -656,5 +656,3 @@ export default function TransactionsPage() {
     </div>
   );
 }
-
-    

@@ -78,7 +78,7 @@ const initialFormState = {
 };
 
 export default function UsersPage() {
-    const { user: currentUser } = useAuth();
+    const { user: currentUser, businessId } = useAuth();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -87,9 +87,13 @@ export default function UsersPage() {
     const { toast } = useToast();
 
     const fetchUsers = useCallback(async () => {
+        if (!businessId) {
+            setLoading(false);
+            return;
+        };
         setLoading(true);
         try {
-            const usersData = await getUsers();
+            const usersData = await getUsers(businessId);
             setUsers(usersData as User[]);
         } catch (error) {
             console.error("Failed to fetch users", error);
@@ -97,7 +101,7 @@ export default function UsersPage() {
         } finally {
             setLoading(false);
         }
-    }, [toast]);
+    }, [toast, businessId]);
 
     useEffect(() => {
         fetchUsers();
@@ -113,17 +117,21 @@ export default function UsersPage() {
     };
     
     const handleSaveUser = async () => {
+        if (!businessId) {
+            toast({ title: "Error", description: "No active business found.", variant: "destructive"});
+            return;
+        }
         if (!newUser.name || !newUser.email || !newUser.password) {
             toast({ title: "Validation Error", description: "Please fill all required fields.", variant: "destructive"});
             return;
         }
 
         try {
-            await addUserToBusiness(newUser);
+            await addUserToBusiness(businessId, newUser);
             toast({ title: "Success", description: `User ${newUser.name} has been added. They will need to verify their email.` });
             setIsSheetOpen(false);
             setNewUser(initialFormState);
-            fetchUsers(); // Refresh the list
+            fetchUsers();
         } catch (error) {
             console.error("Failed to save user:", error);
             let description = "Could not save the new user.";
@@ -139,9 +147,9 @@ export default function UsersPage() {
     };
     
     const executeDelete = async () => {
-        if (!userToDelete) return;
+        if (!userToDelete || !businessId) return;
         try {
-            await deleteUserFromBusiness(userToDelete.id);
+            await deleteUserFromBusiness(businessId, userToDelete.id);
             toast({ title: "Success", description: `User ${userToDelete.name} has been removed.` });
             fetchUsers();
         } catch (error) {

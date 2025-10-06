@@ -33,25 +33,28 @@ type Business = {
 
 export default function SelectBranchPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, businessId } = useAuth();
   const [business, setBusiness] = React.useState<Business | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    // Don't fetch until auth state is resolved and we have a user
     if (authLoading || !user) {
         return;
     }
 
     async function fetchBusiness() {
+      if (!businessId) {
+        setError("Your user account is not associated with a business. Please contact support or register a new business.");
+        setLoading(false);
+        return;
+      }
       try {
-        const businesses = await getBusinessWithBranches();
+        const businesses = await getBusinessWithBranches(businessId);
         if (businesses.length > 0) {
           setBusiness(businesses[0] as Business);
         } else {
-            // This case can happen if the user's business doc is missing or they have no businessId
-            setError("Your user account is not associated with a business. Please contact support or register a new business.");
+            setError("Could not find the business associated with your account.");
         }
       } catch (e) {
           console.error("Failed to fetch business:", e);
@@ -61,13 +64,12 @@ export default function SelectBranchPage() {
       }
     }
     fetchBusiness();
-  }, [user, authLoading]);
+  }, [user, authLoading, businessId]);
 
   const handleSelectBranch = (branch: Branch) => {
     console.log(`Selected branch: ${branch.name}`);
     localStorage.setItem('activeBranch', JSON.stringify(branch));
     
-    // Conditional redirect based on user role
     if (user?.role === 'Staff') {
         router.push('/transactions');
     } else {

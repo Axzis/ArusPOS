@@ -25,6 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/contexts/auth-context';
 
 type Business = {
     id: string;
@@ -37,6 +38,7 @@ type Business = {
 }
 
 export default function SettingsBusinessPage() {
+    const { businessId } = useAuth();
     const [business, setBusiness] = useState<Business | null>(null);
     const [formData, setFormData] = useState({ 
         name: '', 
@@ -50,9 +52,13 @@ export default function SettingsBusinessPage() {
     const { toast } = useToast();
 
     const fetchBusiness = useCallback(async () => {
+        if (!businessId) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
-            const businesses = await getBusinessWithBranches();
+            const businesses = await getBusinessWithBranches(businessId);
             if (businesses.length > 0) {
                 const biz = businesses[0] as Business;
                 setBusiness(biz);
@@ -70,7 +76,7 @@ export default function SettingsBusinessPage() {
         } finally {
             setLoading(false);
         }
-    }, [toast]);
+    }, [toast, businessId]);
 
     useEffect(() => {
         fetchBusiness();
@@ -228,4 +234,3 @@ const SettingsSkeleton = () => (
         </div>
     </div>
 )
-
