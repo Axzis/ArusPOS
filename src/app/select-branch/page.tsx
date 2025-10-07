@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { getBusinessWithBranches } from '@/lib/firestore';
-import { Building, ChevronRight } from 'lucide-react';
+import { Building, ChevronRight, LogOut } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Logo } from '@/components/icons';
 import Link from 'next/link';
@@ -22,6 +22,7 @@ type Branch = {
   id: string;
   name: string;
   address: string;
+  isActive: boolean;
 };
 
 type Business = {
@@ -33,7 +34,7 @@ type Business = {
 
 export default function SelectBranchPage() {
   const router = useRouter();
-  const { user, loading: authLoading, businessId } = useAuth();
+  const { user, loading: authLoading, businessId, logout } = useAuth();
   const [business, setBusiness] = React.useState<Business | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -76,8 +77,14 @@ export default function SelectBranchPage() {
         router.push('/dashboard');
     }
   };
+  
+  const handleLogout = async () => {
+    await logout();
+    localStorage.removeItem('activeBranch');
+    router.replace('/login');
+  };
 
-  const hasActiveBranches = business && business.branches && business.branches.length > 0;
+  const hasActiveBranches = business && business.branches && business.branches.filter(b => b.isActive).length > 0;
   const isBusinessInactive = business && business.isActive === false;
   const isLoading = loading || authLoading;
 
@@ -114,7 +121,7 @@ export default function SelectBranchPage() {
                     {error}
                  </p>
             ) : hasActiveBranches ? (
-                business.branches.map((branch) => (
+                business.branches.filter(b => b.isActive).map((branch) => (
                 <button
                     key={branch.id}
                     onClick={() => handleSelectBranch(branch)}
@@ -143,6 +150,12 @@ export default function SelectBranchPage() {
                      No business found for your account. Please <Link href="/quick-assessment" className='underline'>register</Link> a new one.
                  </p>
             )}
+          </div>
+           <div className="mt-6 text-center">
+            <Button variant="ghost" onClick={handleLogout} className="text-muted-foreground">
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
           </div>
         </CardContent>
       </Card>

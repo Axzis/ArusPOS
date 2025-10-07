@@ -80,7 +80,7 @@ export default function DashboardPage() {
     const { businessId } = useAuth();
     const [transactions, setTransactions] = React.useState<Transaction[]>([]);
     const [customers, setCustomers] = React.useState<Customer[]>([]);
-    const [loading, setLoading] = React.useState(true);
+    const [loadingData, setLoadingData] = React.useState(true);
     const [activeBranchId, setActiveBranchId] = React.useState<string | null>(null);
     const { toast } = useToast();
     const { currency, loading: loadingBusiness } = useBusiness();
@@ -91,12 +91,12 @@ export default function DashboardPage() {
         const storedBranch = localStorage.getItem('activeBranch');
         const branch = storedBranch ? JSON.parse(storedBranch) : null;
         if (!branch?.id || !businessId) {
-            setLoading(false);
+            setLoadingData(false);
             return;
         };
 
         setActiveBranchId(branch.id);
-        setLoading(true);
+        setLoadingData(true);
         try {
             const [transactionsData, customersData] = await Promise.all([
                 getTransactionsForBranch(businessId, branch.id),
@@ -112,7 +112,7 @@ export default function DashboardPage() {
                 variant: "destructive"
             });
         } finally {
-            setLoading(false);
+            setLoadingData(false);
         }
     }, [toast, businessId]);
 
@@ -123,7 +123,7 @@ export default function DashboardPage() {
             // Handle the case where businessId is not yet available, especially for superadmin
             const storedBranch = localStorage.getItem('activeBranch');
             if (!storedBranch) {
-                setLoading(false);
+                setLoadingData(false);
             }
         }
     }, [loadData, businessId]);
@@ -163,9 +163,10 @@ export default function DashboardPage() {
 
   const totalCustomers = customers.length;
   
-  const isLoading = loading || loadingBusiness;
+  const isLoading = loadingData || loadingBusiness;
   
   const monthlySalesData = useMemo(() => {
+    if (salesTransactions.length === 0) return [];
     const salesByMonth: { [key: string]: number } = {};
 
     salesTransactions.forEach(t => {
@@ -383,9 +384,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
-
-    
-
-    

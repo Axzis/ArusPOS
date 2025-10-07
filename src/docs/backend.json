@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Product": {
@@ -324,8 +325,6 @@
           ]
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to address the 'auth/configuration-not-found' error, which typically arises from incorrect Firebase configuration. This is not related to the data structure but rather how the Firebase SDK is initialized. However, the provided structure ensures a secure and scalable data architecture for the Arus POS system. It emphasizes authorization independence, clarity, and adherence to best practices for Firestore security rules.\n\nAuthorization Independence: User-specific data (e.g., customer information, transactions) is stored under `/users/{userId}`. This ensures clear ownership and avoids the need for complex `get()` calls in security rules. The `UserPermissions` entity is stored directly at `/user_permissions/{userId}`, enabling efficient permission checks without hierarchical dependencies.\n\nStructural Segregation: Each collection serves a distinct purpose with consistent security requirements. Private user data resides under the `/users/{userId}` collection, while system-wide permissions are managed in the `/user_permissions` collection.\n\nAccess Modeling: The structure implements path-based ownership for user-specific data. For collaborative scenarios, such as sharing settings (if any), a membership map (`members: {uid1: 'role', uid2: 'role'}`) can be incorporated into relevant documents to manage access control effectively.\n\nQAPs (Rules are not Filters): The structure facilitates secure list operations. For instance, listing products does not require filtering based on user roles. Instead, the list operation is secured at the collection level (e.g., only authenticated users can list products). Similarly, listing transactions is restricted to the user who owns those transactions (i.e., `/users/{userId}/transactions`).\n\nInvariants: The structure supports data integrity. Ownership is enforced through path-based access control. Timestamps (e.g., `lastUpdated` in `Inventory`) can be managed using server timestamps in Firestore, ensuring consistency."
+    ]
   }
 }
-    
