@@ -229,7 +229,7 @@ export async function getProductsForBranch(businessId: string, branchId: string)
     }
 
     const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
-    const q = query(productsCollectionRef);
+    const q = query(productsCollectionRef, orderBy("name", "asc"));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
@@ -312,7 +312,8 @@ export async function getCustomers(businessId: string) {
     if (!businessId) return [];
     try {
         const customersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION);
-        const querySnapshot = await getDocs(customersCollectionRef);
+        const q = query(customersCollectionRef, orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
         console.warn("Could not fetch customers, maybe none are created yet.", error);
@@ -582,7 +583,7 @@ export async function getUsers(businessId: string) {
     if (!businessId) return [];
     try {
         const usersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, USERS_COLLECTION);
-        const q = query(usersCollectionRef);
+        const q = query(usersCollectionRef, orderBy("createdAt", "desc"));
         const querySnapshot = await getDocs(q);
         return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
