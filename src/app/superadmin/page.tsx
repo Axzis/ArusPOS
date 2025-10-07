@@ -184,7 +184,7 @@ export default function SuperAdminPage() {
 
     if (authLoading || !isSuperAdmin) {
         return (
-            <Card>
+            <Card className="mx-auto w-full max-w-7xl">
                 <CardHeader>
                     <CardTitle className='flex items-center gap-2'>
                         <Ban className='text-destructive' /> Access Denied
@@ -199,7 +199,7 @@ export default function SuperAdminPage() {
 
 
     return (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6 mx-auto w-full max-w-7xl">
             <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm md:-mx-6 md:p-6">
                 <h1 className="text-lg font-semibold md:text-2xl">Super Admin</h1>
             </div>
@@ -417,3 +417,5 @@ export default function SuperAdminPage() {
         </div>
     )
 }
+
+    

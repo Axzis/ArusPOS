@@ -41,7 +41,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 mx-auto w-full max-w-7xl">
       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
         <h1 className="text-lg font-semibold md:text-2xl">Settings</h1>
       </div>
@@ -71,3 +71,5 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     </div>
   );
 }
+
+    

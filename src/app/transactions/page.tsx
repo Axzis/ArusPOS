@@ -584,7 +584,7 @@ export default function TransactionsPage() {
   const isLoadingData = loading || loadingBusiness;
 
   return (
-    <div className="flex flex-col gap-6" id="main-content">
+    <div className="flex flex-col gap-6 mx-auto w-full max-w-7xl" id="main-content">
        <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6 no-print">
         <h1 className="text-lg font-semibold md:text-2xl">Transactions</h1>
       </div>
@@ -653,5 +653,7 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
+    
 
     

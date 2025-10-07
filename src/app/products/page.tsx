@@ -297,7 +297,7 @@ export default function ProductsPage() {
     const isLoading = loading || loadingBusiness;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 mx-auto w-full max-w-7xl">
       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
         <h1 className="text-lg font-semibold md:text-2xl">Products</h1>
         <div className="flex items-center gap-2">
@@ -571,3 +571,6 @@ export default function ProductsPage() {
   );
 }
 
+
+
+    
