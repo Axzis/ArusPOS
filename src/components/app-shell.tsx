@@ -145,7 +145,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const showBottomNav = isAdmin || isSuperAdmin;
 
 
-  React.useEffect(() => {
+ React.useEffect(() => {
     if (authLoading) return;
 
     const isPublic = publicRoutes.some(route => pathname.startsWith(route));
@@ -155,42 +155,43 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    // Redirect superadmin to /superadmin page after login
-    if (user && isSuperAdmin && pathname === '/login') {
-        router.replace('/superadmin');
-        return;
-    }
-    
-    // Allow accessing certain public pages even if logged in
-    if (user && (pathname === '/login' || pathname === '/quick-assessment')) {
-        router.replace('/select-branch');
-        return;
-    }
+    if (user) {
+        if (isSuperAdmin && pathname === '/login') {
+            router.replace('/superadmin');
+            return;
+        }
 
-    if (user && pathname.startsWith('/superadmin') && !pathname.startsWith('/superadmin/register') && !isSuperAdmin) {
-        router.replace('/dashboard');
-        return;
-    }
-    
-    if (user && !isPublic) {
-       try {
-          const storedBranch = localStorage.getItem('activeBranch');
-          if (storedBranch) {
-              setActiveBranch(JSON.parse(storedBranch));
-          } else {
-              // SuperAdmins should not be redirected to select a branch
-              if (!isSuperAdmin && !pathname.startsWith('/select-branch') && !pathname.startsWith('/superadmin')) {
-                  router.replace('/select-branch');
+        if (pathname === '/login' || pathname === '/quick-assessment') {
+             router.replace('/select-branch');
+             return;
+        }
+
+        if (pathname.startsWith('/superadmin') && !pathname.startsWith('/superadmin/register') && !isSuperAdmin) {
+            router.replace('/dashboard');
+            return;
+        }
+
+        if (!isPublic) {
+           try {
+              const storedBranch = localStorage.getItem('activeBranch');
+              if (storedBranch) {
+                  setActiveBranch(JSON.parse(storedBranch));
+              } else {
+                  if (!isSuperAdmin && !pathname.startsWith('/select-branch') && !pathname.startsWith('/superadmin')) {
+                      router.replace('/select-branch');
+                  }
               }
-          }
-       } catch (error) {
-          console.error("Could not parse active branch", error);
-           if (!isSuperAdmin) {
-                router.replace('/select-branch');
+           } catch (error) {
+              console.error("Could not parse active branch", error);
+               if (!isSuperAdmin) {
+                    router.replace('/select-branch');
+               }
+           } finally {
+              setLoadingBranch(false);
            }
-       } finally {
-          setLoadingBranch(false);
-       }
+        } else {
+            setLoadingBranch(false);
+        }
     } else {
         setLoadingBranch(false);
     }
@@ -273,7 +274,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
-    <Sidebar>
+    <Sidebar collapsible="offcanvas">
         <SidebarHeader className="h-14">
         <div className="flex items-center gap-2">
             <Logo className="size-7 text-primary" />
@@ -320,7 +321,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     </Sidebar>
     <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 md:h-[72px]">
-        <SidebarTrigger className={cn(!isMobile && open ? 'invisible' : '')} />
+        <SidebarTrigger />
 
             <div className="flex items-center gap-2 text-sm font-medium">
                 <Building className="size-4 text-muted-foreground" />

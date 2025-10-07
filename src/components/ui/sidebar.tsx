@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -168,14 +169,33 @@ const Sidebar = React.forwardRef<
     {
       side = "left",
       variant = "sidebar",
-      collapsible = "offcanvas",
+      collapsible = "icon",
       className,
       children,
       ...props
     },
     ref
   ) => {
-    const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+    const { isMobile, state, open, setOpen, openMobile, setOpenMobile } = useSidebar()
+    
+    React.useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (collapsible === 'offcanvas' && open && !isMobile) {
+                const sidebarEl = document.querySelector('[data-sidebar="sidebar"]');
+                if (sidebarEl && !sidebarEl.contains(event.target as Node)) {
+                    const triggerEl = document.querySelector('[data-sidebar="trigger"]');
+                     if (!triggerEl || !triggerEl.contains(event.target as Node)) {
+                        setOpen(false);
+                    }
+                }
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [collapsible, open, setOpen, isMobile]);
 
     if (collapsible === "none") {
       return (
@@ -192,12 +212,12 @@ const Sidebar = React.forwardRef<
       )
     }
 
-    if (isMobile) {
+    if (isMobile || collapsible === 'offcanvas') {
       return (
-        <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
+        <Sheet open={isMobile ? openMobile : open} onOpenChange={isMobile ? setOpenMobile : setOpen} {...props}>
           <SheetContent
             data-sidebar="sidebar"
-            data-mobile="true"
+            data-mobile={isMobile}
             className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
             style={
               {
