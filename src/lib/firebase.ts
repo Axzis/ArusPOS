@@ -2,6 +2,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { firebaseConfig as fallbackConfig } from '@/firebase/config'; // Impor konfigurasi fallback
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -21,7 +22,10 @@ function initializeFirebase() {
     };
   }
 
-  const app = initializeApp(firebaseConfig);
+  // Gunakan variabel lingkungan jika API key ada, jika tidak, gunakan konfigurasi fallback dari src/firebase/config.ts
+  const config = firebaseConfig.apiKey ? firebaseConfig : fallbackConfig;
+
+  const app = initializeApp(config);
   const auth = getAuth(app);
   const db = getFirestore(app);
 
