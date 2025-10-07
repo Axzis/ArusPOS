@@ -21,6 +21,7 @@ import {
   Tag,
   User,
   PanelLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -275,10 +276,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
-      <div className="fixed top-3 left-3 z-50">
+      <div className="fixed top-1/2 left-3 -translate-y-1/2 z-50">
         <SidebarTrigger asChild>
            <Button variant="outline" size="icon" className="rounded-full h-9 w-9">
-              <PanelLeft className="h-5 w-5" />
+              <ChevronRight className="h-5 w-5" />
             </Button>
         </SidebarTrigger>
       </div>
