@@ -300,5 +300,4 @@ export default function RecentTransactions({
             </CardFooter>
         </Card>
     );
-
-    
+}
