@@ -1,22 +1,20 @@
 
 'use client';
 
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
+import { firebaseConfig } from './config';
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
+interface FirebaseServices {
+  app: FirebaseApp;
+  auth: Auth;
+  db: Firestore;
+}
 
 // This function is the single source of truth for Firebase initialization.
 // It is only ever called from client components.
-export function initializeFirebase() {
+export function initializeFirebase(): FirebaseServices {
   if (getApps().length) {
     const app = getApp();
     return {
@@ -26,9 +24,10 @@ export function initializeFirebase() {
     };
   }
 
-  // This check is important for Vercel deployment
+  // This check is crucial. It ensures that we don't try to initialize
+  // Firebase on the server during build, where env vars might be missing.
   if (!firebaseConfig.apiKey) {
-    throw new Error("Firebase configuration is missing. Ensure NEXT_PUBLIC_FIREBASE_* environment variables are set in your Vercel project.");
+    throw new Error("Firebase configuration is missing. This app cannot start without it.");
   }
 
   const app = initializeApp(firebaseConfig);
