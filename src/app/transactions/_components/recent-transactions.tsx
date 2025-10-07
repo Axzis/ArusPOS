@@ -171,7 +171,7 @@ export default function RecentTransactions({
                         <TableRow>
                         <TableHead>Customer</TableHead>
                         <TableHead className="hidden sm:table-cell">Items</TableHead>
-                        <TableHead className="hidden md:table-cell">Date</TableHead>
+                        <TableHead>Date</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead className="hidden md:table-cell">User</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
@@ -184,7 +184,7 @@ export default function RecentTransactions({
                             <TableRow key={i}>
                                 <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                                 <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
-                                <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
+                                <TableCell><Skeleton className="h-5 w-24" /></TableCell>
                                 <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
                                 <TableCell className="hidden md:table-cell"><Skeleton className="h-5 w-20" /></TableCell>
                                 <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
@@ -199,7 +199,7 @@ export default function RecentTransactions({
                                 <div className="font-medium">{transaction.customerName || 'Anonymous'}</div>
                             </TableCell>
                             <TableCell className='max-w-[200px] hidden sm:table-cell whitespace-normal break-words'>{itemsSummary}</TableCell>
-                            <TableCell className="hidden md:table-cell">{formatDate(new Date(transaction.date), "dd MMM yyyy, HH:mm")}</TableCell>
+                            <TableCell>{formatDate(new Date(transaction.date), "dd MMM yyyy, HH:mm")}</TableCell>
                             <TableCell>
                             <Badge
                                 variant={
@@ -300,4 +300,5 @@ export default function RecentTransactions({
             </CardFooter>
         </Card>
     );
-}
+
+    
