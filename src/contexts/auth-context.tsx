@@ -2,11 +2,12 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { getAuth, onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
-import { initializeFirebase } from '@/lib/firebase';
+import { getAuth, onAuthStateChanged, User, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider, Auth } from 'firebase/auth';
+import { initializeFirebase } from '@/firebase';
 import { getBusinessId, updateUserProfile as updateUserProfileInDb } from '@/lib/firestore';
 import { Logo } from '@/components/icons';
 import { isSuperAdminUser } from '@/lib/config';
+import { Firestore } from 'firebase/firestore';
 
 export type AppUser = User & {
     role?: string;
@@ -23,6 +24,8 @@ type AuthContextType = {
     sendPasswordReset: (email: string) => Promise<void>;
     updateUserPassword: (currentPass: string, newPass: string) => Promise<void>;
     refreshUser: () => Promise<void>;
+    auth: Auth;
+    db: Firestore;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<AppUser | null>(null);
     const [loading, setLoading] = useState(true);
     const [businessId, setBusinessId] = useState<string | null>(null);
-    const { auth } = initializeFirebase();
+    const { auth, db } = initializeFirebase();
 
     const fetchBusinessInfo = useCallback(async (userAuth: User) => {
         try {
@@ -46,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 return;
             }
 
-            const { businessId: bId, userData } = await getBusinessId(userAuth);
+            const { businessId: bId, userData } = await getBusinessId(db, userAuth);
             
             if (bId) {
                 setBusinessId(bId);
@@ -58,13 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 });
             } else {
                  console.warn(`User with UID ${userAuth.uid} is not associated with any business. This might be a superadmin or an unassigned user.`);
-                 // Do not log out, allow redirection to select-branch or superadmin page
             }
         } catch (error) {
             console.error("Error fetching business info:", error);
-            // Do not log out automatically, let the UI handle it.
         }
-    }, []);
+    }, [db]);
 
      const refreshUser = useCallback(async () => {
         const currentUserAuth = auth.currentUser;
@@ -96,7 +97,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const login = async (email: string, password: string): Promise<User | null> => {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        // The onAuthStateChanged listener will handle setting the global user state.
         return userCredential.user;
     };
 
@@ -119,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
 
-    const value = { user, loading, businessId, login, logout, sendPasswordReset, updateUserPassword, refreshUser };
+    const value = { user, loading, businessId, login, logout, sendPasswordReset, updateUserPassword, refreshUser, auth, db };
 
     if (loading) {
          return (

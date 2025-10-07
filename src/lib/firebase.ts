@@ -3,6 +3,10 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
+// This file is being deprecated for initialization logic.
+// Initialization is now handled in 'src/firebase/index.ts' to ensure it's client-side only.
+// Functions in 'lib/firestore.ts' will now accept a db instance.
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -12,19 +16,20 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// This function is kept for legacy purposes but should not be the primary init point.
+// The primary initialization is now in src/firebase/index.ts
 function initializeFirebase() {
   if (getApps().length) {
+    const app = getApp();
     return {
-      app: getApp(),
-      auth: getAuth(getApp()),
-      db: getFirestore(getApp()),
+      app,
+      auth: getAuth(app),
+      db: getFirestore(app),
     };
   }
 
   if (!firebaseConfig.apiKey) {
     console.error("Firebase config is not available. Please check your environment variables.");
-    // Return dummy objects or throw an error to prevent the app from crashing in a confusing way.
-    // This helps in debugging missing environment variables.
     throw new Error("Firebase configuration is missing. Ensure NEXT_PUBLIC_FIREBASE_* environment variables are set.");
   }
 

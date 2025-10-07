@@ -34,7 +34,7 @@ type Business = {
 
 export default function SelectBranchPage() {
   const router = useRouter();
-  const { user, loading: authLoading, businessId, logout } = useAuth();
+  const { user, loading: authLoading, businessId, logout, db } = useAuth();
   const [business, setBusiness] = React.useState<Business | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -46,12 +46,12 @@ export default function SelectBranchPage() {
 
     async function fetchBusiness() {
       if (!businessId) {
-        setError("Your user account is not associated with a business. Please contact support or register a new business.");
+        setError("Your user account is not associated with a business. Please contact support.");
         setLoading(false);
         return;
       }
       try {
-        const businesses = await getBusinessWithBranches(businessId);
+        const businesses = await getBusinessWithBranches(db, businessId);
         if (businesses.length > 0) {
           setBusiness(businesses[0] as Business);
         } else {
@@ -65,7 +65,7 @@ export default function SelectBranchPage() {
       }
     }
     fetchBusiness();
-  }, [user, authLoading, businessId]);
+  }, [user, authLoading, businessId, db]);
 
   const handleSelectBranch = (branch: Branch) => {
     console.log(`Selected branch: ${branch.name}`);

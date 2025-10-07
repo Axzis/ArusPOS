@@ -21,7 +21,7 @@ import { updateUserProfile } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ProfilePage() {
-    const { user, loading: authLoading, updateUserPassword, refreshUser } = useAuth();
+    const { user, loading: authLoading, updateUserPassword, refreshUser, db } = useAuth();
     const { toast } = useToast();
     
     // State for password change
@@ -88,7 +88,7 @@ export default function ProfilePage() {
         if (!newPhotoUrl || !user) return;
         setPhotoLoading(true);
         try {
-            await updateUserProfile(user.uid, { photoURL: newPhotoUrl });
+            await updateUserProfile(db, user.uid, { photoURL: newPhotoUrl });
             await refreshUser(); // Refresh user data from context to update UI everywhere
             toast({
                 title: "Success",
@@ -224,5 +224,3 @@ export default function ProfilePage() {
         </div>
     );
 }
-
-    

@@ -78,7 +78,7 @@ const initialFormState = {
 };
 
 export default function UsersPage() {
-    const { user: currentUser, businessId } = useAuth();
+    const { user: currentUser, businessId, db, auth } = useAuth();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -93,7 +93,7 @@ export default function UsersPage() {
         };
         setLoading(true);
         try {
-            const usersData = await getUsers(businessId);
+            const usersData = await getUsers(db, businessId);
             setUsers(usersData as User[]);
         } catch (error) {
             console.error("Failed to fetch users", error);
@@ -101,7 +101,7 @@ export default function UsersPage() {
         } finally {
             setLoading(false);
         }
-    }, [toast, businessId]);
+    }, [toast, businessId, db]);
 
     useEffect(() => {
         fetchUsers();
@@ -127,7 +127,7 @@ export default function UsersPage() {
         }
 
         try {
-            await addUserToBusiness(businessId, newUser);
+            await addUserToBusiness(auth, db, businessId, newUser);
             toast({ title: "Success", description: `User ${newUser.name} has been added. They will need to verify their email.` });
             setIsSheetOpen(false);
             setNewUser(initialFormState);
@@ -149,7 +149,7 @@ export default function UsersPage() {
     const executeDelete = async () => {
         if (!userToDelete || !businessId) return;
         try {
-            await deleteUserFromBusiness(businessId, userToDelete.id);
+            await deleteUserFromBusiness(db, businessId, userToDelete.id);
             toast({ title: "Success", description: `User ${userToDelete.name} has been removed.` });
             fetchUsers();
         } catch (error) {
@@ -290,5 +290,3 @@ export default function UsersPage() {
         </Card>
     )
 }
-
-    

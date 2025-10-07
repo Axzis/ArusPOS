@@ -18,10 +18,12 @@ import { useToast } from '@/hooks/use-toast';
 import { FirebaseError } from 'firebase/app';
 import Link from 'next/link';
 import { createAuthUser } from '@/lib/firestore';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function SuperAdminRegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { auth } = useAuth();
   const [email, setEmail] = React.useState('arus.superadmin@gmail.com');
   const [password, setPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
@@ -31,7 +33,7 @@ export default function SuperAdminRegisterPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      await createAuthUser(email, password);
+      await createAuthUser(auth, email, password);
       toast({
         title: "Registration Successful",
         description: "Superadmin account created. You can now log in.",

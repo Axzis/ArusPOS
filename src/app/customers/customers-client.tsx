@@ -78,7 +78,7 @@ const initialCustomerState = {
 };
 
 export default function CustomersClient() {
-  const { businessId } = useAuth();
+  const { businessId, db } = useAuth();
   const [customers, setCustomers] = React.useState<Customer[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -94,7 +94,7 @@ export default function CustomersClient() {
     }
     setLoading(true);
     try {
-        const customersData = await getCustomers(businessId);
+        const customersData = await getCustomers(db, businessId);
         setCustomers(customersData as Customer[]);
     } catch (error) {
         console.error("Failed to fetch customers:", error);
@@ -102,7 +102,7 @@ export default function CustomersClient() {
     } finally {
         setLoading(false);
     }
-  }, [toast, businessId]);
+  }, [toast, businessId, db]);
   
   React.useEffect(() => {
     if(businessId) {
@@ -128,7 +128,7 @@ export default function CustomersClient() {
     }
 
     try {
-        await addCustomer(businessId, newCustomer);
+        await addCustomer(db, businessId, newCustomer);
         toast({ title: "Success", description: "New customer has been added." });
         setIsSheetOpen(false);
         setNewCustomer(initialCustomerState);
@@ -143,7 +143,7 @@ export default function CustomersClient() {
     if (!customerToDelete || !businessId) return;
     
     try {
-      await deleteCustomer(businessId, customerToDelete.id);
+      await deleteCustomer(db, businessId, customerToDelete.id);
       toast({ title: "Success", description: `Customer ${customerToDelete.name} has been deleted.` });
       setCustomerToDelete(null);
       fetchCustomers();
@@ -168,7 +168,7 @@ export default function CustomersClient() {
         return;
     }
     try {
-        const result = await upsertCustomersByEmail(businessId, data);
+        const result = await upsertCustomersByEmail(db, businessId, data);
         toast({
             title: "Import Successful",
             description: `${result.updated} customers updated, ${result.inserted} new customers added.`,
@@ -375,4 +375,3 @@ export default function CustomersClient() {
     </div>
   );
 }
-

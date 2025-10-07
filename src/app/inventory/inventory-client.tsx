@@ -62,7 +62,7 @@ function getStatus(stock: number): 'In Stock' | 'Low Stock' | 'Out of Stock' {
 
 
 export default function InventoryClient() {
-  const { businessId } = useAuth();
+  const { businessId, db } = useAuth();
   const [inventoryData, setInventoryData] = React.useState<InventoryItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
@@ -89,7 +89,7 @@ export default function InventoryClient() {
     }
     setLoading(true);
     try {
-      const data = await getProductsForBranch(businessId, activeBranchId);
+      const data = await getProductsForBranch(db, businessId, activeBranchId);
       setInventoryData(data as InventoryItem[]);
     } catch(error) {
         console.error("Failed to fetch inventory data:", error);
@@ -97,7 +97,7 @@ export default function InventoryClient() {
     } finally {
         setLoading(false);
     }
-  }, [activeBranchId, businessId, toast]);
+  }, [activeBranchId, businessId, toast, db]);
 
   React.useEffect(() => {
     if (activeBranchId && businessId) {
@@ -115,7 +115,7 @@ export default function InventoryClient() {
     if (!selectedItem || !activeBranchId || !businessId) return;
     
     try {
-        await updateProductInBranch(businessId, activeBranchId, selectedItem.id, { stock: newStock });
+        await updateProductInBranch(db, businessId, activeBranchId, selectedItem.id, { stock: newStock });
         toast({ title: "Success", description: `Stock for ${selectedItem.name} updated.` });
         fetchInventory(); // Refresh data
     } catch(error) {
@@ -265,5 +265,3 @@ export default function InventoryClient() {
     </div>
   );
 }
-
-    

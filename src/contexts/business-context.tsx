@@ -32,7 +32,7 @@ const BusinessContext = createContext<BusinessContextType | undefined>(undefined
 export function BusinessProvider({ children }: { children: React.ReactNode }) {
     const [business, setBusiness] = useState<Business | null>(null);
     const [loading, setLoading] = useState(true);
-    const { user, businessId } = useAuth();
+    const { user, businessId, db } = useAuth();
 
     useEffect(() => {
         async function fetchBusiness() {
@@ -42,7 +42,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
             }
             setLoading(true);
             try {
-                const businesses = await getBusinessWithBranches(businessId);
+                const businesses = await getBusinessWithBranches(db, businessId);
                 if (businesses.length > 0) {
                     setBusiness(businesses[0] as Business);
                 } else {
@@ -56,7 +56,7 @@ export function BusinessProvider({ children }: { children: React.ReactNode }) {
             }
         }
         fetchBusiness();
-    }, [user, businessId]);
+    }, [user, businessId, db]);
 
     const currency = business?.currency || 'USD';
     const taxEnabled = business?.taxEnabled !== false; // default to true

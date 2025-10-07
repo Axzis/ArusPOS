@@ -92,7 +92,7 @@ type Product = {
 };
 
 export default function ProductsPage() {
-    const { businessId } = useAuth();
+    const { businessId, db } = useAuth();
     const [products, setProducts] = React.useState<Product[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [searchTerm, setSearchTerm] = React.useState('');
@@ -125,7 +125,7 @@ export default function ProductsPage() {
         }
         setLoading(true);
         try {
-            const productsData = await getProductsForBranch(businessId, activeBranchId);
+            const productsData = await getProductsForBranch(db, businessId, activeBranchId);
             setProducts(productsData as Product[]);
         } catch (error) {
             console.error("Failed to fetch products:", error);
@@ -133,7 +133,7 @@ export default function ProductsPage() {
         } finally {
             setLoading(false);
         }
-    }, [activeBranchId, businessId, toast]);
+    }, [activeBranchId, businessId, toast, db]);
 
     React.useEffect(() => {
         if(activeBranchId && businessId) {
@@ -168,10 +168,10 @@ export default function ProductsPage() {
 
         try {
             if (editingProduct) {
-                await updateProductInBranch(businessId, activeBranchId, editingProduct.id, productData);
+                await updateProductInBranch(db, businessId, activeBranchId, editingProduct.id, productData);
                 toast({ title: "Success", description: "Product updated successfully." });
             } else {
-                await addProductToBranch(businessId, activeBranchId, productData);
+                await addProductToBranch(db, businessId, activeBranchId, productData);
                 toast({ title: "Success", description: "Product added successfully." });
             }
             fetchProducts();
@@ -188,7 +188,7 @@ export default function ProductsPage() {
         if (!productToDelete || !activeBranchId || !businessId) return;
 
         try {
-            await deleteProductFromBranch(businessId, activeBranchId, productToDelete.id);
+            await deleteProductFromBranch(db, businessId, activeBranchId, productToDelete.id);
             toast({ title: "Success", description: "Product deleted successfully." });
             fetchProducts();
         } catch (error) {
@@ -222,7 +222,7 @@ export default function ProductsPage() {
             return;
         }
         try {
-            const result = await upsertProductsBySku(businessId, activeBranchId, data);
+            const result = await upsertProductsBySku(db, businessId, activeBranchId, data);
             toast({
                 title: "Import Successful",
                 description: `${result.updated} products updated, ${result.inserted} new products added.`,
@@ -570,7 +570,3 @@ export default function ProductsPage() {
     </div>
   );
 }
-
-
-
-    

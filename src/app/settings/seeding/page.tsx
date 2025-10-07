@@ -25,7 +25,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { isSuperAdminUser } from '@/lib/config';
 
 export default function SeedingPage() {
-    const { user, loading: authLoading, businessId } = useAuth();
+    const { user, loading: authLoading, businessId, db } = useAuth();
     const router = useRouter();
 
     const [seedingLoading, setSeedingLoading] = useState(false);
@@ -66,7 +66,7 @@ export default function SeedingPage() {
 
         setSeedingLoading(true);
         try {
-            const success = await seedInitialDataForBranch(businessId, activeBranchId);
+            const success = await seedInitialDataForBranch(db, businessId, activeBranchId);
             if (success) {
                 toast({
                     title: "Database Seeded!",
@@ -104,7 +104,7 @@ export default function SeedingPage() {
 
         setResettingLoading(true);
         try {
-            await resetBranchData(businessId, activeBranchId);
+            await resetBranchData(db, businessId, activeBranchId);
             toast({
                 title: "Branch Reset Successful!",
                 description: `All products, transactions, and promos for ${activeBranchName} have been deleted.`,

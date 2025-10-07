@@ -77,7 +77,7 @@ type Customer = {
 
 
 export default function DashboardPage() {
-    const { businessId } = useAuth();
+    const { businessId, db } = useAuth();
     const [transactions, setTransactions] = React.useState<Transaction[]>([]);
     const [customers, setCustomers] = React.useState<Customer[]>([]);
     const [loadingData, setLoadingData] = React.useState(true);
@@ -99,8 +99,8 @@ export default function DashboardPage() {
         setLoadingData(true);
         try {
             const [transactionsData, customersData] = await Promise.all([
-                getTransactionsForBranch(businessId, branch.id),
-                getCustomers(businessId)
+                getTransactionsForBranch(db, businessId, branch.id),
+                getCustomers(db, businessId)
             ]);
             setTransactions(transactionsData as Transaction[]);
             setCustomers(customersData as Customer[]);
@@ -114,7 +114,7 @@ export default function DashboardPage() {
         } finally {
             setLoadingData(false);
         }
-    }, [toast, businessId]);
+    }, [toast, businessId, db]);
 
     React.useEffect(() => {
         if (businessId) {

@@ -74,7 +74,7 @@ const topProductsConfig = {
 };
 
 export default function ReportsPage() {
-    const { businessId } = useAuth();
+    const { businessId, db } = useAuth();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
@@ -94,7 +94,7 @@ export default function ReportsPage() {
         setActiveBranchId(branch.id);
         setLoading(true);
         try {
-            const transactionsData = await getTransactionsForBranch(businessId, branch.id);
+            const transactionsData = await getTransactionsForBranch(db, businessId, branch.id);
             setTransactions(transactionsData as Transaction[]);
         } catch (error) {
             console.error("Failed to load report data:", error);
@@ -102,7 +102,7 @@ export default function ReportsPage() {
         } finally {
             setLoading(false);
         }
-    }, [businessId, toast]);
+    }, [businessId, toast, db]);
 
     useEffect(() => {
         if (businessId) {
@@ -454,9 +454,3 @@ export default function ReportsPage() {
         </div>
     );
 }
-
-    
-
-    
-
-    

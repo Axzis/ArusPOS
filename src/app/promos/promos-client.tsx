@@ -86,7 +86,7 @@ type PromosClientProps = {
 }
 
 export default function PromosClient({ initialPromos, initialProducts }: PromosClientProps) {
-    const { businessId } = useAuth();
+    const { businessId, db } = useAuth();
     const [promos, setPromos] = React.useState<Promo[]>(initialPromos);
     const [products, setProducts] = React.useState<Product[]>(initialProducts);
     const [loading, setLoading] = React.useState(true);
@@ -111,8 +111,8 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
         setLoading(true);
         try {
             const [promoData, productData] = await Promise.all([
-                getPromosForBranch(busId, branchId),
-                getProductsForBranch(busId, branchId),
+                getPromosForBranch(db, busId, branchId),
+                getProductsForBranch(db, busId, branchId),
             ]);
             const sortedPromos = (promoData as Promo[]).sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
             setPromos(sortedPromos);
@@ -123,7 +123,7 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
         } finally {
             setLoading(false);
         }
-    }, [toast]);
+    }, [toast, db]);
 
     React.useEffect(() => {
         const storedBranch = localStorage.getItem('activeBranch');
@@ -169,7 +169,7 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
         };
 
         try {
-            await addPromoToBranch(businessId, activeBranchId, promoData);
+            await addPromoToBranch(db, businessId, activeBranchId, promoData);
             toast({ title: "Success", description: "New promotion has been added." });
             fetchData(businessId, activeBranchId);
             setIsSheetOpen(false);
@@ -183,7 +183,7 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
     const handleDeletePromo = async () => {
         if (!promoToDelete || !activeBranchId || !businessId) return;
         try {
-            await deletePromoFromBranch(businessId, activeBranchId, promoToDelete.id);
+            await deletePromoFromBranch(db, businessId, activeBranchId, promoToDelete.id);
             toast({ title: "Success", description: `Promotion for ${promoToDelete.productName} has been deleted.` });
             fetchData(businessId, activeBranchId);
         } catch (error) {
@@ -406,7 +406,3 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
 
     
 }
-
-    
-
-    

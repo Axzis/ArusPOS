@@ -27,9 +27,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function UnitsPage() {
     const { business, units: initialUnits, loading: loadingBusiness } = useBusiness();
+    const { db } = useAuth();
     const [units, setUnits] = useState<string[]>(initialUnits);
     const [newUnit, setNewUnit] = useState('');
     const [saving, setSaving] = useState(false);
@@ -58,7 +60,7 @@ export default function UnitsPage() {
         if (!business) return;
         setSaving(true);
         try {
-            await updateBusiness(business.id, { units });
+            await updateBusiness(db, business.id, { units });
             toast({ title: "Success", description: "Units updated successfully. The app will now reload." });
             // Force a reload to make sure the business context picks up the new units everywhere.
             setTimeout(() => {
@@ -131,5 +133,3 @@ export default function UnitsPage() {
         </Card>
     )
 }
-
-    

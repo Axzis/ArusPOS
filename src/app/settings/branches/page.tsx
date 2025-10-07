@@ -40,7 +40,7 @@ type Branch = {
 }
 
 export default function BranchesPage() {
-    const { businessId } = useAuth();
+    const { businessId, db } = useAuth();
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -51,7 +51,7 @@ export default function BranchesPage() {
         };
         setLoading(true);
         try {
-            const businessData = await getBusinessWithBranches(businessId);
+            const businessData = await getBusinessWithBranches(db, businessId);
             if (businessData.length > 0) {
                 const mappedBranches = businessData[0].branches.map((b: any) => ({
                     ...b,
@@ -64,7 +64,7 @@ export default function BranchesPage() {
         } finally {
             setLoading(false);
         }
-    }, [businessId]);
+    }, [businessId, db]);
 
     useEffect(() => {
         fetchBranches();
@@ -141,5 +141,3 @@ export default function BranchesPage() {
         </Card>
     )
 }
-
-    

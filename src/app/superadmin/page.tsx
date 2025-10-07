@@ -83,7 +83,7 @@ type Business = {
 }
 
 export default function SuperAdminPage() {
-    const { user, loading: authLoading } = useAuth();
+    const { user, loading: authLoading, db } = useAuth();
     const router = useRouter();
     const [businesses, setBusinesses] = useState<Business[]>([]);
     const [loading, setLoading] = useState(true);
@@ -109,7 +109,7 @@ export default function SuperAdminPage() {
         if (!isSuperAdmin) return;
         setLoading(true);
         try {
-            const bizData = await getAllBusinesses();
+            const bizData = await getAllBusinesses(db);
             setBusinesses(bizData as Business[]);
         } catch (error) {
             console.error("Failed to fetch businesses", error);
@@ -117,7 +117,7 @@ export default function SuperAdminPage() {
         } finally {
             setLoading(false);
         }
-    }, [toast, isSuperAdmin]);
+    }, [toast, isSuperAdmin, db]);
 
     useEffect(() => {
         if (isSuperAdmin) {
@@ -142,7 +142,7 @@ export default function SuperAdminPage() {
         
         try {
             const newStatus = !businessToDeactivate.isActive;
-            await updateBusiness(businessToDeactivate.id, { isActive: newStatus });
+            await updateBusiness(db, businessToDeactivate.id, { isActive: newStatus });
             toast({ title: "Success", description: `Business ${businessToDeactivate.name} has been ${newStatus ? 'activated' : 'deactivated'}.` });
             fetchBusinesses(); // Refresh list
         } catch (error) {
@@ -157,7 +157,7 @@ export default function SuperAdminPage() {
         if (!businessToDelete) return;
         
         try {
-            await deleteBusiness(businessToDelete.id);
+            await deleteBusiness(db, businessToDelete.id);
             toast({ title: "Success", description: `Business document for ${businessToDelete.name} has been deleted.` });
             fetchBusinesses(); // Refresh list
         } catch (error) {

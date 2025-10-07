@@ -23,9 +23,11 @@ import { updateBusiness } from '@/lib/firestore';
 import { useBusiness } from '@/contexts/business-context';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function PaperSettingsPage() {
     const { business, paperSize: initialPaperSize, loading: loadingBusiness } = useBusiness();
+    const { db } = useAuth();
     const [paperSize, setPaperSize] = useState(initialPaperSize);
     const [saving, setSaving] = useState(false);
     const { toast } = useToast();
@@ -38,7 +40,7 @@ export default function PaperSettingsPage() {
         if (!business) return;
         setSaving(true);
         try {
-            await updateBusiness(business.id, { paperSize });
+            await updateBusiness(db, business.id, { paperSize });
             toast({ title: "Success", description: "Paper size settings updated successfully." });
         } catch (error) {
             console.error("Failed to save paper size:", error);

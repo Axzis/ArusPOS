@@ -38,7 +38,7 @@ type Business = {
 }
 
 export default function SettingsBusinessPage() {
-    const { businessId } = useAuth();
+    const { businessId, db } = useAuth();
     const [business, setBusiness] = useState<Business | null>(null);
     const [formData, setFormData] = useState({ 
         name: '', 
@@ -58,7 +58,7 @@ export default function SettingsBusinessPage() {
         }
         setLoading(true);
         try {
-            const businesses = await getBusinessWithBranches(businessId);
+            const businesses = await getBusinessWithBranches(db, businessId);
             if (businesses.length > 0) {
                 const biz = businesses[0] as Business;
                 setBusiness(biz);
@@ -76,7 +76,7 @@ export default function SettingsBusinessPage() {
         } finally {
             setLoading(false);
         }
-    }, [toast, businessId]);
+    }, [toast, businessId, db]);
 
     useEffect(() => {
         fetchBusiness();
@@ -103,7 +103,7 @@ export default function SettingsBusinessPage() {
         if (!business) return;
         setSaving(true);
         try {
-            await updateBusiness(business.id, {
+            await updateBusiness(db, business.id, {
                 name: formData.name,
                 type: formData.type,
                 currency: formData.currency,
@@ -234,5 +234,3 @@ const SettingsSkeleton = () => (
         </div>
     </div>
 )
-
-    

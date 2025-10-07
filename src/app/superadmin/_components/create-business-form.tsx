@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { addUserAndBusiness } from '@/lib/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/contexts/auth-context';
 
 type CreateBusinessFormProps = {
     onBusinessCreated: () => void;
@@ -16,6 +17,7 @@ type CreateBusinessFormProps = {
 
 export default function CreateBusinessForm({ onBusinessCreated }: CreateBusinessFormProps) {
   const { toast } = useToast();
+  const { auth, db } = useAuth();
   const [branchCount, setBranchCount] = React.useState(1);
   const [loading, setLoading] = React.useState(false);
 
@@ -49,7 +51,7 @@ export default function CreateBusinessForm({ onBusinessCreated }: CreateBusiness
     };
 
     try {
-        await addUserAndBusiness(businessData);
+        await addUserAndBusiness(auth, db, businessData);
         toast({
             title: "Business Created",
             description: `${businessData.businessName} has been successfully created.`,
