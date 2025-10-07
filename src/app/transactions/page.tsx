@@ -137,7 +137,7 @@ export default function TransactionsPage() {
   
   const { currency, taxEnabled, taxRate, loading: loadingBusiness, paperSize } = useBusiness();
   const { toast } = useToast();
-  const { user, businessId } = useAuth();
+  const { user, businessId, db } = useAuth();
 
 
   const fetchData = useCallback(async () => {
@@ -152,10 +152,10 @@ export default function TransactionsPage() {
     setLoading(true);
     try {
         const [transactionsData, productsData, customersData, promoData] = await Promise.all([
-            getTransactionsForBranch(businessId, branch.id),
-            getProductsForBranch(businessId, branch.id),
-            getCustomers(businessId),
-            getPromosForBranch(businessId, branch.id),
+            getTransactionsForBranch(db, businessId, branch.id),
+            getProductsForBranch(db, businessId, branch.id),
+            getCustomers(db, businessId),
+            getPromosForBranch(db, businessId, branch.id),
         ]);
         
         setTransactions((transactionsData as Transaction[] || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
@@ -169,7 +169,7 @@ export default function TransactionsPage() {
     } finally {
         setLoading(false);
     }
-  }, [toast, businessId]);
+  }, [toast, businessId, db]);
   
     const generateInvoiceHtml = (transaction: Transaction) => {
         const subtotal = transaction.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -450,7 +450,7 @@ export default function TransactionsPage() {
                 })),
           };
 
-          await addTransactionAndUpdateStock(businessId, activeBranchId, customerId, transactionData, orderItems, cashierName);
+          await addTransactionAndUpdateStock(db, businessId, activeBranchId, customerId, transactionData, orderItems, cashierName);
           
           toast({ title: "Transaction Successful", description: `Payment of ${formatCurrency(total, currency)} charged.` });
           clearOrder();
@@ -514,7 +514,7 @@ export default function TransactionsPage() {
     try {
       const cashierName = user.displayName || user.email || 'System';
       const totalRefundAmount = refundItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-      await refundTransaction(businessId, activeBranchId, transactionToRefund, itemsToRefund, totalRefundAmount, currency, cashierName);
+      await refundTransaction(db, businessId, activeBranchId, transactionToRefund, itemsToRefund, totalRefundAmount, currency, cashierName);
       toast({
         title: "Refund Successful",
         description: `Refund of ${formatCurrency(totalRefundAmount, currency)} processed.`,
@@ -562,7 +562,7 @@ export default function TransactionsPage() {
   const handleRegisterAndSend = async (newCustomer: {name: string, phone: string}) => {
     if (!newCustomer.name || !newCustomer.phone || !transactionForRegistration || !businessId) return;
     try {
-      await addCustomer(businessId, { name: newCustomer.name, email: '', phone: newCustomer.phone });
+      await addCustomer(db, businessId, { name: newCustomer.name, email: '', phone: newCustomer.phone });
       toast({ title: "Pelanggan Terdaftar", description: `${newCustomer.name} telah berhasil ditambahkan.` });
       fetchData(); 
       generateWhatsAppMessage(transactionForRegistration, newCustomer.phone);

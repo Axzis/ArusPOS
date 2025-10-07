@@ -1,6 +1,5 @@
 
-import { initializeFirebase } from './firebase';
-import { getAuth, createUserWithEmailAndPassword, User } from 'firebase/auth';
+import { Auth, createUserWithEmailAndPassword, User } from 'firebase/auth';
 import {
   getFirestore,
   collection,
@@ -21,6 +20,7 @@ import {
   Timestamp,
   setDoc,
   collectionGroup,
+  Firestore,
 } from 'firebase/firestore';
 import { isSuperAdminUser } from './config';
 
@@ -54,8 +54,7 @@ type BusinessData = {
 }
 
 // === Super Admin User Creation (Auth only) ===
-export async function createAuthUser(email: string, password?: string) {
-     const { auth } = initializeFirebase();
+export async function createAuthUser(auth: Auth, email: string, password?: string) {
      if (!email || !password) {
         throw new Error("Email and password are required to create a new user.");
     }
@@ -64,8 +63,12 @@ export async function createAuthUser(email: string, password?: string) {
 }
 
 // Get Business ID for a given user
-export async function getBusinessId(user: User): Promise<{ businessId: string | null; userData: DocumentData | null; }> {
-    const { db } = initializeFirebase();
+export async function getBusinessId(db: Firestore, user: User): Promise<{ businessId: string | null; userData: DocumentData | null; }> {
+    // Guard against invalid user object or UID
+    if (!user || !user.uid) {
+        console.warn("getBusinessId called with an invalid user object.");
+        return { businessId: null, userData: null };
+    }
 
     // Handle superadmin case explicitly
     if (user.email && isSuperAdminUser(user.email)) {
@@ -88,8 +91,7 @@ export async function getBusinessId(user: User): Promise<{ businessId: string | 
 
 
 // === New Business and User Registration ===
-export async function addUserAndBusiness(data: BusinessData) {
-    const { auth, db } = initializeFirebase();
+export async function addUserAndBusiness(auth: Auth, db: Firestore, data: BusinessData) {
     if (!data.email || !data.password) {
         throw new Error("Email and password are required to create a new user.");
     }
@@ -141,8 +143,7 @@ export async function addUserAndBusiness(data: BusinessData) {
 }
 
 // === Get Business and its Branches ===
-export async function getBusinessWithBranches(businessId: string | null) {
-    const { db } = initializeFirebase();
+export async function getBusinessWithBranches(db: Firestore, businessId: string | null) {
     if (!businessId) {
         return [];
     }
@@ -171,8 +172,7 @@ export async function getBusinessWithBranches(businessId: string | null) {
 
 
 // === Super Admin functions ===
-export async function getAllBusinesses() {
-    const { db } = initializeFirebase();
+export async function getAllBusinesses(db: Firestore) {
     // 1. Fetch all businesses
     const businessQuery = query(collection(db, BUSINESSES_COLLECTION), orderBy("createdAt", "desc"));
     const businessSnapshot = await getDocs(businessQuery);
@@ -205,8 +205,7 @@ export async function getAllBusinesses() {
 }
 
 
-export async function updateBusiness(businessId: string, businessData: Partial<BusinessData>) {
-    const { db } = initializeFirebase();
+export async function updateBusiness(db: Firestore, businessId: string, businessData: Partial<BusinessData>) {
     const businessDocRef = doc(db, BUSINESSES_COLLECTION, businessId);
     return await updateDoc(businessDocRef, {
         ...businessData,
@@ -214,16 +213,14 @@ export async function updateBusiness(businessId: string, businessData: Partial<B
     });
 }
 
-export async function deleteBusiness(businessId: string) {
-    const { db } = initializeFirebase();
+export async function deleteBusiness(db: Firestore, businessId: string) {
     const businessDocRef = doc(db, BUSINESSES_COLLECTION, businessId);
     return await deleteDoc(businessDocRef);
 }
 
 
 // === Product Functions (Branch Specific) ===
-export async function getProductsForBranch(businessId: string, branchId: string) {
-    const { db } = initializeFirebase();
+export async function getProductsForBranch(db: Firestore, businessId: string, branchId: string) {
     if (!businessId || !branchId) {
         throw new Error("No business ID or branch ID found.");
     }
@@ -234,8 +231,7 @@ export async function getProductsForBranch(businessId: string, branchId: string)
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
-export async function addProductToBranch(businessId: string, branchId: string, productData: Omit<DocumentData, 'id'>) {
-    const { db } = initializeFirebase();
+export async function addProductToBranch(db: Firestore, businessId: string, branchId: string, productData: Omit<DocumentData, 'id'>) {
     if (!businessId) throw new Error("No business ID found");
     
     const productsCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
@@ -245,8 +241,7 @@ export async function addProductToBranch(businessId: string, branchId: string, p
     });
 }
 
-export async function updateProductInBranch(businessId: string, branchId: string, productId: string, productData: Partial<DocumentData>) {
-    const { db } = initializeFirebase();
+export async function updateProductInBranch(db: Firestore, businessId: string, branchId: string, productId: string, productData: Partial<DocumentData>) {
     if (!businessId) throw new Error("No business ID found");
 
     const productDocRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, productId);
@@ -256,16 +251,14 @@ export async function updateProductInBranch(businessId: string, branchId: string
     });
 }
 
-export async function deleteProductFromBranch(businessId: string, branchId: string, productId: string) {
-    const { db } = initializeFirebase();
+export async function deleteProductFromBranch(db: Firestore, businessId: string, branchId: string, productId: string) {
     if (!businessId) throw new Error("No business ID found");
 
     const productDocRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION, productId);
     return await deleteDoc(productDocRef);
 }
 
-export async function upsertProductsBySku(businessId: string, branchId: string, productsData: any[]) {
-    const { db } = initializeFirebase();
+export async function upsertProductsBySku(db: Firestore, businessId: string, branchId: string, productsData: any[]) {
     if (!businessId) throw new Error("No business ID found");
 
     const productsRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PRODUCTS_COLLECTION);
@@ -307,8 +300,7 @@ export async function upsertProductsBySku(businessId: string, branchId: string, 
 
 
 // === Customer Functions (Global for the business) ===
-export async function getCustomers(businessId: string) {
-    const { db } = initializeFirebase();
+export async function getCustomers(db: Firestore, businessId: string) {
     if (!businessId) return [];
     try {
         const customersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION);
@@ -321,8 +313,7 @@ export async function getCustomers(businessId: string) {
     }
 }
 
-export async function addCustomer(businessId: string, customerData: { name: string, email: string, phone: string }) {
-    const { db } = initializeFirebase();
+export async function addCustomer(db: Firestore, businessId: string, customerData: { name: string, email: string, phone: string }) {
     if (!businessId) throw new Error("No business ID found to add customer to.");
     
     const customersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION);
@@ -334,15 +325,13 @@ export async function addCustomer(businessId: string, customerData: { name: stri
     return await addDoc(customersCollectionRef, newCustomer);
 }
 
-export async function deleteCustomer(businessId: string, customerId: string) {
-    const { db } = initializeFirebase();
+export async function deleteCustomer(db: Firestore, businessId: string, customerId: string) {
     if (!businessId) throw new Error("No business ID found to delete customer from.");
     const customerDocRef = doc(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION, customerId);
     return await deleteDoc(customerDocRef);
 }
 
-export async function upsertCustomersByEmail(businessId: string, customersData: any[]) {
-    const { db } = initializeFirebase();
+export async function upsertCustomersByEmail(db: Firestore, businessId: string, customersData: any[]) {
     if (!businessId) throw new Error("No business ID found");
 
     const customersRef = collection(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION);
@@ -368,7 +357,7 @@ export async function upsertCustomersByEmail(businessId: string, customersData: 
         };
 
         if (existing) {
-            const docRef = doc(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLlection, existing.id);
+            const docRef = doc(db, BUSINESSES_COLLECTION, businessId, CUSTOMERS_COLLECTION, existing.id);
             batch.update(docRef, { ...customerPayload, updatedAt: serverTimestamp() });
             updated++;
         } else {
@@ -389,8 +378,7 @@ export async function upsertCustomersByEmail(businessId: string, customersData: 
 
 
 // === Transaction Functions (Branch Specific) ===
-export async function getTransactionsForBranch(businessId: string, branchId: string) {
-    const { db } = initializeFirebase();
+export async function getTransactionsForBranch(db: Firestore, businessId: string, branchId: string) {
     if (!businessId || !branchId) {
         throw new Error("No business ID or branch ID found.");
     }
@@ -409,8 +397,7 @@ export async function getTransactionsForBranch(businessId: string, branchId: str
     });
 }
 
-export async function getTransactionById(businessId: string, branchId: string, transactionId: string): Promise<DocumentData | null> {
-    const { db } = initializeFirebase();
+export async function getTransactionById(db: Firestore, businessId: string, branchId: string, transactionId: string): Promise<DocumentData | null> {
     if (!businessId || !branchId || !transactionId) {
         console.warn("Get transaction by ID requires a valid business, branch, and transaction ID.");
         return null;
@@ -431,6 +418,7 @@ export async function getTransactionById(businessId: string, branchId: string, t
 
 
 export async function addTransactionAndUpdateStock(
+  db: Firestore,
   businessId: string,
   branchId: string,
   customerId: string | null,
@@ -438,7 +426,6 @@ export async function addTransactionAndUpdateStock(
   items: { id: string; quantity: number }[],
   cashierName: string,
 ) {
-  const { db } = initializeFirebase();
   if (!businessId || !branchId) throw new Error("Missing business or branch ID");
   
   const batch = writeBatch(db);
@@ -474,6 +461,7 @@ type RefundItem = {
 }
 
 export async function refundTransaction(
+    db: Firestore,
     businessId: string,
     branchId: string, 
     originalTransaction: DocumentData, 
@@ -482,7 +470,6 @@ export async function refundTransaction(
     currency: string,
     cashierName: string,
 ) {
-    const { db } = initializeFirebase();
     if (!businessId || !branchId) throw new Error("Missing business or branch ID");
     if (originalTransaction.status === 'Refunded') throw new Error("Transaction has already been fully refunded.");
 
@@ -566,8 +553,8 @@ export async function refundTransaction(
 
 
 // === Inventory Functions ===
-export async function getInventoryForBranch(businessId: string, branchId: string) {
-    const products = await getProductsForBranch(businessId, branchId);
+export async function getInventoryForBranch(db: Firestore, businessId: string, branchId: string) {
+    const products = await getProductsForBranch(db, businessId, branchId);
     return products.map(p => ({
         id: p.id,
         name: p.name,
@@ -578,8 +565,7 @@ export async function getInventoryForBranch(businessId: string, branchId: string
 
 
 // === User Management ===
-export async function getUsers(businessId: string) {
-    const { db } = initializeFirebase();
+export async function getUsers(db: Firestore, businessId: string) {
     if (!businessId) return [];
     try {
         const usersCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, USERS_COLLECTION);
@@ -599,8 +585,7 @@ type NewUser = {
     role: 'Admin' | 'Staff' | string;
 };
 
-export async function addUserToBusiness(businessId: string, userData: NewUser) {
-    const { auth, db } = initializeFirebase();
+export async function addUserToBusiness(auth: Auth, db: Firestore, businessId: string, userData: NewUser) {
     if (!businessId) {
         throw new Error("Current user is not associated with a business.");
     }
@@ -629,8 +614,7 @@ export async function addUserToBusiness(businessId: string, userData: NewUser) {
 }
 
 
-export async function deleteUserFromBusiness(businessId: string, userId: string): Promise<void> {
-    const { db } = initializeFirebase();
+export async function deleteUserFromBusiness(db: Firestore, businessId: string, userId: string): Promise<void> {
     if (!businessId) throw new Error("Current user is not associated with a business.");
 
     const userDocRef = doc(db, BUSINESSES_COLLECTION, businessId, USERS_COLLECTION, userId);
@@ -644,8 +628,7 @@ export async function deleteUserFromBusiness(businessId: string, userId: string)
     await deleteDoc(userDocRef);
 }
 
-export async function updateUserProfile(uid: string, data: { photoURL: string }) {
-    const { db } = initializeFirebase();
+export async function updateUserProfile(db: Firestore, uid: string, data: { photoURL: string }) {
     if (!uid) throw new Error("User ID is required to update profile.");
     
     const usersQuery = query(collectionGroup(db, USERS_COLLECTION), where("uid", "==", uid), limit(1));
@@ -665,8 +648,7 @@ export async function updateUserProfile(uid: string, data: { photoURL: string })
 
 
 // === Promotion Functions (Branch Specific) ===
-export async function getPromosForBranch(businessId: string, branchId: string) {
-    const { db } = initializeFirebase();
+export async function getPromosForBranch(db: Firestore, businessId: string, branchId: string) {
     if (!businessId || !branchId) {
         throw new Error("No business ID or branch ID found.");
     }
@@ -690,8 +672,7 @@ export async function getPromosForBranch(businessId: string, branchId: string) {
     });
 }
 
-export async function addPromoToBranch(businessId: string, branchId: string, promoData: Omit<DocumentData, 'id'>) {
-    const { db } = initializeFirebase();
+export async function addPromoToBranch(db: Firestore, businessId: string, branchId: string, promoData: Omit<DocumentData, 'id'>) {
     if (!businessId) throw new Error("No business ID found");
     const promosCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PROMOS_COLLECTION);
     return await addDoc(promosCollectionRef, {
@@ -702,8 +683,7 @@ export async function addPromoToBranch(businessId: string, branchId: string, pro
     });
 }
 
-export async function deletePromoFromBranch(businessId: string, branchId: string, promoId: string) {
-    const { db } = initializeFirebase();
+export async function deletePromoFromBranch(db: Firestore, businessId: string, branchId: string, promoId: string) {
     if (!businessId) throw new Error("No business ID found");
     const promoDocRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PROMOS_COLLECTION, promoId);
     return await deleteDoc(promoDocRef);
@@ -711,8 +691,7 @@ export async function deletePromoFromBranch(businessId: string, branchId: string
 
 // === Seeding & Reset Functions ===
 
-async function deleteCollection(collectionPath: string) {
-    const { db } = initializeFirebase();
+async function deleteCollection(db: Firestore, collectionPath: string) {
     const collectionRef = collection(db, collectionPath);
     const q = query(collectionRef);
     const snapshot = await getDocs(q);
@@ -730,7 +709,7 @@ async function deleteCollection(collectionPath: string) {
 }
 
 
-export async function resetBranchData(businessId: string, branchId: string): Promise<void> {
+export async function resetBranchData(db: Firestore, businessId: string, branchId: string): Promise<void> {
     if (!businessId || !branchId) {
         throw new Error("Missing Business ID or Branch ID for reset.");
     }
@@ -740,15 +719,14 @@ export async function resetBranchData(businessId: string, branchId: string): Pro
     const promosPath = `${BUSINESSES_COLLECTION}/${businessId}/${BRANCHES_COLLECTION}/${branchId}/${PROMOS_COLLECTION}`;
     
     await Promise.all([
-        deleteCollection(productsPath),
-        deleteCollection(transactionsPath),
-        deleteCollection(promosPath),
+        deleteCollection(db, productsPath),
+        deleteCollection(db, transactionsPath),
+        deleteCollection(db, promosPath),
     ]);
 }
 
 
-export async function seedInitialDataForBranch(businessId: string, branchId: string): Promise<boolean> {
-    const { db } = initializeFirebase();
+export async function seedInitialDataForBranch(db: Firestore, businessId: string, branchId: string): Promise<boolean> {
     if (!businessId || !branchId) {
         throw new Error("Missing Business ID or Branch ID for seeding.");
     }
