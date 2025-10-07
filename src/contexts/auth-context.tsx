@@ -57,18 +57,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     displayName: userData?.name || userAuth.displayName,
                 });
             } else {
-                 console.warn(`User with UID ${userAuth.uid} is not associated with any business. This might be a superadmin or an unassigned user. Logging out for safety.`);
-                 await signOut(auth);
-                 setUser(null);
-                 setBusinessId(null);
+                 console.warn(`User with UID ${userAuth.uid} is not associated with any business. This might be a superadmin or an unassigned user.`);
+                 // Do not log out, allow redirection to select-branch or superadmin page
             }
         } catch (error) {
             console.error("Error fetching business info:", error);
-            await signOut(auth);
-            setUser(null);
-            setBusinessId(null);
+            // Do not log out automatically, let the UI handle it.
         }
-    }, [auth]);
+    }, []);
 
      const refreshUser = useCallback(async () => {
         const currentUserAuth = auth.currentUser;
