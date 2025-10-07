@@ -147,7 +147,7 @@ export default function SelectBranchPage() {
             )}
              { !isLoading && !business && !error && (
                  <p className='text-center text-muted-foreground p-4 border rounded-md'>
-                     No business found for your account. Please <Link href="/quick-assessment" className='underline'>register</Link> a new one.
+                     No business found for your account. Please contact support.
                  </p>
             )}
           </div>
