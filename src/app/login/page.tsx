@@ -155,16 +155,6 @@ export default function LoginPage() {
               {loading ? 'Logging in...' : 'Login'}
             </Button>
           </form>
-           <div className="mt-4 text-center text-sm space-y-2">
-            <p>
-                Don't have an account?{' '}
-                <Button asChild variant="link" className="p-0 h-auto">
-                    <Link href="/quick-assessment">
-                        Create Business
-                    </Link>
-                </Button>
-            </p>
-          </div>
         </CardContent>
       </Card>
 
@@ -203,5 +193,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

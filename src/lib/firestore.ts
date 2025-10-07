@@ -162,7 +162,7 @@ export async function getBusinessWithBranches(businessId: string | null) {
     }
         
     const branchesCollectionRef = collection(db, `businesses/${business.id}/branches`);
-    const branchesQuery = query(branchesCollectionRef, where("isActive", "==", true));
+    const branchesQuery = query(branchesCollectionRef);
     const branchesSnapshot = await getDocs(branchesQuery);
     const branches = branchesSnapshot.docs.map(branchDoc => ({ id: branchDoc.id, ...branchDoc.data() }));
 

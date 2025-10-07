@@ -70,6 +70,9 @@ const staffNavItems = [
   { href: '/customers', icon: Users, label: 'Customers' },
 ];
 
+const superAdminExtraNav = [
+    { href: '/superadmin', icon: Shield, label: 'Super Admin' },
+];
 
 const bottomNavItems = [
   { href: '/settings', icon: Settings, label: 'Settings' },
@@ -143,7 +146,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   
   const isSuperAdmin = user?.email ? isSuperAdminUser(user.email) : false;
   const isAdmin = user?.role === 'Admin';
-  const navItems = isAdmin || isSuperAdmin ? allNavItems : staffNavItems;
+  
+  let navItems = staffNavItems;
+  if (isAdmin) {
+      navItems = allNavItems;
+  }
+  if (isSuperAdmin) {
+      navItems = [...allNavItems, ...superAdminExtraNav];
+  }
+
   const showBottomNav = isAdmin || isSuperAdmin;
 
 
@@ -250,30 +261,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
        );
   }
 
-  if (pathname.startsWith('/superadmin') || pathname === '/select-branch') {
-     return (
-        <div className="flex min-h-screen w-full flex-col bg-muted/40">
-             <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background px-4 lg:h-[60px] lg:px-6 z-30">
-                <Link
-                    href="/dashboard"
-                    className="flex items-center gap-2 font-semibold"
-                    >
-                    <Logo className="h-6 w-6" />
-                    <span>Arus POS</span>
-                </Link>
-                 <div className="ml-auto flex items-center gap-4">
-                  {isSuperAdmin && pathname !== '/dashboard' && <Button variant="outline" onClick={() => router.push('/dashboard')}>Back to App</Button>}
-                  <Button variant="secondary" onClick={handleLogout}><LogOut className='mr-2 h-4 w-4' /> Logout</Button>
-                </div>
-             </header>
-             <main className="flex-1 p-4 lg:p-6">
-                {children}
-            </main>
-        </div>
-     )
-  }
-  
-
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
       <div className="fixed top-1/2 left-3 -translate-y-1/2 z-50">
@@ -322,7 +309,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
             </SidebarMenuItem>
             ))}
-            {/* The toggle button is not needed for offcanvas mode */}
         </SidebarMenu>
         </SidebarFooter>
     </Sidebar>
@@ -330,9 +316,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 md:h-[72px]">
         
             <div className="flex items-center gap-2 text-sm font-medium">
-                <Building className="size-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Managing:</span>
-                {loadingBranch ? <Skeleton className="h-5 w-24" /> : <span>{activeBranch?.name ?? 'All Branches'}</span>}
+                {!isSuperAdmin && (
+                    <>
+                        <Building className="size-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Managing:</span>
+                        {loadingBranch ? <Skeleton className="h-5 w-24" /> : <span>{activeBranch?.name ?? '...'}</span>}
+                    </>
+                )}
             </div>
 
         <div className="ml-auto flex items-center gap-2">
@@ -350,7 +340,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => router.push('/settings/profile')}>My Profile</DropdownMenuItem>
-                <DropdownMenuItem onClick={handleSwitchBranch}>Switch Branch</DropdownMenuItem>
+                {!isSuperAdmin && <DropdownMenuItem onClick={handleSwitchBranch}>Switch Branch</DropdownMenuItem>}
                 {isSuperAdmin && <DropdownMenuItem onClick={() => router.push('/superadmin')}>Super Admin</DropdownMenuItem>}
                 {showBottomNav && <DropdownMenuItem onClick={() => router.push('/settings')}>Settings</DropdownMenuItem>}
                 <DropdownMenuItem>Support</DropdownMenuItem>
