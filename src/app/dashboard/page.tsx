@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -87,7 +87,7 @@ export default function DashboardPage() {
     const [showSalesChart, setShowSalesChart] = useState(false);
 
 
-    const loadData = React.useCallback(async () => {
+    const loadData = useCallback(async () => {
         const storedBranch = localStorage.getItem('activeBranch');
         const branch = storedBranch ? JSON.parse(storedBranch) : null;
         if (!branch?.id || !businessId) {
@@ -117,8 +117,16 @@ export default function DashboardPage() {
     }, [toast, businessId]);
 
     React.useEffect(() => {
-        loadData();
-    }, [loadData]);
+        if (businessId) {
+            loadData();
+        } else {
+            // Handle the case where businessId is not yet available, especially for superadmin
+            const storedBranch = localStorage.getItem('activeBranch');
+            if (!storedBranch) {
+                setLoading(false);
+            }
+        }
+    }, [loadData, businessId]);
 
   const salesTransactions = useMemo(() => transactions.filter(t => t.type === 'Sale'), [transactions]);
   
@@ -375,5 +383,7 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
 
     

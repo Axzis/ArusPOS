@@ -105,8 +105,15 @@ export default function ReportsPage() {
     }, [businessId, toast]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        if (businessId) {
+            fetchData();
+        } else {
+            const storedBranch = localStorage.getItem('activeBranch');
+            if (!storedBranch) {
+                setLoading(false);
+            }
+        }
+    }, [fetchData, businessId]);
 
     const salesTransactions = useMemo(() => transactions.filter(t => t.type === 'Sale'), [transactions]);
 
@@ -447,5 +454,7 @@ export default function ReportsPage() {
         </div>
     );
 }
+
+    
 
     

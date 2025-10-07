@@ -158,9 +158,11 @@ export default function LoginPage() {
            <div className="mt-4 text-center text-sm space-y-2">
             <p>
                 Don't have an account?{' '}
-                <Link href="/quick-assessment" className="underline">
-                Create Business
-                </Link>
+                <Button asChild variant="link" className="p-0 h-auto">
+                    <Link href="/quick-assessment">
+                        Create Business
+                    </Link>
+                </Button>
             </p>
           </div>
         </CardContent>
@@ -201,3 +203,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    

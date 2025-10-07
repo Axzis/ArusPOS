@@ -132,9 +132,7 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
             setActiveBranchId(branchId);
             if (businessId) {
                 fetchData(businessId, branchId);
-            } else {
-                // Handle case where businessId is not yet available but branchId is.
-                // It might wait for businessId to be populated by the Auth context.
+            } else if (!businessId) {
                 setLoading(false);
             }
         } else {
@@ -408,3 +406,5 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
 
     
 }
+
+    
