@@ -64,13 +64,11 @@ export async function createAuthUser(auth: Auth, email: string, password?: strin
 
 // Get Business ID for a given user
 export async function getBusinessId(db: Firestore, user: User): Promise<{ businessId: string | null; userData: DocumentData | null; }> {
-    // Guard against invalid user object or UID
     if (!user || !user.uid) {
         console.warn("getBusinessId called with an invalid user object.");
         return { businessId: null, userData: null };
     }
 
-    // Handle superadmin case explicitly
     if (user.email && isSuperAdminUser(user.email)) {
         return { businessId: null, userData: null };
     }
@@ -81,7 +79,6 @@ export async function getBusinessId(db: Firestore, user: User): Promise<{ busine
     if (!userSnapshot.empty) {
         const userDoc = userSnapshot.docs[0];
         const userData = userDoc.data();
-        // The businessId is stored on the user document itself
         return { businessId: userData.businessId || null, userData: userData };
     } else {
         console.warn(`No user document found for UID: ${user.uid}`);
@@ -654,7 +651,7 @@ export async function getPromosForBranch(db: Firestore, businessId: string, bran
     }
     
     const promosCollectionRef = collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, PROMOS_COLLECTION);
-    const q = query(promosCollectionRef);
+    const q = query(promosCollectionRef, orderBy("createdAt", "desc"));
 
     const querySnapshot = await getDocs(q);
 

@@ -156,8 +156,6 @@ function NavMenu() {
     const handleLinkClick = () => {
         if (isMobile) {
             setOpenMobile(false);
-        } else {
-            setOpen(false);
         }
     };
 
@@ -204,63 +202,62 @@ function NavMenu() {
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout, loading: authLoading } = useAuth();
+  const { user, businessId, logout, loading: authLoading } = useAuth();
   
   const [activeBranch, setActiveBranch] = React.useState<ActiveBranch | null>(null);
-  const [loadingBranch, setLoadingBranch] = React.useState(true);
+  const [branchChecked, setBranchChecked] = React.useState(false);
   
   const isSuperAdmin = user?.email ? isSuperAdminUser(user.email) : false;
 
-
- React.useEffect(() => {
-    if (authLoading) return;
+  React.useEffect(() => {
+    // This effect handles routing logic once auth state is determined.
+    if (authLoading) {
+      return; // Wait until loading is false
+    }
 
     const isPublic = publicRoutes.some(route => pathname.startsWith(route));
 
-    if (!user && !isPublic) {
-      router.replace('/login');
+    // If no user, redirect to login unless it's a public page
+    if (!user) {
+      if (!isPublic) {
+        router.replace('/login');
+      }
       return;
     }
-    
-    if (user) {
-        if (isSuperAdmin && pathname === '/login') {
-            router.replace('/superadmin');
-            return;
-        }
 
-        if (pathname === '/login') {
-             router.replace('/select-branch');
-             return;
-        }
+    // If user is logged in, handle redirects away from public pages
+    if (pathname === '/login' || pathname === '/superadmin/register') {
+       if (isSuperAdmin) {
+           router.replace('/superadmin');
+       } else {
+           router.replace('/select-branch');
+       }
+       return;
+    }
 
-        if (pathname.startsWith('/superadmin') && !pathname.startsWith('/superadmin/register') && !isSuperAdmin) {
-            router.replace('/dashboard');
-            return;
-        }
+    // If user is not superadmin but on superadmin page, redirect
+    if (pathname.startsWith('/superadmin') && !isSuperAdmin) {
+        router.replace('/dashboard');
+        return;
+    }
 
-        if (!isPublic) {
-           try {
-              const storedBranch = localStorage.getItem('activeBranch');
-              if (storedBranch) {
-                  setActiveBranch(JSON.parse(storedBranch));
-              } else {
-                  if (!isSuperAdmin && !pathname.startsWith('/select-branch') && !pathname.startsWith('/superadmin')) {
-                      router.replace('/select-branch');
-                  }
-              }
-           } catch (error) {
-              console.error("Could not parse active branch", error);
-               if (!isSuperAdmin) {
-                    router.replace('/select-branch');
-               }
-           } finally {
-              setLoadingBranch(false);
-           }
-        } else {
-            setLoadingBranch(false);
+    // For regular users, check for an active branch
+    if (!isSuperAdmin && !isPublic) {
+      try {
+        const storedBranch = localStorage.getItem('activeBranch');
+        if (storedBranch) {
+          setActiveBranch(JSON.parse(storedBranch));
+        } else if (!pathname.startsWith('/select-branch')) {
+          router.replace('/select-branch');
         }
+      } catch (error) {
+        console.error("Could not parse active branch, redirecting.", error);
+        router.replace('/select-branch');
+      } finally {
+          setBranchChecked(true);
+      }
     } else {
-        setLoadingBranch(false);
+        setBranchChecked(true);
     }
   }, [pathname, router, user, authLoading, isSuperAdmin]);
 
@@ -295,7 +292,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return <div className="print-invoice">{children}</div>;
   }
 
-  if (authLoading || (loadingBranch && user)) {
+  // Show a loading screen while auth is loading or branch check is pending
+  if (authLoading || (!branchChecked && !isPublicPage)) {
       return (
           <div className="flex h-screen items-center justify-center">
               <Logo className="size-10 text-primary animate-pulse" />
@@ -303,18 +301,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       )
   }
   
-  if (!user) {
+  // If no user and not a public page, we are in the process of redirecting, render nothing.
+  if (!user && !isPublicPage) {
     return null;
   }
    
-   if (pathname.startsWith('/superadmin') && !pathname.startsWith('/superadmin/register') && !isSuperAdmin) {
-       return (
-            <div className="flex h-screen items-center justify-center">
-                <p>Redirecting...</p>
-            </div>
-       );
-  }
-
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
       <div className="fixed top-1/2 left-3 -translate-y-1/2 z-50">
@@ -341,7 +332,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     <>
                         <Building className="size-4 text-muted-foreground" />
                         <span className="text-muted-foreground">Managing:</span>
-                        {loadingBranch ? <Skeleton className="h-5 w-24" /> : <span>{activeBranch?.name ?? '...'}</span>}
+                        {authLoading ? <Skeleton className="h-5 w-24" /> : <span>{activeBranch?.name ?? '...'}</span>}
                     </>
                 )}
             </div>
@@ -353,12 +344,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
                 <Avatar>
                     <AvatarImage src={user?.photoURL || `https://picsum.photos/seed/${user?.uid}/40/40`} alt={user?.email || 'User'} />
-                    <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback>{user?.displayName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
+                <DropdownMenuLabel>{user?.displayName || user?.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => router.push('/settings/profile')}>My Profile</DropdownMenuItem>
                 {!isSuperAdmin && <DropdownMenuItem onClick={handleSwitchBranch}>Switch Branch</DropdownMenuItem>}
