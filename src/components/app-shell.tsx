@@ -78,7 +78,7 @@ const bottomNavItems = [
   { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
-const publicRoutes = ['/login', '/quick-assessment', '/print', '/superadmin/register'];
+const publicRoutes = ['/login', '/print', '/superadmin/register'];
 
 type ActiveBranch = {
     id: string;
@@ -174,7 +174,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        if (pathname === '/login' || pathname === '/quick-assessment') {
+        if (pathname === '/login') {
              router.replace('/select-branch');
              return;
         }
@@ -213,11 +213,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // Set sidebar open state based on cookie
   const [open, setOpen] = React.useState(() => {
-    if (typeof window === 'undefined') return true;
+    if (typeof window === 'undefined') return false;
     const stored = document.cookie
       .split('; ')
       .find((row) => row.startsWith('sidebar_state='));
-    return stored ? stored.split('=')[1] === 'true' : true;
+    return stored ? stored.split('=')[1] === 'true' : false;
   });
 
   const handleLogout = async () => {
