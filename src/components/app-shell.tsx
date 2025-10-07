@@ -274,7 +274,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
-    <Sidebar collapsible="offcanvas">
+      <div className="fixed top-3 left-3 z-50">
+        <SidebarTrigger />
+      </div>
+      <Sidebar collapsible="offcanvas" side="left">
         <SidebarHeader className="h-14">
         <div className="flex items-center gap-2">
             <Logo className="size-7 text-primary" />
@@ -313,19 +316,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </Link>
             </SidebarMenuItem>
             ))}
-            <SidebarMenuItem>
-                <SidebarToggleButton />
-            </SidebarMenuItem>
+            {/* The toggle button is not needed for offcanvas mode */}
         </SidebarMenu>
         </SidebarFooter>
     </Sidebar>
     <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 md:h-[72px]">
         
-        <div className="fixed top-3 left-3 z-50 md:hidden">
-            <SidebarTrigger />
-        </div>
-
             <div className="flex items-center gap-2 text-sm font-medium">
                 <Building className="size-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Managing:</span>
@@ -365,5 +362,3 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
-    
