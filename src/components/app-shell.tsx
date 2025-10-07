@@ -321,7 +321,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     </Sidebar>
     <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 md:h-[72px]">
-        <SidebarTrigger />
+        
+        <div className="fixed top-3 left-3 z-50 md:hidden">
+            <SidebarTrigger />
+        </div>
 
             <div className="flex items-center gap-2 text-sm font-medium">
                 <Building className="size-4 text-muted-foreground" />
@@ -362,3 +365,5 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
+
+    
