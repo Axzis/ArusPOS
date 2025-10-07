@@ -80,7 +80,7 @@ const initialCustomerState = {
 export default function CustomersClient() {
   const { businessId } = useAuth();
   const [customers, setCustomers] = React.useState<Customer[]>([]);
-  const [loading, setLoading] = React.useState(true); // Start loading true
+  const [loading, setLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [isSheetOpen, setIsSheetOpen] = React.useState(false);
   const [newCustomer, setNewCustomer] = React.useState(initialCustomerState);
@@ -104,10 +104,13 @@ export default function CustomersClient() {
     }
   }, [toast, businessId]);
   
-  // Fetch data on component mount
   React.useEffect(() => {
-    fetchCustomers();
-  }, [fetchCustomers]);
+    if(businessId) {
+        fetchCustomers();
+    } else {
+        setLoading(false);
+    }
+  }, [fetchCustomers, businessId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const { id, value } = e.target;
@@ -222,7 +225,7 @@ export default function CustomersClient() {
             </Button>
             <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
             <SheetTrigger asChild>
-                <Button size="sm" className="gap-1" onClick={() => setIsSheetOpen(true)}>
+                <Button size="sm" className="gap-1" onClick={() => { setNewCustomer(initialCustomerState); setIsSheetOpen(true);}}>
                 <PlusCircle className="h-4 w-4" />
                 Add Customer
                 </Button>
@@ -373,6 +376,3 @@ export default function CustomersClient() {
   );
 }
 
-    
-
-    

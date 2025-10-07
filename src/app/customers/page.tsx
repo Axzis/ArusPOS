@@ -9,3 +9,4 @@ export const revalidate = 0; // Force dynamic rendering, although data fetching 
 export default function CustomersPage() {
   return <CustomersClient />;
 }
+
