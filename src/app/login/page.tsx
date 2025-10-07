@@ -159,7 +159,7 @@ export default function LoginPage() {
             <p>
                 Don't have an account?{' '}
                 <Link href="/quick-assessment" className="underline">
-                Register
+                Create Business
                 </Link>
             </p>
           </div>

@@ -30,6 +30,16 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     const isSuperAdmin = user?.email ? isSuperAdminUser(user.email) : false;
     const settingsNav = isSuperAdmin ? [...baseSettingsNav, ...superAdminNav] : baseSettingsNav;
 
+    // A top-level settings page should match its nav link.
+    // The business settings page is the top-level one, at /settings.
+    // It should be active for /settings, but not /settings/something-else.
+    const isTopLevelSettingsPage = (href: string) => {
+        if (href === '/settings') {
+            return pathname === href;
+        }
+        return pathname.startsWith(href);
+    }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
@@ -44,7 +54,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
                     href={item.href}
                     className={cn(
                         "rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap",
-                        pathname === item.href
+                        isTopLevelSettingsPage(item.href)
                         ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground hover:bg-muted"
                     )}

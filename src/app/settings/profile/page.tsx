@@ -113,8 +113,8 @@ export default function ProfilePage() {
         <div className="grid gap-8">
             <Card>
                 <CardHeader>
-                    <CardTitle>Informasi Pengguna</CardTitle>
-                    <CardDescription>Ini adalah detail akun Anda. Email tidak dapat diubah.</CardDescription>
+                    <CardTitle>User Information</CardTitle>
+                    <CardDescription>This is your account information. Email cannot be changed.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {isLoading ? (
@@ -125,7 +125,7 @@ export default function ProfilePage() {
                     ) : (
                         <div className="grid sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="displayName">Nama Lengkap</Label>
+                                <Label htmlFor="displayName">Full Name</Label>
                                 <Input id="displayName" value={user?.displayName || user?.email || ''} disabled />
                             </div>
                             <div className="space-y-2">
@@ -139,8 +139,8 @@ export default function ProfilePage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Foto Profil</CardTitle>
-                    <CardDescription>Perbarui foto profil Anda.</CardDescription>
+                    <CardTitle>Profile Photo</CardTitle>
+                    <CardDescription>Update your profile picture.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                      {isLoading ? (
@@ -158,14 +158,14 @@ export default function ProfilePage() {
                             </Avatar>
                              <div className="flex flex-col gap-2 items-center sm:items-start">
                                 <ImageUploadDialog onImageSelect={setNewPhotoUrl}>
-                                    <Button variant="outline">Ubah Foto</Button>
+                                    <Button variant="outline">Change Photo</Button>
                                 </ImageUploadDialog>
                                 {newPhotoUrl && (
                                     <div className="flex gap-2">
                                         <Button onClick={handlePhotoSave} disabled={photoLoading}>
-                                            {photoLoading ? 'Menyimpan...' : 'Simpan Foto'}
+                                            {photoLoading ? 'Saving...' : 'Save Photo'}
                                         </Button>
-                                        <Button variant="ghost" onClick={() => setNewPhotoUrl(null)}>Batal</Button>
+                                        <Button variant="ghost" onClick={() => setNewPhotoUrl(null)}>Cancel</Button>
                                     </div>
                                 )}
                             </div>
@@ -176,13 +176,13 @@ export default function ProfilePage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Ganti Password</CardTitle>
-                    <CardDescription>Perbarui password akun Anda di sini.</CardDescription>
+                    <CardTitle>Change Password</CardTitle>
+                    <CardDescription>Update your account password here.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handlePasswordSubmit} className="space-y-6 max-w-md">
                         <div className="space-y-2">
-                            <Label htmlFor="current-password">Password Saat Ini</Label>
+                            <Label htmlFor="current-password">Current Password</Label>
                             <Input
                                 id="current-password"
                                 type="password"
@@ -193,7 +193,7 @@ export default function ProfilePage() {
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="new-password">Password Baru</Label>
+                            <Label htmlFor="new-password">New Password</Label>
                             <Input
                                 id="new-password"
                                 type="password"
@@ -201,11 +201,11 @@ export default function ProfilePage() {
                                 onChange={(e) => setNewPassword(e.target.value)}
                                 required
                                 disabled={passwordLoading}
-                                placeholder="Minimal 6 karakter"
+                                placeholder="At least 6 characters"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="confirm-password">Konfirmasi Password Baru</Label>
+                            <Label htmlFor="confirm-password">Confirm New Password</Label>
                             <Input
                                 id="confirm-password"
                                 type="password"
@@ -216,7 +216,7 @@ export default function ProfilePage() {
                             />
                         </div>
                         <Button type="submit" disabled={passwordLoading}>
-                            {passwordLoading ? 'Memperbarui...' : 'Perbarui Password'}
+                            {passwordLoading ? 'Updating...' : 'Update Password'}
                         </Button>
                     </form>
                 </CardContent>

@@ -401,23 +401,23 @@ export default function ProductsPage() {
                             <Separator />
                             
                             <div>
-                                <Label>Harga Bundel</Label>
+                                <Label>Bundle Pricing</Label>
                                 <p className="text-sm text-muted-foreground mb-2">
-                                    Tawarkan harga khusus untuk pembelian dalam jumlah tertentu.
+                                    Offer special prices for bulk purchases.
                                 </p>
                                 <div className="space-y-4">
                                     {productBundles.map((bundle, index) => (
                                         <div key={index} className="flex items-center gap-2">
                                             <Input
                                                 type="number"
-                                                placeholder="Kuantitas"
+                                                placeholder="Quantity"
                                                 value={bundle.quantity || ''}
                                                 onChange={(e) => handleBundleChange(index, 'quantity', e.target.value)}
                                             />
                                             <Input
                                                 type="number"
                                                 step="0.01"
-                                                placeholder="Harga per item"
+                                                placeholder="Price per item"
                                                 value={bundle.price || ''}
                                                 onChange={(e) => handleBundleChange(index, 'price', e.target.value)}
                                             />
@@ -428,7 +428,7 @@ export default function ProductsPage() {
                                     ))}
                                     <Button type="button" variant="outline" size="sm" onClick={addBundle}>
                                         <PlusCircle className="mr-2 h-4 w-4" />
-                                        Tambah Harga Bundel
+                                        Add Bundle Price
                                     </Button>
                                 </div>
                             </div>

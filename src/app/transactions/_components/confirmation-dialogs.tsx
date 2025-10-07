@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -65,24 +66,24 @@ export default function ConfirmationDialogs({
       <AlertDialog open={isRegistering} onOpenChange={onRegisteringChange}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Daftarkan Pelanggan Baru</AlertDialogTitle>
+            <AlertDialogTitle>Register New Customer</AlertDialogTitle>
             <AlertDialogDescription>
-              Masukkan detail pelanggan untuk mendaftar dan mengirim struk via WhatsApp.
+              Enter customer details to register and send receipt via WhatsApp.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">Nama</Label>
+              <Label htmlFor="name" className="text-right">Name</Label>
               <Input id="name" value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} className="col-span-3" />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phone" className="text-right">No. WhatsApp</Label>
+              <Label htmlFor="phone" className="text-right">WhatsApp No.</Label>
               <Input id="phone" value={newCustomer.phone} onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} className="col-span-3" placeholder="628123456789" />
             </div>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setNewCustomer({ name: '', phone: '' })}>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRegister}>Daftar & Kirim</AlertDialogAction>
+            <AlertDialogCancel onClick={() => setNewCustomer({ name: '', phone: '' })}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRegister}>Register & Send</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

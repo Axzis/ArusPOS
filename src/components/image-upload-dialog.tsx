@@ -37,8 +37,8 @@ export function ImageUploadDialog({ onImageSelect, children }: ImageUploadDialog
         setHasCameraPermission(false);
         toast({
           variant: 'destructive',
-          title: 'Kamera Tidak Didukung',
-          description: 'Browser Anda tidak mendukung akses kamera.',
+          title: 'Camera Not Supported',
+          description: 'Your browser does not support camera access.',
         });
         return;
       }
@@ -54,8 +54,8 @@ export function ImageUploadDialog({ onImageSelect, children }: ImageUploadDialog
         setHasCameraPermission(false);
         toast({
           variant: 'destructive',
-          title: 'Izin Kamera Ditolak',
-          description: 'Mohon aktifkan izin kamera di pengaturan browser Anda.',
+          title: 'Camera Permission Denied',
+          description: 'Please enable camera permissions in your browser settings.',
         });
       }
     };
@@ -135,9 +135,9 @@ export function ImageUploadDialog({ onImageSelect, children }: ImageUploadDialog
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Pilih Sumber Gambar</DialogTitle>
+          <DialogTitle>Choose Image Source</DialogTitle>
           <DialogDescription>
-            Unggah file gambar dari perangkat Anda atau gunakan kamera untuk mengambil foto baru.
+            Upload an image file from your device or use the camera to take a new photo.
           </DialogDescription>
         </DialogHeader>
 
@@ -150,33 +150,33 @@ export function ImageUploadDialog({ onImageSelect, children }: ImageUploadDialog
                  <div className="absolute inset-0 flex items-center justify-center p-4 bg-black/50">
                     <Alert variant="destructive">
                         <Camera className="h-4 w-4" />
-                        <AlertTitle>Izin Kamera Ditolak</AlertTitle>
+                        <AlertTitle>Camera Permission Denied</AlertTitle>
                         <AlertDescription>
-                            Mohon izinkan akses kamera di pengaturan browser Anda untuk menggunakan fitur ini.
+                            Please allow camera access in your browser settings to use this feature.
                         </AlertDescription>
                     </Alert>
                 </div>
               )}
                {hasCameraPermission === null && !capturedImage && (
                  <div className="absolute inset-0 flex items-center justify-center p-4 bg-black/50">
-                    <p className="text-white">Meminta akses kamera...</p>
+                    <p className="text-white">Requesting camera access...</p>
                  </div>
               )}
             </div>
             <Button onClick={handleCapture} className="w-full" disabled={hasCameraPermission !== true}>
-                <Camera className="mr-2 h-4 w-4" /> Ambil Gambar
+                <Camera className="mr-2 h-4 w-4" /> Take Picture
             </Button>
-            <Button variant="outline" onClick={() => setIsCameraOpen(false)} className="w-full">Kembali</Button>
+            <Button variant="outline" onClick={() => setIsCameraOpen(false)} className="w-full">Back</Button>
           </div>
         ) : capturedImage ? (
              <div className="space-y-4">
-                <p className="text-sm font-medium">Pratinjau Gambar:</p>
+                <p className="text-sm font-medium">Image Preview:</p>
                 <div className="bg-muted rounded-md overflow-hidden aspect-video flex items-center justify-center">
                     <Image src={capturedImage} alt="Captured preview" width={400} height={225} className="object-contain"/>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={resetCamera} className="w-full">Ambil Ulang</Button>
-                    <Button onClick={handleConfirmCapturedImage} className="w-full">Konfirmasi Gambar</Button>
+                    <Button variant="outline" onClick={resetCamera} className="w-full">Retake</Button>
+                    <Button onClick={handleConfirmCapturedImage} className="w-full">Confirm Image</Button>
                 </div>
             </div>
         ) : (
@@ -184,11 +184,11 @@ export function ImageUploadDialog({ onImageSelect, children }: ImageUploadDialog
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
             <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => fileInputRef.current?.click()}>
               <ImageIcon className="h-8 w-8" />
-              <span>Unggah File</span>
+              <span>Upload File</span>
             </Button>
             <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => setIsCameraOpen(true)}>
               <Camera className="h-8 w-8" />
-              <span>Gunakan Kamera</span>
+              <span>Use Camera</span>
             </Button>
           </div>
         )}
