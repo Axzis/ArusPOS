@@ -135,27 +135,81 @@ function FullscreenButton() {
     );
 }
 
+function NavMenu() {
+    const pathname = usePathname();
+    const { user } = useAuth();
+    const { setOpen, setOpenMobile, isMobile } = useSidebar();
+
+    const isSuperAdmin = user?.email ? isSuperAdminUser(user.email) : false;
+    const isAdmin = user?.role === 'Admin';
+    
+    let navItems = staffNavItems;
+    if (isAdmin) {
+        navItems = allNavItems;
+    }
+    if (isSuperAdmin) {
+        navItems = [...allNavItems, ...superAdminExtraNav];
+    }
+
+    const showBottomNav = isAdmin || isSuperAdmin;
+    
+    const handleLinkClick = () => {
+        if (isMobile) {
+            setOpenMobile(false);
+        } else {
+            setOpen(false);
+        }
+    };
+
+    return (
+        <>
+            <SidebarContent>
+                <SidebarMenu>
+                    {navItems.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                        <Link href={item.href} onClick={handleLinkClick}>
+                        <SidebarMenuButton
+                            isActive={pathname.startsWith(item.href)}
+                            tooltip={item.label}
+                        >
+                            <item.icon />
+                            <span>{item.label}</span>
+                        </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
+                    ))}
+                </SidebarMenu>
+            </SidebarContent>
+            <SidebarFooter>
+                <SidebarMenu>
+                    {showBottomNav && bottomNavItems.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                        <Link href={item.href} onClick={handleLinkClick}>
+                        <SidebarMenuButton
+                            isActive={pathname.startsWith(item.href)}
+                            tooltip={item.label}
+                        >
+                            <item.icon />
+                            <span>{item.label}</span>
+                        </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
+                    ))}
+                </SidebarMenu>
+            </SidebarFooter>
+        </>
+    )
+}
+
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const isMobile = useIsMobile();
   const { user, logout, loading: authLoading } = useAuth();
   
   const [activeBranch, setActiveBranch] = React.useState<ActiveBranch | null>(null);
   const [loadingBranch, setLoadingBranch] = React.useState(true);
   
   const isSuperAdmin = user?.email ? isSuperAdminUser(user.email) : false;
-  const isAdmin = user?.role === 'Admin';
-  
-  let navItems = staffNavItems;
-  if (isAdmin) {
-      navItems = allNavItems;
-  }
-  if (isSuperAdmin) {
-      navItems = [...allNavItems, ...superAdminExtraNav];
-  }
-
-  const showBottomNav = isAdmin || isSuperAdmin;
 
 
  React.useEffect(() => {
@@ -277,40 +331,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <h1 className="text-lg font-bold font-headline">Arus POS</h1>
         </div>
         </SidebarHeader>
-        <SidebarContent>
-        <SidebarMenu>
-            {navItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-                <Link href={item.href}>
-                <SidebarMenuButton
-                    isActive={pathname.startsWith(item.href)}
-                    tooltip={item.label}
-                >
-                    <item.icon />
-                    <span>{item.label}</span>
-                </SidebarMenuButton>
-                </Link>
-            </SidebarMenuItem>
-            ))}
-        </SidebarMenu>
-        </SidebarContent>
-        <SidebarFooter>
-        <SidebarMenu>
-            {showBottomNav && bottomNavItems.map((item) => (
-            <SidebarMenuItem key={item.href}>
-                <Link href={item.href}>
-                <SidebarMenuButton
-                    isActive={pathname.startsWith(item.href)}
-                    tooltip={item.label}
-                >
-                    <item.icon />
-                    <span>{item.label}</span>
-                </SidebarMenuButton>
-                </Link>
-            </SidebarMenuItem>
-            ))}
-        </SidebarMenu>
-        </SidebarFooter>
+        <NavMenu />
     </Sidebar>
     <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 md:h-[72px]">
@@ -342,7 +363,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 <DropdownMenuItem onClick={() => router.push('/settings/profile')}>My Profile</DropdownMenuItem>
                 {!isSuperAdmin && <DropdownMenuItem onClick={handleSwitchBranch}>Switch Branch</DropdownMenuItem>}
                 {isSuperAdmin && <DropdownMenuItem onClick={() => router.push('/superadmin')}>Super Admin</DropdownMenuItem>}
-                {showBottomNav && <DropdownMenuItem onClick={() => router.push('/settings')}>Settings</DropdownMenuItem>}
+                {(user?.role === 'Admin' || isSuperAdmin) && <DropdownMenuItem onClick={() => router.push('/settings')}>Settings</DropdownMenuItem>}
                 <DropdownMenuItem>Support</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
