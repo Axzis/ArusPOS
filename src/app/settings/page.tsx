@@ -52,7 +52,7 @@ export default function SettingsBusinessPage() {
     const { toast } = useToast();
 
     const fetchBusiness = useCallback(async () => {
-        if (!businessId) {
+        if (!businessId || !db) {
             setLoading(false);
             return;
         }
@@ -100,7 +100,7 @@ export default function SettingsBusinessPage() {
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!business) return;
+        if (!business || !db) return;
         setSaving(true);
         try {
             await updateBusiness(db, business.id, {

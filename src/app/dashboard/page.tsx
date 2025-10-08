@@ -29,10 +29,9 @@ import {
   ChartContainer,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { getTransactionsForBranch, getCustomers } from '@/lib/firestore';
+import { getTransactionsForBranch, getCustomers, getBusinessWithBranches } from '@/lib/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { useBusiness } from '@/contexts/business-context';
 import { formatCurrency } from '@/lib/utils';
 import { format, parseISO, isToday } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -75,22 +74,27 @@ type Customer = {
   createdAt: { toDate: () => Date };
 };
 
+type BusinessInfo = {
+    id: string;
+    currency: string;
+};
+
 
 export default function DashboardPage() {
     const { businessId, db } = useAuth();
     const [transactions, setTransactions] = React.useState<Transaction[]>([]);
     const [customers, setCustomers] = React.useState<Customer[]>([]);
+    const [businessInfo, setBusinessInfo] = React.useState<BusinessInfo | null>(null);
     const [loadingData, setLoadingData] = React.useState(true);
     const [activeBranchId, setActiveBranchId] = React.useState<string | null>(null);
     const { toast } = useToast();
-    const { currency, loading: loadingBusiness } = useBusiness();
     const [showSalesChart, setShowSalesChart] = useState(false);
 
 
     const loadData = useCallback(async () => {
         const storedBranch = localStorage.getItem('activeBranch');
         const branch = storedBranch ? JSON.parse(storedBranch) : null;
-        if (!branch?.id || !businessId) {
+        if (!branch?.id || !businessId || !db) {
             setLoadingData(false);
             return;
         };
@@ -98,12 +102,20 @@ export default function DashboardPage() {
         setActiveBranchId(branch.id);
         setLoadingData(true);
         try {
-            const [transactionsData, customersData] = await Promise.all([
+            const [transactionsData, customersData, businessData] = await Promise.all([
                 getTransactionsForBranch(db, businessId, branch.id),
-                getCustomers(db, businessId)
+                getCustomers(db, businessId),
+                getBusinessWithBranches(db, businessId)
             ]);
             setTransactions(transactionsData as Transaction[]);
             setCustomers(customersData as Customer[]);
+            if (businessData.length > 0) {
+                setBusinessInfo({
+                    id: businessData[0].id,
+                    currency: businessData[0].currency || 'USD'
+                });
+            }
+
         } catch (error) {
             console.error("Failed to load dashboard data:", error);
             toast({
@@ -120,7 +132,6 @@ export default function DashboardPage() {
         if (businessId) {
             loadData();
         } else {
-            // Handle the case where businessId is not yet available, especially for superadmin
             const storedBranch = localStorage.getItem('activeBranch');
             if (!storedBranch) {
                 setLoadingData(false);
@@ -163,7 +174,7 @@ export default function DashboardPage() {
 
   const totalCustomers = customers.length;
   
-  const isLoading = loadingData || loadingBusiness;
+  const isLoading = loadingData;
   
   const monthlySalesData = useMemo(() => {
     if (salesTransactions.length === 0) return [];
@@ -195,6 +206,8 @@ export default function DashboardPage() {
     
     return data;
   }, [salesTransactions]);
+
+  const currency = businessInfo?.currency || 'USD';
 
 
   return (

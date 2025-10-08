@@ -16,13 +16,14 @@ import {
   getPromosForBranch,
   addCustomer,
   refundTransaction,
+  getBusinessWithBranches
 } from '@/lib/firestore';
 
-import { useBusiness } from '@/contexts/business-context';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/auth-context';
 import { isWithinInterval, parseISO } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type OrderItem = {
   id: string;
@@ -93,6 +94,15 @@ type RefundItem = {
     maxQuantity: number;
 }
 
+type BusinessInfo = {
+    id: string;
+    currency: string;
+    taxEnabled: boolean;
+    taxRate: number;
+    paperSize: 'A4' | '8cm' | '5.8cm';
+};
+
+
 const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
 
 const getBestPrice = (product: Product | ProductWithPromo, quantity: number): { price: number, originalPrice: number} => {
@@ -121,6 +131,7 @@ export default function TransactionsPage() {
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [businessInfo, setBusinessInfo] = useState<BusinessInfo | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [selectedCustomerId, setSelectedCustomerId] = useState(ANONYMOUS_CUSTOMER_ID);
@@ -135,7 +146,6 @@ export default function TransactionsPage() {
   const [transactionToRefund, setTransactionToRefund] = useState<Transaction | null>(null);
   const [refundItems, setRefundItems] = useState<RefundItem[]>([]);
   
-  const { currency, taxEnabled, taxRate, loading: loadingBusiness, paperSize } = useBusiness();
   const { toast } = useToast();
   const { user, businessId, db } = useAuth();
 
@@ -143,7 +153,7 @@ export default function TransactionsPage() {
   const fetchData = useCallback(async () => {
     const storedBranch = localStorage.getItem('activeBranch');
     const branch = storedBranch ? JSON.parse(storedBranch) : null;
-    if (!branch?.id || !businessId) {
+    if (!branch?.id || !businessId || !db) {
         setLoading(false);
         return;
     }
@@ -151,17 +161,28 @@ export default function TransactionsPage() {
     setActiveBranchId(branch.id);
     setLoading(true);
     try {
-        const [transactionsData, productsData, customersData, promoData] = await Promise.all([
+        const [transactionsData, productsData, customersData, promoData, businessData] = await Promise.all([
             getTransactionsForBranch(db, businessId, branch.id),
             getProductsForBranch(db, businessId, branch.id),
             getCustomers(db, businessId),
             getPromosForBranch(db, businessId, branch.id),
+            getBusinessWithBranches(db, businessId)
         ]);
         
         setTransactions((transactionsData as Transaction[] || []).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
         setCustomers(customersData as Customer[] || []);
         setAllProducts(productsData as Product[] || []);
         setPromos(promoData as Promo[] || []);
+        if (businessData.length > 0) {
+            const biz = businessData[0];
+            setBusinessInfo({
+                id: biz.id,
+                currency: biz.currency || 'USD',
+                taxEnabled: biz.taxEnabled !== false,
+                taxRate: biz.taxRate || 0,
+                paperSize: biz.paperSize || '8cm'
+            })
+        }
 
     } catch (error) {
         console.error("Failed to load transaction page data:", error);
@@ -178,6 +199,7 @@ export default function TransactionsPage() {
         const transactionCurrency = transaction.currency || 'Rp';
 
         const getPaperWidthClass = () => {
+            const paperSize = businessInfo?.paperSize || '8cm';
             switch (paperSize) {
                 case '5.8cm': return 'width: 58mm;';
                 case '8cm': return 'width: 80mm;';
@@ -422,7 +444,7 @@ export default function TransactionsPage() {
   };
 
   const handleChargePayment = async () => {
-      if (!activeBranchId || !businessId || orderItems.length === 0 || !user) return;
+      if (!activeBranchId || !businessId || orderItems.length === 0 || !user || !db) return;
       
       setIsProcessing(true);
       try {
@@ -438,7 +460,7 @@ export default function TransactionsPage() {
               discount: discount,
               status: 'Paid' as TransactionStatus,
               type: 'Sale' as 'Sale' | 'Refund',
-              currency: currency || 'Rp',
+              currency: businessInfo?.currency || 'Rp',
               items: orderItems.map(item => ({ 
                   id: item.id, 
                   name: item.name, 
@@ -452,7 +474,7 @@ export default function TransactionsPage() {
 
           await addTransactionAndUpdateStock(db, businessId, activeBranchId, customerId, transactionData, orderItems, cashierName);
           
-          toast({ title: "Transaction Successful", description: `Payment of ${formatCurrency(total, currency)} charged.` });
+          toast({ title: "Transaction Successful", description: `Payment of ${formatCurrency(total, businessInfo?.currency || 'USD')} charged.` });
           clearOrder();
           fetchData();
       } catch (error) {
@@ -502,7 +524,7 @@ export default function TransactionsPage() {
   };
 
   const executeRefund = async () => {
-    if (!transactionToRefund || !activeBranchId || !businessId || !user) return;
+    if (!transactionToRefund || !activeBranchId || !businessId || !user || !db) return;
 
     const itemsToRefund = refundItems.filter(item => item.quantity > 0);
     if (itemsToRefund.length === 0) {
@@ -514,10 +536,10 @@ export default function TransactionsPage() {
     try {
       const cashierName = user.displayName || user.email || 'System';
       const totalRefundAmount = refundItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-      await refundTransaction(db, businessId, activeBranchId, transactionToRefund, itemsToRefund, totalRefundAmount, currency, cashierName);
+      await refundTransaction(db, businessId, activeBranchId, transactionToRefund, itemsToRefund, totalRefundAmount, businessInfo?.currency || 'USD', cashierName);
       toast({
         title: "Refund Successful",
-        description: `Refund of ${formatCurrency(totalRefundAmount, currency)} processed.`,
+        description: `Refund of ${formatCurrency(totalRefundAmount, businessInfo?.currency || 'USD')} processed.`,
       });
       fetchData();
     } catch (error: any) {
@@ -536,7 +558,7 @@ export default function TransactionsPage() {
 
   const generateWhatsAppMessage = (transaction: Transaction, customerPhone: string) => {
     const itemsText = transaction.items.map(item => `${item.quantity}x ${item.name}`).join(', ');
-    const message = `Halo! Terima kasih atas pembelian Anda. Berikut adalah detail transaksi Anda:\n\n*Total:* ${formatCurrency(transaction.amount, currency)}\n*Item:* ${itemsText}\n\nTerima kasih telah berbelanja!`;
+    const message = `Halo! Terima kasih atas pembelian Anda. Berikut adalah detail transaksi Anda:\n\n*Total:* ${formatCurrency(transaction.amount, businessInfo?.currency || 'USD')}\n*Item:* ${itemsText}\n\nTerima kasih telah berbelanja!`;
     const whatsappUrl = `https://wa.me/${customerPhone}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
@@ -560,7 +582,7 @@ export default function TransactionsPage() {
   };
 
   const handleRegisterAndSend = async (newCustomer: {name: string, phone: string}) => {
-    if (!newCustomer.name || !newCustomer.phone || !transactionForRegistration || !businessId) return;
+    if (!newCustomer.name || !newCustomer.phone || !transactionForRegistration || !businessId || !db) return;
     try {
       await addCustomer(db, businessId, { name: newCustomer.name, email: '', phone: newCustomer.phone });
       toast({ title: "Pelanggan Terdaftar", description: `${newCustomer.name} telah berhasil ditambahkan.` });
@@ -578,10 +600,23 @@ export default function TransactionsPage() {
     0
   ), [orderItems]);
   
-  const tax = useMemo(() => taxEnabled ? subtotal * (taxRate / 100) : 0, [subtotal, taxEnabled, taxRate]);
+  const tax = useMemo(() => businessInfo?.taxEnabled ? subtotal * ((businessInfo?.taxRate || 0) / 100) : 0, [subtotal, businessInfo]);
   const total = useMemo(() => subtotal + tax - discount, [subtotal, tax, discount]);
   
-  const isLoadingData = loading || loadingBusiness;
+  if (loading) {
+    return (
+        <div className="flex flex-col gap-6 mx-auto w-full max-w-7xl">
+            <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex items-center justify-between md:-mx-6 md:p-6 no-print">
+                <Skeleton className="h-8 w-48" />
+            </div>
+             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 no-print">
+                <Skeleton className="lg:col-span-2 h-[600px]" />
+                <Skeleton className="h-[600px]" />
+            </div>
+            <Skeleton className="h-[400px]" />
+        </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6 mx-auto w-full max-w-7xl">
@@ -604,9 +639,9 @@ export default function TransactionsPage() {
           total={total}
           discount={discount}
           onDiscountChange={setDiscount}
-          currency={currency}
-          taxEnabled={taxEnabled}
-          taxRate={taxRate}
+          currency={businessInfo?.currency || 'USD'}
+          taxEnabled={businessInfo?.taxEnabled || false}
+          taxRate={businessInfo?.taxRate || 0}
           isProcessing={isProcessing}
           anonymousCustomerId={ANONYMOUS_CUSTOMER_ID}
         />
@@ -614,16 +649,16 @@ export default function TransactionsPage() {
         <ProductSelection
           productsWithPromo={productsWithPromo}
           onAddToOrder={addToOrder}
-          isLoading={isLoadingData}
-          currency={currency}
+          isLoading={loading}
+          currency={businessInfo?.currency || 'USD'}
           scannerEnabled={scannerEnabled}
         />
       </div>
 
       <RecentTransactions
         transactions={transactions}
-        isLoading={isLoadingData}
-        currency={currency}
+        isLoading={loading}
+        currency={businessInfo?.currency || 'USD'}
         onPrint={handlePrintInvoice}
         onSendWhatsApp={handleSendWhatsApp}
         onOpenRefundDialog={handleOpenRefundDialog}
@@ -634,7 +669,7 @@ export default function TransactionsPage() {
         onConfirmingChange={setIsConfirming}
         onConfirmCharge={handleChargePayment}
         chargeAmount={total}
-        currency={currency}
+        currency={businessInfo?.currency || 'USD'}
         isRegistering={isRegistering}
         onRegisteringChange={setIsRegistering}
         onRegisterAndSend={handleRegisterAndSend}
@@ -647,7 +682,7 @@ export default function TransactionsPage() {
         onRefundQuantityChange={handleRefundQuantityChange}
         onExecuteRefund={executeRefund}
         isProcessing={isProcessing}
-        currency={currency}
+        currency={businessInfo?.currency || 'USD'}
       />
 
     </div>

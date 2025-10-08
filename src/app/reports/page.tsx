@@ -20,8 +20,7 @@ import {
   ChartContainer,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { getTransactionsForBranch } from '@/lib/firestore';
-import { useBusiness } from '@/contexts/business-context';
+import { getTransactionsForBranch, getBusinessWithBranches } from '@/lib/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -54,10 +53,10 @@ type Transaction = {
     items: TransactionItem[];
 };
 
-type Product = {
+type BusinessInfo = {
     id: string;
-    name: string;
-}
+    currency: string;
+};
 
 const salesChartConfig = {
   sales: {
@@ -76,17 +75,17 @@ const topProductsConfig = {
 export default function ReportsPage() {
     const { businessId, db } = useAuth();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [businessInfo, setBusinessInfo] = useState<BusinessInfo | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-    const { currency, loading: loadingBusiness } = useBusiness();
     const { toast } = useToast();
 
     const fetchData = useCallback(async () => {
         const storedBranch = localStorage.getItem('activeBranch');
         const branch = storedBranch ? JSON.parse(storedBranch) : null;
-        if (!branch?.id || !businessId) {
+        if (!branch?.id || !businessId || !db) {
             setLoading(false);
             return;
         }
@@ -94,8 +93,17 @@ export default function ReportsPage() {
         setActiveBranchId(branch.id);
         setLoading(true);
         try {
-            const transactionsData = await getTransactionsForBranch(db, businessId, branch.id);
+            const [transactionsData, businessData] = await Promise.all([
+                getTransactionsForBranch(db, businessId, branch.id),
+                getBusinessWithBranches(db, businessId)
+            ]);
             setTransactions(transactionsData as Transaction[]);
+             if (businessData.length > 0) {
+                setBusinessInfo({
+                    id: businessData[0].id,
+                    currency: businessData[0].currency || 'USD'
+                });
+            }
         } catch (error) {
             console.error("Failed to load report data:", error);
             toast({ title: "Error", description: "Could not fetch report data.", variant: "destructive" });
@@ -290,8 +298,7 @@ export default function ReportsPage() {
         writeFile(wb, `report-${from}_to_${to}.xlsx`);
     };
 
-
-    const isLoading = loading || loadingBusiness;
+    const currency = businessInfo?.currency || 'USD';
 
     return (
         <div className='flex flex-col gap-6 mx-auto w-full max-w-7xl'>
@@ -358,7 +365,7 @@ export default function ReportsPage() {
                                 <CardTitle>Daily Revenue</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {isLoading ? <Skeleton className="h-9 w-3/4" /> : <p className="text-3xl font-bold">{formatCurrency(dailyStats.revenue, currency)}</p>}
+                                {loading ? <Skeleton className="h-9 w-3/4" /> : <p className="text-3xl font-bold">{formatCurrency(dailyStats.revenue, currency)}</p>}
                                 <p className="text-xs text-muted-foreground">Total revenue for today</p>
                             </CardContent>
                         </Card>
@@ -367,7 +374,7 @@ export default function ReportsPage() {
                                 <CardTitle>Daily Transactions</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {isLoading ? <Skeleton className="h-9 w-1/2" /> : <p className="text-3xl font-bold">{dailyStats.count}</p>}
+                                {loading ? <Skeleton className="h-9 w-1/2" /> : <p className="text-3xl font-bold">{dailyStats.count}</p>}
                                 <p className="text-xs text-muted-foreground">Total sales transactions today</p>
                             </CardContent>
                         </Card>

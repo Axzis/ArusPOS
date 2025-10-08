@@ -13,8 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { updateBusiness } from '@/lib/firestore';
-import { useBusiness } from '@/contexts/business-context';
+import { updateBusiness, getBusinessWithBranches } from '@/lib/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Trash2 } from 'lucide-react';
 import {
@@ -29,18 +28,46 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/auth-context';
 
+
+type BusinessInfo = {
+    id: string;
+    units: string[];
+};
+
 export default function UnitsPage() {
-    const { business, units: initialUnits, loading: loadingBusiness } = useBusiness();
-    const { db } = useAuth();
-    const [units, setUnits] = useState<string[]>(initialUnits);
+    const { businessId, db } = useAuth();
+    const [business, setBusiness] = useState<BusinessInfo | null>(null);
+    const [units, setUnits] = useState<string[]>([]);
+    const [initialUnits, setInitialUnits] = useState<string[]>([]);
+    const [loading, setLoading] = useState(true);
     const [newUnit, setNewUnit] = useState('');
     const [saving, setSaving] = useState(false);
     const [unitToDelete, setUnitToDelete] = useState<string | null>(null);
     const { toast } = useToast();
 
+     const fetchBusiness = useCallback(async () => {
+        if (!businessId || !db) return;
+        setLoading(true);
+        try {
+            const businesses = await getBusinessWithBranches(db, businessId);
+            if (businesses.length > 0) {
+                const biz = businesses[0];
+                const currentUnits = biz.units || ['pcs'];
+                setBusiness({ id: biz.id, units: currentUnits });
+                setUnits(currentUnits);
+                setInitialUnits(currentUnits);
+            }
+        } catch (error) {
+            console.error("Failed to fetch business details:", error);
+            toast({ title: "Error", description: "Could not fetch unit settings.", variant: "destructive" });
+        } finally {
+            setLoading(false);
+        }
+    }, [businessId, db, toast]);
+
     useEffect(() => {
-        setUnits(initialUnits);
-    }, [initialUnits]);
+        fetchBusiness();
+    }, [fetchBusiness]);
     
     const handleAddUnit = () => {
         if (newUnit && !units.includes(newUnit)) {
@@ -57,15 +84,12 @@ export default function UnitsPage() {
     };
 
     const handleSave = async () => {
-        if (!business) return;
+        if (!business || !db) return;
         setSaving(true);
         try {
             await updateBusiness(db, business.id, { units });
-            toast({ title: "Success", description: "Units updated successfully. The app will now reload." });
-            // Force a reload to make sure the business context picks up the new units everywhere.
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            toast({ title: "Success", description: "Units updated successfully. Changes will apply on next page load." });
+            setInitialUnits(units);
         } catch (error) {
             console.error("Failed to save units:", error);
             toast({ title: "Error", description: "Could not save units.", variant: "destructive" });

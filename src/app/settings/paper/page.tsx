@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,29 +19,58 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { updateBusiness } from '@/lib/firestore';
-import { useBusiness } from '@/contexts/business-context';
+import { updateBusiness, getBusinessWithBranches } from '@/lib/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/auth-context';
 
+
+type BusinessInfo = {
+    id: string;
+    paperSize: 'A4' | '8cm' | '5.8cm';
+};
+
+
 export default function PaperSettingsPage() {
-    const { business, paperSize: initialPaperSize, loading: loadingBusiness } = useBusiness();
-    const { db } = useAuth();
-    const [paperSize, setPaperSize] = useState(initialPaperSize);
+    const { businessId, db } = useAuth();
+    const [business, setBusiness] = useState<BusinessInfo | null>(null);
+    const [paperSize, setPaperSize] = useState<'A4' | '8cm' | '5.8cm'>('8cm');
+    const [initialPaperSize, setInitialPaperSize] = useState<'A4-l' | '8cm' | '5.8cm'>('8cm');
+    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const { toast } = useToast();
 
+    const fetchBusiness = useCallback(async () => {
+        if (!businessId || !db) return;
+        setLoading(true);
+        try {
+            const businesses = await getBusinessWithBranches(db, businessId);
+            if (businesses.length > 0) {
+                const biz = businesses[0];
+                const currentSize = biz.paperSize || '8cm';
+                setBusiness({ id: biz.id, paperSize: currentSize });
+                setPaperSize(currentSize);
+                setInitialPaperSize(currentSize);
+            }
+        } catch (error) {
+            console.error("Failed to fetch business details:", error);
+            toast({ title: "Error", description: "Could not fetch paper size settings.", variant: "destructive" });
+        } finally {
+            setLoading(false);
+        }
+    }, [businessId, db, toast]);
+
     useEffect(() => {
-        setPaperSize(initialPaperSize);
-    }, [initialPaperSize]);
+        fetchBusiness();
+    }, [fetchBusiness]);
 
     const handleSave = async () => {
-        if (!business) return;
+        if (!business || !db) return;
         setSaving(true);
         try {
             await updateBusiness(db, business.id, { paperSize });
-            toast({ title: "Success", description: "Paper size settings updated successfully." });
+            toast({ title: "Success", description: "Paper size settings updated successfully. Changes will apply on next page load." });
+            setInitialPaperSize(paperSize);
         } catch (error) {
             console.error("Failed to save paper size:", error);
             toast({ title: "Error", description: "Could not save paper size settings.", variant: "destructive" });
@@ -61,7 +90,7 @@ export default function PaperSettingsPage() {
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                {loadingBusiness ? (
+                {loading ? (
                     <div className="grid gap-2">
                         <Label htmlFor="paper-size">Default Paper Size</Label>
                         <Skeleton className="h-10 w-[250px]" />
@@ -69,7 +98,7 @@ export default function PaperSettingsPage() {
                 ) : (
                     <div className="grid gap-2">
                         <Label htmlFor="paper-size">Default Paper Size</Label>
-                        <Select value={paperSize} onValueChange={setPaperSize}>
+                        <Select value={paperSize} onValueChange={(v) => setPaperSize(v as 'A4' | '8cm' | '5.8cm')}>
                             <SelectTrigger id="paper-size" className="w-[250px]">
                                 <SelectValue placeholder="Select paper size" />
                             </SelectTrigger>
@@ -86,7 +115,7 @@ export default function PaperSettingsPage() {
                 )}
             </CardContent>
             <CardFooter>
-                <Button onClick={handleSave} disabled={saving || !hasChanges || loadingBusiness}>
+                <Button onClick={handleSave} disabled={saving || !hasChanges || loading}>
                     {saving ? 'Saving...' : 'Save Changes'}
                 </Button>
             </CardFooter>

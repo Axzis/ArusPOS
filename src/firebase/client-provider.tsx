@@ -1,72 +1,37 @@
-
-'use client';
-
-import React, { useState, useEffect, type ReactNode } from 'react';
-import { AuthProvider } from '@/contexts/auth-context';
-import { BusinessProvider } from '@/contexts/business-context';
-import AppShell from '@/components/app-shell';
+"use client";
+import React, { useState, useEffect } from 'react';
 import { initializeFirebase } from '@/firebase';
-import { FirebaseApp } from 'firebase/app';
-import { Auth } from 'firebase/auth';
-import { Firestore } from 'firebase/firestore';
 import { Logo } from '@/components/icons';
-import { FirebaseProvider } from './provider';
 
-interface FirebaseClientProviderProps {
-  children: ReactNode;
-}
-
-interface FirebaseInstances {
-  app: FirebaseApp;
-  auth: Auth;
-  db: Firestore;
-}
-
-// This component ensures that Firebase is initialized only on the client side.
-// It acts as the main wrapper in the root layout.
-export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
-  const [instances, setInstances] = useState<FirebaseInstances | null>(null);
-  const [error, setError] = useState<Error | null>(null);
+// This component acts as a gatekeeper. It ensures that Firebase is initialized
+// on the client before any of the child components (including AuthProvider and the app itself)
+// are rendered.
+export function FirebaseClientProvider({ children }: { children: React.ReactNode }) {
+  const [isFirebaseInitialized, setIsFirebaseInitialized] = useState(false);
 
   useEffect(() => {
-    try {
-      // Initialize Firebase only on the client
-      const { app, auth, db } = initializeFirebase();
-      setInstances({ app, auth, db });
-    } catch (e: any) {
-        console.error("Fatal Firebase Initialization Error:", e);
-        setError(e);
+    // We only want to run this once.
+    if (!isFirebaseInitialized) {
+      try {
+        initializeFirebase();
+        setIsFirebaseInitialized(true);
+      } catch (error) {
+        console.error("Firebase initialization failed in provider:", error);
+        // Handle failure, maybe show an error message
+      }
     }
-  }, []);
+  }, [isFirebaseInitialized]);
 
-  if (error) {
-      return (
-          <div className="flex h-screen w-full flex-col items-center justify-center bg-background text-center">
-              <div className="rounded-lg border bg-card p-8 shadow-sm">
-                  <h1 className="text-2xl font-bold text-destructive">Application Error</h1>
-                  <p className="mt-2 text-muted-foreground">Could not initialize Firebase.</p>
-                  <p className="mt-4 text-xs text-destructive-foreground bg-destructive/80 p-2 rounded-md">{error.message}</p>
-              </div>
-          </div>
-      )
-  }
-
-  if (!instances) {
+  // While Firebase is initializing, show a loading screen.
+  // This prevents any child components from trying to use Firebase before it's ready.
+  if (!isFirebaseInitialized) {
     return (
-        <div className="flex h-screen w-full items-center justify-center bg-background">
-            <Logo className="size-10 animate-pulse text-primary" />
-        </div>
+      <div className="flex h-screen w-full items-center justify-center bg-background">
+        <Logo className="size-10 animate-pulse text-primary" />
+      </div>
     );
   }
 
-  // Once initialized, provide the instances to the rest of the app.
-  return (
-    <FirebaseProvider firebaseApp={instances.app} firestore={instances.db} auth={instances.auth}>
-        <AuthProvider>
-            <BusinessProvider>
-                <AppShell>{children}</AppShell>
-            </BusinessProvider>
-        </AuthProvider>
-    </FirebaseProvider>
-  );
+  // Once initialized, render the actual application.
+  return <>{children}</>;
 }

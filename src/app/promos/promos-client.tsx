@@ -57,8 +57,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { getProductsForBranch, getPromosForBranch, addPromoToBranch, deletePromoFromBranch } from '@/lib/firestore';
-import { useBusiness } from '@/contexts/business-context';
+import { getProductsForBranch, getPromosForBranch, addPromoToBranch, deletePromoFromBranch, getBusinessWithBranches } from '@/lib/firestore';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -80,6 +79,11 @@ type Promo = {
   endDate: string;
 };
 
+type BusinessInfo = {
+    id: string;
+    currency: string;
+};
+
 type PromosClientProps = {
     initialPromos: Promo[];
     initialProducts: Product[];
@@ -89,11 +93,11 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
     const { businessId, db } = useAuth();
     const [promos, setPromos] = React.useState<Promo[]>(initialPromos);
     const [products, setProducts] = React.useState<Product[]>(initialProducts);
+    const [businessInfo, setBusinessInfo] = React.useState<BusinessInfo | null>(null);
     const [loading, setLoading] = React.useState(true);
     const [isSheetOpen, setIsSheetOpen] = React.useState(false);
     const [activeBranchId, setActiveBranchId] = React.useState<string |null>(null);
     const { toast } = useToast();
-    const { currency, loading: loadingBusiness } = useBusiness();
     const [promoToDelete, setPromoToDelete] = React.useState<Promo | null>(null);
 
     // Form state
@@ -104,19 +108,26 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
 
 
     const fetchData = React.useCallback(async (busId: string, branchId: string) => {
-        if (!busId || !branchId) {
+        if (!busId || !branchId || !db) {
             setLoading(false);
             return;
         }
         setLoading(true);
         try {
-            const [promoData, productData] = await Promise.all([
+            const [promoData, productData, businessData] = await Promise.all([
                 getPromosForBranch(db, busId, branchId),
                 getProductsForBranch(db, busId, branchId),
+                getBusinessWithBranches(db, busId),
             ]);
             const sortedPromos = (promoData as Promo[]).sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
             setPromos(sortedPromos);
             setProducts(productData as Product[]);
+            if (businessData.length > 0) {
+                setBusinessInfo({
+                    id: businessData[0].id,
+                    currency: businessData[0].currency || 'USD'
+                });
+            }
         } catch (error) {
             console.error("Failed to fetch data:", error);
             toast({ title: "Error", description: "Could not fetch promos or products.", variant: "destructive" });
@@ -148,7 +159,7 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
     };
 
     const handleSavePromo = async () => {
-        if (!activeBranchId || !businessId || !selectedProductId || !promoPrice || !dateRange?.from || !dateRange?.to) {
+        if (!activeBranchId || !businessId || !selectedProductId || !promoPrice || !dateRange?.from || !dateRange?.to || !db) {
             toast({ title: "Validation Error", description: "Please fill all fields.", variant: "destructive" });
             return;
         }
@@ -181,7 +192,7 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
     };
     
     const handleDeletePromo = async () => {
-        if (!promoToDelete || !activeBranchId || !businessId) return;
+        if (!promoToDelete || !activeBranchId || !businessId || !db) return;
         try {
             await deletePromoFromBranch(db, businessId, activeBranchId, promoToDelete.id);
             toast({ title: "Success", description: `Promotion for ${promoToDelete.productName} has been deleted.` });
@@ -204,7 +215,7 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
         return { text: 'Active', color: 'bg-green-500/20 text-green-700 border-green-500/20' };
     };
     
-    const isLoading = loading || loadingBusiness;
+    const currency = businessInfo?.currency || 'USD';
 
     const selectedProduct = React.useMemo(() => {
         return products.find(p => p.id === selectedProductId);
@@ -333,7 +344,7 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {isLoading ? (
+                            {loading ? (
                                 Array.from({ length: 5 }).map((_, i) => (
                                 <TableRow key={i}>
                                     <TableCell><Skeleton className="h-5 w-24" /></TableCell>
@@ -379,7 +390,7 @@ export default function PromosClient({ initialPromos, initialProducts }: PromosC
                         </TableBody>
                     </Table>
                   </div>
-                     { !isLoading && promos.length === 0 && (
+                     { !loading && promos.length === 0 && (
                         <div className="text-center p-10 text-muted-foreground">
                             No promotions found. Add one to get started!
                         </div>
