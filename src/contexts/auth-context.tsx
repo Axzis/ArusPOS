@@ -2,7 +2,15 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { User } from 'firebase/auth';
+import { 
+    User, 
+    signInWithEmailAndPassword,
+    signOut,
+    sendPasswordResetEmail,
+    updatePassword,
+    reauthenticateWithCredential,
+    EmailAuthProvider
+} from 'firebase/auth';
 import { getBusinessId } from '@/lib/firestore';
 import { isSuperAdminUser } from '@/lib/config';
 import { useFirebase } from '@/firebase/provider';
@@ -88,18 +96,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [auth, fetchBusinessInfo]);
 
     const login = async (email: string, password: string): Promise<User | null> => {
-        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
         return userCredential.user;
     };
 
     const logout = async () => {
-        await auth.signOut();
+        await signOut(auth);
         setAppUser(null);
         setBusinessId(null);
     };
 
     const sendPasswordReset = async (email: string) => {
-        await auth.sendPasswordResetEmail(email);
+        await sendPasswordResetEmail(auth, email);
     };
     
     const updateUserPassword = async (currentPass: string, newPass: string) => {
@@ -107,9 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!user || !user.email) {
             throw new Error("No user is currently signed in.");
         }
-        const credential = auth.EmailAuthProvider.credential(user.email, currentPass);
-        await auth.reauthenticateWithCredential(user, credential);
-        await auth.updatePassword(user, newPass);
+        const credential = EmailAuthProvider.credential(user.email, currentPass);
+        await reauthenticateWithCredential(user, credential);
+        await updatePassword(user, newPass);
     };
     
     const loading = !authProviderReady || isUserLoading || isBusinessInfoLoading;
