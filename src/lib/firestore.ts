@@ -64,6 +64,10 @@ export async function createAuthUser(auth: Auth, email: string, password?: strin
 
 // Get Business ID for a given user
 export async function getBusinessId(db: Firestore, user: User): Promise<{ businessId: string | null; userData: DocumentData | null; }> {
+    if (!db) {
+        console.error("Firestore instance (db) is undefined in getBusinessId.");
+        return { businessId: null, userData: null };
+    }
     if (!user || !user.uid) {
         console.warn("getBusinessId called with an invalid user object.");
         return { businessId: null, userData: null };

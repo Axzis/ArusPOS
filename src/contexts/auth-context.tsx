@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [authProviderReady, setAuthProviderReady] = useState(false);
 
     const fetchBusinessInfo = useCallback(async (user: User | null) => {
-        if (!user) {
+        if (!user || !db) { // Guard against undefined db
             setAppUser(null);
             setBusinessId(null);
             setIsBusinessInfoLoading(false);
