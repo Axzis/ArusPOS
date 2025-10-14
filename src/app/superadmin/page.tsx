@@ -83,7 +83,7 @@ type Business = {
 }
 
 export default function SuperAdminPage() {
-    const { user, loading: authLoading, db } = useAuth();
+    const { user, loading: authLoading, db, sendPasswordReset } = useAuth();
     const router = useRouter();
     const [businesses, setBusinesses] = useState<Business[]>([]);
     const [loading, setLoading] = useState(true);
@@ -94,7 +94,6 @@ export default function SuperAdminPage() {
     const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
     const [userToReset, setUserToReset] = useState<User | null>(null);
     const { toast } = useToast();
-    const { sendPasswordReset } = useAuth();
 
     const isSuperAdmin = user?.email ? isSuperAdminUser(user.email) : false;
 
@@ -106,7 +105,7 @@ export default function SuperAdminPage() {
 
 
     const fetchBusinesses = useCallback(async () => {
-        if (!isSuperAdmin) return;
+        if (!isSuperAdmin || !db) return;
         setLoading(true);
         try {
             const bizData = await getAllBusinesses(db);
@@ -138,7 +137,7 @@ export default function SuperAdminPage() {
     }
     
     const executeDeactivation = async () => {
-        if (!businessToDeactivate) return;
+        if (!businessToDeactivate || !db) return;
         
         try {
             const newStatus = !businessToDeactivate.isActive;
@@ -154,7 +153,7 @@ export default function SuperAdminPage() {
     }
     
     const executeDelete = async () => {
-        if (!businessToDelete) return;
+        if (!businessToDelete || !db) return;
         
         try {
             await deleteBusiness(db, businessToDelete.id);
@@ -346,10 +345,21 @@ export default function SuperAdminPage() {
                                                         <TableCell>{user.email}</TableCell>
                                                         <TableCell><Badge variant="secondary">{user.role}</Badge></TableCell>
                                                         <TableCell className="text-right">
-                                                            <Button variant="ghost" size="icon" onClick={() => setUserToReset(user)}>
-                                                                <KeyRound className="h-4 w-4" />
-                                                                <span className="sr-only">Reset Password</span>
-                                                            </Button>
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="icon">
+                                                                        <MoreHorizontal className="h-4 w-4" />
+                                                                        <span className="sr-only">User Actions</span>
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuLabel>User Actions</DropdownMenuLabel>
+                                                                    <DropdownMenuItem onSelect={() => setUserToReset(user)}>
+                                                                        <KeyRound className="mr-2 h-4 w-4" />
+                                                                        Reset Password
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
                                                         </TableCell>
                                                     </TableRow>
                                                 ))}
@@ -402,14 +412,14 @@ export default function SuperAdminPage() {
             <AlertDialog open={!!userToReset} onOpenChange={(open) => !open && setUserToReset(null)}>
                 <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Reset Password?</AlertDialogTitle>
+                    <AlertDialogTitle>Reset Password for {userToReset?.name}?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will send a password reset email to "{userToReset?.email}". The user will be able to set a new password by following the link in the email.
+                        This will send a password reset email to "{userToReset?.email}". The user will be able to set a new password by following the link in the email. This action cannot be undone.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={executePasswordReset}>Send Email</AlertDialogAction>
+                    <AlertDialogAction onClick={executePasswordReset}>Send Reset Email</AlertDialogAction>
                 </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -417,3 +427,5 @@ export default function SuperAdminPage() {
         </div>
     )
 }
+
+    
