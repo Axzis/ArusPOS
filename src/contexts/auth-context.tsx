@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         } catch (error) {
           console.error("Error fetching user business info:", error);
-          setAppUser(firebaseUser);
+          setAppUser(firebaseUser); // Still set the basic user
           setBusinessId(null);
           setLoadingBusiness(false);
         }
@@ -137,19 +137,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => unsubscribe();
   }, [auth, db, fetchBusinessInfo]);
-  
-  useEffect(() => {
-    if (businessId) {
-      fetchBusinessInfo(businessId);
-    }
-  }, [businessId, fetchBusinessInfo]);
-
-
-  const refreshUser = useCallback(async () => {
-    if (auth.currentUser) {
-      await auth.currentUser.reload();
-    }
-  }, [auth]);
 
   const login = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);
@@ -162,14 +149,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const sendPasswordReset = async (email: string) => {
     await sendPasswordResetEmail(auth, email);
   };
+  
+  const refreshUser = useCallback(async () => {
+    await auth.currentUser?.reload();
+    // This will trigger onAuthStateChanged and update user state automatically
+  }, [auth]);
 
   const updateUserPassword = async (currentPass: string, newPass: string) => {
-    if (!auth.currentUser || !auth.currentUser.email) {
+    const user = auth.currentUser;
+    if (!user || !user.email) {
       throw new Error("No user is currently signed in.");
     }
-    const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPass);
-    await reauthenticateWithCredential(auth.currentUser, credential);
-    await updatePassword(auth.currentUser, newPass);
+    const credential = EmailAuthProvider.credential(user.email, currentPass);
+    await reauthenticateWithCredential(user, credential);
+    await updatePassword(user, newPass);
   };
   
   const updateBusinessSettings = async (settings: Partial<any>) => {

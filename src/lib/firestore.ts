@@ -83,6 +83,7 @@ export async function getBusinessId(db: Firestore, user: User): Promise<{ busine
     if (!userSnapshot.empty) {
         const userDoc = userSnapshot.docs[0];
         const userData = userDoc.data();
+        // The businessId is stored directly on the user document in the subcollection.
         return { businessId: userData.businessId || null, userData: userData };
     } else {
         console.warn(`No user document found for UID: ${user.uid}`);
@@ -113,6 +114,7 @@ export async function addUserAndBusiness(auth: Auth, db: Firestore, data: Busine
         taxRate: 8,
         units: ['pcs', 'kg', 'liter'], // Default units
         paperSize: '8cm', // Default paper size
+        paymentOptions: ['Cash', 'Credit Card', 'QRIS', 'Utang'], // Default payment options
         isActive: true,
         createdAt: serverTimestamp(),
         adminUid: user.uid,
