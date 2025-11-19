@@ -104,6 +104,25 @@
         "paymentMethod": {
           "type": "string",
           "description": "Payment method used for the transaction (e.g., cash, credit card)."
+        },
+        "isPaid": {
+            "type": "boolean",
+            "description": "Indicates if a debt transaction has been paid. Defaults to true for non-debt transactions."
+        },
+        "paidAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The timestamp when a debt was marked as paid."
+        },
+        "debtNoteImageUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL for the uploaded image of the initial debt note."
+        },
+        "paymentNoteImageUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL for the uploaded image of the payment proof."
         }
       },
       "required": [

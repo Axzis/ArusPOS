@@ -22,6 +22,7 @@ import {
   User,
   PanelLeft,
   ChevronRight,
+  Notebook,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -62,12 +63,14 @@ const allNavItems = [
   { href: '/promos', icon: Tag, label: 'Promotions' },
   { href: '/inventory', icon: Boxes, label: 'Inventory' },
   { href: '/customers', icon: Users, label: 'Customers' },
+  { href: '/debt', icon: Notebook, label: 'Utang' },
   { href: '/reports', icon: BarChart, label: 'Reports' },
 ];
 
 const staffNavItems = [
   { href: '/transactions', icon: Receipt, label: 'Transactions' },
   { href: '/customers', icon: Users, label: 'Customers' },
+  { href: '/debt', icon: Notebook, label: 'Utang' },
 ];
 
 const superAdminExtraNav = [

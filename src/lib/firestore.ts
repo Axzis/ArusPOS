@@ -1,5 +1,5 @@
 
-import { Auth, createUserWithEmailAndPassword, User } from 'firebase/auth';
+import { Auth, createUserWithEmailAndPassword, User, sendPasswordResetEmail } from 'firebase/auth';
 import {
   getFirestore,
   collection,
@@ -435,8 +435,12 @@ export async function addTransactionAndUpdateStock(
 
   // 1. Add the transaction document
   const transactionRef = doc(collection(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION));
+  
+  const isDebt = transactionData.paymentMethod === 'Utang';
+
   batch.set(transactionRef, {
     ...transactionData,
+    isPaid: !isDebt, // If it's a debt, isPaid is false, otherwise true.
     cashierName: cashierName,
     date: serverTimestamp(),
   });
@@ -552,6 +556,22 @@ export async function refundTransaction(
     await batch.commit();
 }
 
+
+export async function updateDebtTransaction(db: Firestore, businessId: string, branchId: string, transactionId: string, data: Partial<DocumentData>) {
+    if (!businessId || !branchId) throw new Error("Missing business or branch ID");
+    const transactionRef = doc(db, BUSINESSES_COLLECTION, businessId, BRANCHES_COLLECTION, branchId, TRANSACTIONS_COLLECTION, transactionId);
+    
+    const updateData = {
+        ...data,
+        updatedAt: serverTimestamp()
+    };
+    
+    if (data.isPaid) {
+        updateData.paidAt = serverTimestamp();
+    }
+    
+    return await updateDoc(transactionRef, updateData);
+}
 
 
 
@@ -779,4 +799,14 @@ export async function seedInitialDataForBranch(db: Firestore, businessId: string
 
     await batch.commit();
     return true;
+}
+
+// Reset password for a user - only callable by Super Admin context
+export async function resetUserPasswordWithAdmin(auth: Auth, email: string) {
+    if (!email) {
+        throw new Error("Email is required to reset password.");
+    }
+    // This uses the standard client-side password reset flow,
+    // as direct password setting is an admin-only backend operation.
+    await sendPasswordResetEmail(auth, email);
 }
