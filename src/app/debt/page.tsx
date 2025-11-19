@@ -36,7 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { MoreHorizontal, Upload, FileCheck, FileX, Image as ImageIcon } from 'lucide-react';
+import { MoreHorizontal, Upload, Download, FileCheck, FileX, Image as ImageIcon } from 'lucide-react';
 import { format as formatDate, parseISO } from 'date-fns';
 import { formatCurrency } from '@/lib/utils';
 import { getTransactionsForBranch, updateDebtTransaction } from '@/lib/firestore';
@@ -47,6 +47,7 @@ import Image from 'next/image';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { utils, writeFile } from 'xlsx';
 
 type Transaction = {
     id: string;
@@ -134,11 +135,31 @@ export default function DebtPage() {
             setIsSaving(false);
         }
     };
+    
+    const handleDownload = () => {
+        const dataToExport = debtTransactions.map(tx => ({
+            'Customer': tx.customerName,
+            'Tanggal': formatDate(parseISO(tx.date), "dd MMM yyyy, HH:mm"),
+            'Total': tx.amount,
+            'Status': tx.isPaid ? 'Lunas' : 'Belum Lunas',
+            'Nota Utang': tx.debtNoteImageUrl ? 'Ada' : 'Tidak',
+            'Bukti Pembayaran': tx.paymentNoteImageUrl ? 'Ada' : 'Tidak',
+        }));
+
+        const ws = utils.json_to_sheet(dataToExport);
+        const wb = utils.book_new();
+        utils.book_append_sheet(wb, ws, "Data Utang");
+        writeFile(wb, "data_utang.xlsx");
+    };
 
     return (
         <div className="flex flex-col gap-6 mx-auto w-full max-w-7xl">
             <div className="bg-card border -mx-4 -mt-4 p-4 rounded-b-lg shadow-sm flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:-mx-6 md:p-6">
                 <h1 className="text-lg font-semibold md:text-2xl">Manajemen Utang</h1>
+                <Button size="sm" variant="outline" className="gap-1" onClick={handleDownload}>
+                    <Download className="h-4 w-4" />
+                    Download
+                </Button>
             </div>
 
             <Card>
@@ -265,3 +286,5 @@ export default function DebtPage() {
         </div>
     );
 }
+
+    
