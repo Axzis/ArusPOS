@@ -50,6 +50,7 @@ interface OrderSummaryProps {
     selectedCustomerId: string;
     onCustomerChange: (id: string) => void;
     onUpdateQuantity: (id: string, quantity: number) => void;
+    onUpdatePrice: (id: string, newPrice: number) => void;
     onRemoveItem: (id: string) => void;
     onClearOrder: () => void;
     onCharge: () => void;
@@ -74,6 +75,7 @@ export default function OrderSummary({
     selectedCustomerId,
     onCustomerChange,
     onUpdateQuantity,
+    onUpdatePrice,
     onRemoveItem,
     onClearOrder,
     onCharge,
@@ -119,9 +121,9 @@ export default function OrderSummary({
                             <TableHeader>
                                 <TableRow>
                                 <TableHead>Product</TableHead>
-                                <TableHead className="w-[100px]">Quantity</TableHead>
-                                <TableHead className="hidden sm:table-cell">Unit</TableHead>
-                                <TableHead className="text-right">Price</TableHead>
+                                <TableHead className="w-[80px]">Qty</TableHead>
+                                <TableHead className="w-[120px]">Harga Satuan</TableHead>
+                                <TableHead className="text-right">Total</TableHead>
                                 <TableHead className="w-0"></TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -145,7 +147,15 @@ export default function OrderSummary({
                                             className="h-8 w-16 text-center"
                                         />
                                     </TableCell>
-                                    <TableCell className="hidden sm:table-cell">{item.unit}</TableCell>
+                                    <TableCell>
+                                        <Input
+                                            type="number"
+                                            value={item.price}
+                                            onChange={(e) => onUpdatePrice(item.id, parseFloat(e.target.value))}
+                                            step="0.01"
+                                            className="h-8 w-28 text-right"
+                                        />
+                                    </TableCell>
                                     <TableCell className="text-right">
                                         {formatCurrency(item.price * item.quantity, currency)}
                                     </TableCell>

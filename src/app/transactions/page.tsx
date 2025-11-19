@@ -363,6 +363,14 @@ export default function TransactionsPage() {
     });
   }, [productsWithPromo, toast]);
 
+  const updateOrderItemPrice = useCallback((productId: string, newPrice: number) => {
+    setOrderItems(prevItems => {
+      return prevItems.map(item =>
+        item.id === productId ? { ...item, price: newPrice >= 0 ? newPrice : 0 } : item
+      );
+    });
+  }, []);
+
 
   const addToOrder = useCallback((product: ProductWithPromo) => {
     setOrderItems((prevItems) => {
@@ -644,6 +652,7 @@ export default function TransactionsPage() {
           selectedCustomerId={selectedCustomerId}
           onCustomerChange={setSelectedCustomerId}
           onUpdateQuantity={updateOrderItemQuantity}
+          onUpdatePrice={updateOrderItemPrice}
           onRemoveItem={removeFromOrder}
           onClearOrder={clearOrder}
           onCharge={() => setIsConfirming(true)}
