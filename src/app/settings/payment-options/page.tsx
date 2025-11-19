@@ -34,6 +34,8 @@ type BusinessInfo = {
     paymentOptions: string[];
 };
 
+const defaultPaymentOptions = ['Cash', 'Credit Card', 'QRIS', 'Utang'];
+
 export default function PaymentOptionsPage() {
     const { businessId, db } = useAuth();
     const [business, setBusiness] = useState<BusinessInfo | null>(null);
@@ -55,7 +57,7 @@ export default function PaymentOptionsPage() {
             const businesses = await getBusinessWithBranches(db, businessId);
             if (businesses.length > 0) {
                 const biz = businesses[0];
-                const currentOptions = biz.paymentOptions || [];
+                const currentOptions = biz.paymentOptions && biz.paymentOptions.length > 0 ? biz.paymentOptions : defaultPaymentOptions;
                 setBusiness({ id: biz.id, paymentOptions: currentOptions });
                 setPaymentOptions(currentOptions);
                 setInitialPaymentOptions(currentOptions);
@@ -73,7 +75,7 @@ export default function PaymentOptionsPage() {
     }, [fetchBusiness]);
     
     const handleAddOption = () => {
-        if (newOption && !paymentOptions.includes(newOption)) {
+        if (newOption && !paymentOptions.includes(newOption.trim())) {
             const updatedOptions = [...paymentOptions, newOption.trim()];
             setPaymentOptions(updatedOptions);
             setNewOption('');
@@ -171,3 +173,5 @@ export default function PaymentOptionsPage() {
         </Card>
     )
 }
+
+    

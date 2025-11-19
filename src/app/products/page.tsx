@@ -83,6 +83,7 @@ type Product = {
   name: string;
   sku: string;
   price: number;
+  debtPrice?: number;
   purchasePrice: number;
   stock: number;
   category: string;
@@ -154,10 +155,12 @@ export default function ProductsPage() {
         if (!activeBranchId || !businessId || !formRef.current) return;
 
         const formData = new FormData(formRef.current);
+        const debtPriceValue = formData.get('debtPrice') as string;
         const productData = {
             name: formData.get('name') as string,
             sku: formData.get('sku') as string,
             price: parseFloat(formData.get('price') as string),
+            debtPrice: debtPriceValue ? parseFloat(debtPriceValue) : undefined,
             purchasePrice: parseFloat(formData.get('purchasePrice') as string),
             stock: parseInt(formData.get('stock') as string, 10),
             category: formData.get('category') as string,
@@ -206,6 +209,7 @@ export default function ProductsPage() {
             category: 'Beverages',
             unit: 'pcs',
             price: 3.50,
+            debtPrice: 4.00,
             purchasePrice: 1.50,
             stock: 100,
             imageUrl: 'https://example.com/image.png'
@@ -244,6 +248,7 @@ export default function ProductsPage() {
             category: p.category,
             unit: p.unit,
             price: p.price,
+            debtPrice: p.debtPrice,
             purchasePrice: p.purchasePrice,
             stock: p.stock,
             imageUrl: p.imageUrl
@@ -370,6 +375,10 @@ export default function ProductsPage() {
                             <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
                                 <Label htmlFor="price" className="md:text-right md:pt-2">Sale Price</Label>
                                 <Input id="price" name="price" type="number" step="0.01" defaultValue={editingProduct?.price ?? ''} className="md:col-span-3" required />
+                            </div>
+                             <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
+                                <Label htmlFor="debtPrice" className="md:text-right md:pt-2">Debt Price (Optional)</Label>
+                                <Input id="debtPrice" name="debtPrice" type="number" step="0.01" defaultValue={editingProduct?.debtPrice ?? ''} className="md:col-span-3" placeholder="Uses Sale Price if empty" />
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-4 items-start gap-4">
                                 <Label htmlFor="purchasePrice" className="md:text-right md:pt-2">Purchase Price</Label>
@@ -502,6 +511,7 @@ export default function ProductsPage() {
                   <TableHead className="hidden sm:table-cell">Category</TableHead>
                   <TableHead>Stock</TableHead>
                   <TableHead>Price</TableHead>
+                   <TableHead>Debt Price</TableHead>
                   <TableHead>
                     <span className="sr-only">Actions</span>
                   </TableHead>
@@ -517,6 +527,7 @@ export default function ProductsPage() {
                           <TableCell className="hidden sm:table-cell"><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
                           <TableCell><Skeleton className="h-5 w-10" /></TableCell>
                           <TableCell><Skeleton className="h-5 w-12" /></TableCell>
+                           <TableCell><Skeleton className="h-5 w-12" /></TableCell>
                           <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                       </TableRow>
                   ))
@@ -539,6 +550,7 @@ export default function ProductsPage() {
                     </TableCell>
                     <TableCell>{product.stock}</TableCell>
                     <TableCell>{formatCurrency(product.price, currency)}</TableCell>
+                    <TableCell>{product.debtPrice ? formatCurrency(product.debtPrice, currency) : '-'}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -570,3 +582,5 @@ export default function ProductsPage() {
     </div>
   );
 }
+
+    

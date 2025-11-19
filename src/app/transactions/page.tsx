@@ -40,6 +40,7 @@ type Product = {
   id: string;
   name: string;
   price: number;
+  debtPrice?: number;
   purchasePrice: number;
   stock: number;
   sku: string;
@@ -107,24 +108,32 @@ type BusinessInfo = {
 
 const ANONYMOUS_CUSTOMER_ID = "anonymous-customer";
 
-const getBestPrice = (product: Product | ProductWithPromo, quantity: number): { price: number, originalPrice: number} => {
+const getBestPrice = (product: Product | ProductWithPromo, quantity: number, isDebt: boolean): { price: number, originalPrice: number} => {
+    const basePrice = product.price;
+    const debtPrice = product.debtPrice;
+
+    if (isDebt) {
+        return { price: debtPrice || basePrice, originalPrice: basePrice };
+    }
+    
+    // Check for active promos first
     if ('hasPromo' in product && product.hasPromo) {
         return { price: product.price, originalPrice: product.originalPrice };
     }
 
     if (!product.bundles || product.bundles.length === 0) {
-        return { price: product.price, originalPrice: product.price };
+        return { price: basePrice, originalPrice: basePrice };
     }
 
     const sortedBundles = [...product.bundles].sort((a, b) => b.quantity - a.quantity);
     
     for (const bundle of sortedBundles) {
         if (quantity >= bundle.quantity) {
-            return { price: bundle.price, originalPrice: product.price };
+            return { price: bundle.price, originalPrice: basePrice };
         }
     }
 
-    return { price: product.price, originalPrice: product.price };
+    return { price: basePrice, originalPrice: basePrice };
 };
 
 export default function TransactionsPage() {
@@ -316,7 +325,8 @@ export default function TransactionsPage() {
 
     return allProducts.map(product => {
         const promo = activePromos.find(p => p.productId === product.id);
-        const { price, originalPrice } = getBestPrice(product, 1);
+        const isDebt = selectedPaymentMethod.toLowerCase() === 'utang';
+        const { price, originalPrice } = getBestPrice(product, 1, isDebt);
         const finalPrice = promo ? promo.promoPrice : price;
         
         return {
@@ -326,7 +336,7 @@ export default function TransactionsPage() {
             hasPromo: !!promo || finalPrice < product.price,
         };
     });
-  }, [allProducts, promos, loading]);
+  }, [allProducts, promos, loading, selectedPaymentMethod]);
 
 
   useEffect(() => {
@@ -334,6 +344,23 @@ export default function TransactionsPage() {
     setScannerEnabled(scannerPref === 'true');
     fetchData();
   }, [fetchData]);
+
+  const updatePricesForPaymentMethod = useCallback((paymentMethod: string) => {
+    const isDebt = paymentMethod.toLowerCase() === 'utang';
+    setOrderItems(prevItems => {
+        return prevItems.map(item => {
+            const productInfo = allProducts.find(p => p.id === item.id);
+            if (!productInfo) return item;
+            
+            const { price, originalPrice } = getBestPrice(productInfo, item.quantity, isDebt);
+            return { ...item, price, originalPrice };
+        });
+    });
+  }, [allProducts]);
+
+  useEffect(() => {
+      updatePricesForPaymentMethod(selectedPaymentMethod);
+  }, [selectedPaymentMethod, updatePricesForPaymentMethod]);
 
 
   const updateOrderItemQuantity = useCallback((productId: string, newQuantity: number) => {
@@ -353,7 +380,8 @@ export default function TransactionsPage() {
             });
         }
         
-        const { price, originalPrice } = getBestPrice(productInfo, cappedQuantity);
+        const isDebt = selectedPaymentMethod.toLowerCase() === 'utang';
+        const { price, originalPrice } = getBestPrice(productInfo, cappedQuantity, isDebt);
 
         return prevItems.map(item => 
             item.id === productId 
@@ -361,7 +389,7 @@ export default function TransactionsPage() {
                 : item
         );
     });
-  }, [productsWithPromo, toast]);
+  }, [productsWithPromo, toast, selectedPaymentMethod]);
 
   const updateOrderItemPrice = useCallback((productId: string, newPrice: number) => {
     setOrderItems(prevItems => {
@@ -375,13 +403,14 @@ export default function TransactionsPage() {
   const addToOrder = useCallback((product: ProductWithPromo) => {
     setOrderItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
+      const isDebt = selectedPaymentMethod.toLowerCase() === 'utang';
       if (existingItem) {
           if (existingItem.quantity >= existingItem.stock) {
               toast({ title: "Stock limit reached", description: `Cannot add more ${product.name}.`, variant: "destructive" });
               return prevItems;
           }
         const newQuantity = existingItem.quantity + 1;
-        const { price, originalPrice } = getBestPrice(product, newQuantity);
+        const { price, originalPrice } = getBestPrice(product, newQuantity, isDebt);
 
         return prevItems.map((item) =>
           item.id === product.id
@@ -394,10 +423,10 @@ export default function TransactionsPage() {
             return prevItems;
         }
         
-      const { price, originalPrice } = getBestPrice(product, 1);
+      const { price, originalPrice } = getBestPrice(product, 1, isDebt);
       return [...prevItems, { ...product, quantity: 1, price: price, originalPrice: originalPrice, unit: product.unit }];
     });
-  }, [toast, productsWithPromo]);
+  }, [toast, selectedPaymentMethod]);
 
 
   useEffect(() => {
@@ -713,3 +742,5 @@ export default function TransactionsPage() {
     </div>
   );
 }
+
+    
