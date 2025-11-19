@@ -34,6 +34,7 @@ type BusinessContextType = {
   taxEnabled: boolean;
   taxRate: number;
   paymentOptions: string[];
+  debtPaymentMethod: string | null;
   loading: boolean;
   updateBusinessSettings: (settings: Partial<any>) => Promise<void>;
 }
@@ -71,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [taxRate, setTaxRate] = useState(0);
   const [paymentOptions, setPaymentOptions] = useState<string[]>([]);
+  const [debtPaymentMethod, setDebtPaymentMethod] = useState<string | null>(null);
   const [loadingBusiness, setLoadingBusiness] = useState(true);
 
   const fetchBusinessInfo = useCallback(async (bId: string) => {
@@ -89,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setTaxEnabled(biz.taxEnabled !== false);
         setTaxRate(biz.taxRate || 0);
         setPaymentOptions(biz.paymentOptions || []);
+        setDebtPaymentMethod(biz.debtPaymentMethod || null);
       }
     } catch (error) {
       console.error("Failed to fetch business context data", error);
@@ -189,6 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     taxEnabled,
     taxRate,
     paymentOptions,
+    debtPaymentMethod,
     updateBusinessSettings
   };
 

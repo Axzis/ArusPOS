@@ -103,6 +103,7 @@ type BusinessInfo = {
     taxRate: number;
     paperSize: 'A4' | '8cm' | '5.8cm';
     paymentOptions: string[];
+    debtPaymentMethod: string | null;
 };
 
 
@@ -112,8 +113,8 @@ const getBestPrice = (product: Product | ProductWithPromo, quantity: number, isD
     const basePrice = product.price;
     const debtPrice = product.debtPrice;
 
-    if (isDebt) {
-        return { price: debtPrice || basePrice, originalPrice: basePrice };
+    if (isDebt && debtPrice) {
+        return { price: debtPrice, originalPrice: basePrice };
     }
     
     // Check for active promos first
@@ -159,7 +160,7 @@ export default function TransactionsPage() {
   const [refundItems, setRefundItems] = useState<RefundItem[]>([]);
   
   const { toast } = useToast();
-  const { user, businessId, db } = useAuth();
+  const { user, businessId, db, debtPaymentMethod } = useAuth();
 
 
   const fetchData = useCallback(async () => {
@@ -194,7 +195,8 @@ export default function TransactionsPage() {
                 taxEnabled: biz.taxEnabled !== false,
                 taxRate: biz.taxRate || 0,
                 paperSize: biz.paperSize || '8cm',
-                paymentOptions: paymentOpts
+                paymentOptions: paymentOpts,
+                debtPaymentMethod: biz.debtPaymentMethod || null,
             });
             if (paymentOpts.length > 0) {
                 setSelectedPaymentMethod(paymentOpts[0]);
@@ -322,10 +324,10 @@ export default function TransactionsPage() {
     
     const now = new Date();
     const activePromos = promos.filter(p => isWithinInterval(now, { start: new Date(p.startDate), end: new Date(p.endDate) }));
+    const isDebt = selectedPaymentMethod === debtPaymentMethod;
 
     return allProducts.map(product => {
         const promo = activePromos.find(p => p.productId === product.id);
-        const isDebt = selectedPaymentMethod.toLowerCase() === 'utang';
         const { price, originalPrice } = getBestPrice(product, 1, isDebt);
         const finalPrice = promo ? promo.promoPrice : price;
         
@@ -336,7 +338,7 @@ export default function TransactionsPage() {
             hasPromo: !!promo || finalPrice < product.price,
         };
     });
-  }, [allProducts, promos, loading, selectedPaymentMethod]);
+  }, [allProducts, promos, loading, selectedPaymentMethod, debtPaymentMethod]);
 
 
   useEffect(() => {
@@ -346,7 +348,7 @@ export default function TransactionsPage() {
   }, [fetchData]);
 
   const updatePricesForPaymentMethod = useCallback((paymentMethod: string) => {
-    const isDebt = paymentMethod.toLowerCase() === 'utang';
+    const isDebt = paymentMethod === debtPaymentMethod;
     setOrderItems(prevItems => {
         return prevItems.map(item => {
             const productInfo = allProducts.find(p => p.id === item.id);
@@ -356,7 +358,7 @@ export default function TransactionsPage() {
             return { ...item, price, originalPrice };
         });
     });
-  }, [allProducts]);
+  }, [allProducts, debtPaymentMethod]);
 
   useEffect(() => {
       updatePricesForPaymentMethod(selectedPaymentMethod);
@@ -380,7 +382,7 @@ export default function TransactionsPage() {
             });
         }
         
-        const isDebt = selectedPaymentMethod.toLowerCase() === 'utang';
+        const isDebt = selectedPaymentMethod === debtPaymentMethod;
         const { price, originalPrice } = getBestPrice(productInfo, cappedQuantity, isDebt);
 
         return prevItems.map(item => 
@@ -389,7 +391,7 @@ export default function TransactionsPage() {
                 : item
         );
     });
-  }, [productsWithPromo, toast, selectedPaymentMethod]);
+  }, [productsWithPromo, toast, selectedPaymentMethod, debtPaymentMethod]);
 
   const updateOrderItemPrice = useCallback((productId: string, newPrice: number) => {
     setOrderItems(prevItems => {
@@ -403,7 +405,7 @@ export default function TransactionsPage() {
   const addToOrder = useCallback((product: ProductWithPromo) => {
     setOrderItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.id === product.id);
-      const isDebt = selectedPaymentMethod.toLowerCase() === 'utang';
+      const isDebt = selectedPaymentMethod === debtPaymentMethod;
       if (existingItem) {
           if (existingItem.quantity >= existingItem.stock) {
               toast({ title: "Stock limit reached", description: `Cannot add more ${product.name}.`, variant: "destructive" });
@@ -426,7 +428,7 @@ export default function TransactionsPage() {
       const { price, originalPrice } = getBestPrice(product, 1, isDebt);
       return [...prevItems, { ...product, quantity: 1, price: price, originalPrice: originalPrice, unit: product.unit }];
     });
-  }, [toast, selectedPaymentMethod]);
+  }, [toast, selectedPaymentMethod, debtPaymentMethod]);
 
 
   useEffect(() => {

@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updateBusiness, getBusinessWithBranches } from '@/lib/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Star } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,19 +28,23 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/auth-context';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 type BusinessInfo = {
     id: string;
     paymentOptions: string[];
+    debtPaymentMethod?: string | null;
 };
 
 const defaultPaymentOptions = ['Cash', 'Credit Card', 'QRIS', 'Utang'];
 
 export default function PaymentOptionsPage() {
-    const { businessId, db } = useAuth();
-    const [business, setBusiness] = useState<BusinessInfo | null>(null);
+    const { businessId, db, debtPaymentMethod: currentDebtMethod, updateBusinessSettings } = useAuth();
     const [paymentOptions, setPaymentOptions] = useState<string[]>([]);
     const [initialPaymentOptions, setInitialPaymentOptions] = useState<string[]>([]);
+    const [debtPaymentMethod, setDebtPaymentMethod] = useState<string | null>(null);
+    const [initialDebtMethod, setInitialDebtMethod] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [newOption, setNewOption] = useState('');
     const [saving, setSaving] = useState(false);
@@ -58,9 +62,12 @@ export default function PaymentOptionsPage() {
             if (businesses.length > 0) {
                 const biz = businesses[0];
                 const currentOptions = biz.paymentOptions && biz.paymentOptions.length > 0 ? biz.paymentOptions : defaultPaymentOptions;
-                setBusiness({ id: biz.id, paymentOptions: currentOptions });
+                const currentDebt = biz.debtPaymentMethod || null;
+                
                 setPaymentOptions(currentOptions);
                 setInitialPaymentOptions(currentOptions);
+                setDebtPaymentMethod(currentDebt);
+                setInitialDebtMethod(currentDebt);
             }
         } catch (error) {
             console.error("Failed to fetch business details:", error);
@@ -85,16 +92,25 @@ export default function PaymentOptionsPage() {
     const handleDeleteOption = (optionToRemove: string) => {
         const updatedOptions = paymentOptions.filter(option => option !== optionToRemove);
         setPaymentOptions(updatedOptions);
+        
+        // If the deleted option was the debt method, unset it
+        if(debtPaymentMethod === optionToRemove) {
+            setDebtPaymentMethod(null);
+        }
         setOptionToDelete(null);
     };
 
     const handleSave = async () => {
-        if (!business || !db) return;
+        if (!businessId) return;
         setSaving(true);
         try {
-            await updateBusiness(db, business.id, { paymentOptions });
+            await updateBusinessSettings({ 
+                paymentOptions, 
+                debtPaymentMethod: debtPaymentMethod || null 
+            });
             toast({ title: "Success", description: "Payment options updated successfully. Changes will apply on next page load." });
             setInitialPaymentOptions(paymentOptions);
+            setInitialDebtMethod(debtPaymentMethod);
         } catch (error) {
             console.error("Failed to save payment options:", error);
             toast({ title: "Error", description: "Could not save payment options.", variant: "destructive" });
@@ -102,14 +118,22 @@ export default function PaymentOptionsPage() {
             setSaving(false);
         }
     };
+    
+    const handleSetDebtMethod = (option: string) => {
+        if (debtPaymentMethod === option) {
+            setDebtPaymentMethod(null); // Toggle off
+        } else {
+            setDebtPaymentMethod(option);
+        }
+    }
 
-    const hasChanges = JSON.stringify(paymentOptions) !== JSON.stringify(initialPaymentOptions);
+    const hasChanges = JSON.stringify(paymentOptions) !== JSON.stringify(initialPaymentOptions) || debtPaymentMethod !== initialDebtMethod;
 
     return (
         <Card>
             <CardHeader>
                 <CardTitle>Manage Payment Options</CardTitle>
-                <CardDescription>Add or remove payment methods available at checkout (e.g., Cash, Credit Card, QRIS).</CardDescription>
+                <CardDescription>Add, remove, and designate a payment method that will use debt pricing.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 {loading ? (
@@ -127,10 +151,23 @@ export default function PaymentOptionsPage() {
                                 <ul className="space-y-2">
                                 {paymentOptions.map((option, index) => (
                                     <li key={index} className="flex items-center justify-between p-2 border rounded-md">
-                                    <span>{option}</span>
-                                    <Button variant="ghost" size="icon" onClick={() => setOptionToDelete(option)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
+                                        <div className='flex items-center gap-2'>
+                                            <span>{option}</span>
+                                            {debtPaymentMethod === option && (
+                                                <Badge variant="outline" className="text-amber-600 border-amber-500">
+                                                    <Star className="mr-1 h-3 w-3" /> Debt Price Active
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <div className='flex items-center gap-1'>
+                                             <Button variant="outline" size="sm" onClick={() => handleSetDebtMethod(option)}>
+                                                <Star className={cn("h-4 w-4", debtPaymentMethod === option ? "text-amber-500 fill-amber-500" : "text-muted-foreground")} />
+                                                <span className="ml-2 hidden sm:inline">{debtPaymentMethod === option ? 'Unset' : 'Set as Debt Method'}</span>
+                                            </Button>
+                                            <Button variant="ghost" size="icon" onClick={() => setOptionToDelete(option)}>
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                            </Button>
+                                        </div>
                                     </li>
                                 ))}
                                 </ul>
@@ -173,5 +210,3 @@ export default function PaymentOptionsPage() {
         </Card>
     )
 }
-
-    
