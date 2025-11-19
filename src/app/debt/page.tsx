@@ -46,6 +46,7 @@ import { ImageUploadDialog } from '@/components/image-upload-dialog';
 import Image from 'next/image';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type Transaction = {
     id: string;
@@ -202,55 +203,57 @@ export default function DebtPage() {
                             Perbarui status pembayaran dan lampirkan bukti.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-6 py-4">
-                        <div className="flex items-center justify-between rounded-lg border p-4">
-                            <div className="space-y-0.5">
-                                <Label className="text-base">Tandai Sebagai Lunas</Label>
-                                <p className="text-sm text-muted-foreground">
-                                    Aktifkan jika utang sudah dibayar.
-                                </p>
+                    <ScrollArea className="max-h-[70vh] pr-6">
+                        <div className="grid gap-6 py-4">
+                            <div className="flex items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Tandai Sebagai Lunas</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Aktifkan jika utang sudah dibayar.
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={isPaid}
+                                    onCheckedChange={setIsPaid}
+                                />
                             </div>
-                            <Switch
-                                checked={isPaid}
-                                onCheckedChange={setIsPaid}
-                            />
+                            
+                            <div className="space-y-2">
+                                <Label>Nota Utang</Label>
+                                {debtNoteImage ? (
+                                    <Image src={debtNoteImage} alt="Nota Utang" width={400} height={200} className="rounded-md object-contain border" />
+                                ) : (
+                                    <div className="flex items-center justify-center w-full h-24 border-2 border-dashed rounded-md">
+                                        <p className="text-sm text-muted-foreground">Tidak ada nota</p>
+                                    </div>
+                                )}
+                                <ImageUploadDialog onImageSelect={setDebtNoteImage}>
+                                    <Button variant="outline" className="w-full">
+                                        <Upload className="mr-2 h-4 w-4"/>
+                                        {debtNoteImage ? 'Ganti Nota Utang' : 'Unggah Nota Utang'}
+                                    </Button>
+                                </ImageUploadDialog>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                <Label>Bukti Pembayaran</Label>
+                                {paymentNoteImage ? (
+                                    <Image src={paymentNoteImage} alt="Bukti Pembayaran" width={400} height={200} className="rounded-md object-contain border" />
+                                ) : (
+                                    <div className="flex items-center justify-center w-full h-24 border-2 border-dashed rounded-md">
+                                        <p className="text-sm text-muted-foreground">Tidak ada bukti pembayaran</p>
+                                    </div>
+                                )}
+                                <ImageUploadDialog onImageSelect={setPaymentNoteImage}>
+                                    <Button variant="outline" className="w-full">
+                                        <Upload className="mr-2 h-4 w-4"/>
+                                        {paymentNoteImage ? 'Ganti Bukti Bayar' : 'Unggah Bukti Bayar'}
+                                    </Button>
+                                </ImageUploadDialog>
+                            </div>
                         </div>
-                        
-                        <div className="space-y-2">
-                            <Label>Nota Utang</Label>
-                            {debtNoteImage ? (
-                                <Image src={debtNoteImage} alt="Nota Utang" width={400} height={200} className="rounded-md object-contain border" />
-                            ) : (
-                                <div className="flex items-center justify-center w-full h-24 border-2 border-dashed rounded-md">
-                                    <p className="text-sm text-muted-foreground">Tidak ada nota</p>
-                                </div>
-                            )}
-                            <ImageUploadDialog onImageSelect={setDebtNoteImage}>
-                                <Button variant="outline" className="w-full">
-                                    <Upload className="mr-2 h-4 w-4"/>
-                                    {debtNoteImage ? 'Ganti Nota Utang' : 'Unggah Nota Utang'}
-                                </Button>
-                            </ImageUploadDialog>
-                        </div>
-                        
-                        <div className="space-y-2">
-                             <Label>Bukti Pembayaran</Label>
-                             {paymentNoteImage ? (
-                                <Image src={paymentNoteImage} alt="Bukti Pembayaran" width={400} height={200} className="rounded-md object-contain border" />
-                            ) : (
-                                <div className="flex items-center justify-center w-full h-24 border-2 border-dashed rounded-md">
-                                    <p className="text-sm text-muted-foreground">Tidak ada bukti pembayaran</p>
-                                </div>
-                            )}
-                            <ImageUploadDialog onImageSelect={setPaymentNoteImage}>
-                                 <Button variant="outline" className="w-full">
-                                    <Upload className="mr-2 h-4 w-4"/>
-                                    {paymentNoteImage ? 'Ganti Bukti Bayar' : 'Unggah Bukti Bayar'}
-                                </Button>
-                            </ImageUploadDialog>
-                        </div>
-                    </div>
-                    <DialogFooter>
+                    </ScrollArea>
+                    <DialogFooter className="pt-4">
                         <Button type="button" variant="secondary" onClick={() => setIsManageDialogOpen(false)}>Batal</Button>
                         <Button type="submit" onClick={handleSaveChanges} disabled={isSaving}>
                             {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
