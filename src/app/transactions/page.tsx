@@ -77,6 +77,7 @@ type Transaction = {
     date: string;
     status: TransactionStatus;
     type: 'Sale' | 'Refund';
+    paymentMethod?: string;
     items: OrderItem[];
     discount?: number;
     currency: string;
@@ -100,6 +101,7 @@ type BusinessInfo = {
     taxEnabled: boolean;
     taxRate: number;
     paperSize: 'A4' | '8cm' | '5.8cm';
+    paymentOptions: string[];
 };
 
 
@@ -135,6 +137,7 @@ export default function TransactionsPage() {
   
   const [loading, setLoading] = useState(true);
   const [selectedCustomerId, setSelectedCustomerId] = useState(ANONYMOUS_CUSTOMER_ID);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [isConfirming, setIsConfirming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
@@ -175,13 +178,18 @@ export default function TransactionsPage() {
         setPromos(promoData as Promo[] || []);
         if (businessData.length > 0) {
             const biz = businessData[0];
+            const paymentOpts = biz.paymentOptions || [];
             setBusinessInfo({
                 id: biz.id,
                 currency: biz.currency || 'USD',
                 taxEnabled: biz.taxEnabled !== false,
                 taxRate: biz.taxRate || 0,
-                paperSize: biz.paperSize || '8cm'
-            })
+                paperSize: biz.paperSize || '8cm',
+                paymentOptions: paymentOpts
+            });
+            if (paymentOpts.length > 0) {
+                setSelectedPaymentMethod(paymentOpts[0]);
+            }
         }
 
     } catch (error) {
@@ -244,6 +252,7 @@ export default function TransactionsPage() {
                             <p><strong>Billed To:</strong> ${transaction.customerName}</p>
                             <p><strong>Date:</strong> ${new Date(transaction.date).toLocaleString()}</p>
                             ${transaction.cashierName ? `<p><strong>Cashier:</strong> ${transaction.cashierName}</p>` : ''}
+                             ${transaction.paymentMethod ? `<p><strong>Payment:</strong> ${transaction.paymentMethod}</p>` : ''}
                         </div>
                         <hr class="my-2 separator">
                         <table>
@@ -441,6 +450,9 @@ export default function TransactionsPage() {
     setOrderItems([]);
     setSelectedCustomerId(ANONYMOUS_CUSTOMER_ID);
     setDiscount(0);
+    if(businessInfo && businessInfo.paymentOptions.length > 0) {
+      setSelectedPaymentMethod(businessInfo.paymentOptions[0]);
+    }
   };
 
   const handleChargePayment = async () => {
@@ -460,6 +472,7 @@ export default function TransactionsPage() {
               discount: discount,
               status: 'Paid' as TransactionStatus,
               type: 'Sale' as 'Sale' | 'Refund',
+              paymentMethod: selectedPaymentMethod,
               currency: businessInfo?.currency || 'Rp',
               items: orderItems.map(item => ({ 
                   id: item.id, 
@@ -644,6 +657,9 @@ export default function TransactionsPage() {
           taxRate={businessInfo?.taxRate || 0}
           isProcessing={isProcessing}
           anonymousCustomerId={ANONYMOUS_CUSTOMER_ID}
+          paymentOptions={businessInfo?.paymentOptions || []}
+          selectedPaymentMethod={selectedPaymentMethod}
+          onPaymentMethodChange={setSelectedPaymentMethod}
         />
 
         <ProductSelection

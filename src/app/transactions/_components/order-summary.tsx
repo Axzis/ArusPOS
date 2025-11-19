@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -62,6 +63,9 @@ interface OrderSummaryProps {
     taxRate: number;
     isProcessing: boolean;
     anonymousCustomerId: string;
+    paymentOptions: string[];
+    selectedPaymentMethod: string;
+    onPaymentMethodChange: (method: string) => void;
 }
 
 export default function OrderSummary({
@@ -82,7 +86,10 @@ export default function OrderSummary({
     taxEnabled,
     taxRate,
     isProcessing,
-    anonymousCustomerId
+    anonymousCustomerId,
+    paymentOptions,
+    selectedPaymentMethod,
+    onPaymentMethodChange,
 }: OrderSummaryProps) {
     return (
         <Card className="lg:col-span-2">
@@ -202,9 +209,23 @@ export default function OrderSummary({
                 <Button variant="outline" onClick={onClearOrder} disabled={isProcessing} className="w-full sm:w-auto">
                     <X className="mr-2 h-4 w-4" /> Clear Order
                 </Button>
-                <Button disabled={orderItems.length === 0 || isProcessing} onClick={onCharge} className="w-full sm:w-auto">
-                    {isProcessing ? 'Processing...' : 'Charge Payment'}
-                </Button>
+                 <div className="flex w-full sm:w-auto items-stretch gap-2">
+                    {paymentOptions && paymentOptions.length > 0 && (
+                        <Select value={selectedPaymentMethod} onValueChange={onPaymentMethodChange}>
+                            <SelectTrigger className="w-full sm:w-[150px]">
+                                <SelectValue placeholder="Select Payment" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {paymentOptions.map(option => (
+                                    <SelectItem key={option} value={option}>{option}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    )}
+                    <Button disabled={orderItems.length === 0 || isProcessing} onClick={onCharge} className="flex-1">
+                        {isProcessing ? 'Processing...' : 'Charge Payment'}
+                    </Button>
+                </div>
             </CardFooter>
         </Card>
     )

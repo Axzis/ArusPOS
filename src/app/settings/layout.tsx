@@ -15,6 +15,7 @@ const baseSettingsNav = [
   { href: '/settings/users', label: 'Users & Roles' },
   { href: '/settings/units', label: 'Units' },
   { href: '/settings/paper', label: 'Paper' },
+  { href: '/settings/payment-options', label: 'Payment Options'},
   { href: '/settings/scanner', label: 'Barcode Scanner' },
 ];
 

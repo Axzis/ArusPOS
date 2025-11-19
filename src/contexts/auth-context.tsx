@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
@@ -32,6 +33,7 @@ type BusinessContextType = {
   paperSize: 'A4' | '8cm' | '5.8cm';
   taxEnabled: boolean;
   taxRate: number;
+  paymentOptions: string[];
   loading: boolean;
   updateBusinessSettings: (settings: Partial<any>) => Promise<void>;
 }
@@ -68,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [paperSize, setPaperSize] = useState<'A4' | '8cm' | '5.8cm'>('8cm');
   const [taxEnabled, setTaxEnabled] = useState(true);
   const [taxRate, setTaxRate] = useState(0);
+  const [paymentOptions, setPaymentOptions] = useState<string[]>([]);
   const [loadingBusiness, setLoadingBusiness] = useState(true);
 
   const fetchBusinessInfo = useCallback(async (bId: string) => {
@@ -85,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setPaperSize(biz.paperSize || '8cm');
         setTaxEnabled(biz.taxEnabled !== false);
         setTaxRate(biz.taxRate || 0);
+        setPaymentOptions(biz.paymentOptions || []);
       }
     } catch (error) {
       console.error("Failed to fetch business context data", error);
@@ -191,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     paperSize,
     taxEnabled,
     taxRate,
+    paymentOptions,
     updateBusinessSettings
   };
 
